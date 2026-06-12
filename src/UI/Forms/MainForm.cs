@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using Conglomerate.Financials;
+using Conglomerate.Logistics;
 using Point = System.Drawing.Point;
 using XnaPoint = Microsoft.Xna.Framework.Point;
 
@@ -23,6 +24,10 @@ namespace Conglomerate
         private Panel pnlLoadGameMenu = null!;
         private Panel pnlSaveGameOverlay = null!;
         private Panel pnlEscapeMenu = null!;
+
+        // Panele logistyczne (floating overlays)
+        private Panel pnlLogisticsManager = null!;  // Zarządzanie trasami dla wybranego budynku
+        private Panel pnlMarketBuyer = null!;        // Zakup surowców na wolnym rynku
 
         public enum MenuState
         {
@@ -492,9 +497,9 @@ namespace Conglomerate
 
             // Przycisk do wycentrowania widoku wewnątrz inspektora (bardzo przydatny)
             Button btnCtxCenter = new Button();
-            btnCtxCenter.Text = "Wypozycjonuj Kamerę";
+            btnCtxCenter.Text = "Pozycjonuj Kamerę";
             btnCtxCenter.Font = new Font("Segoe UI", 7.5f, FontStyle.Regular);
-            btnCtxCenter.Size = new Size(150, 22);
+            btnCtxCenter.Size = new Size(130, 22);
             btnCtxCenter.Location = new Point(15, 90);
             btnCtxCenter.FlatStyle = FlatStyle.Flat;
             btnCtxCenter.FlatAppearance.BorderSize = 1;
@@ -504,6 +509,39 @@ namespace Conglomerate
             btnCtxCenter.Cursor = Cursors.Hand;
             btnCtxCenter.Click += (s, e) => mapControl.CenterCamera();
             pnlContextInspector.Controls.Add(btnCtxCenter);
+
+            // Przycisk Logistyki
+            Button btnCtxLogistics = new Button();
+            btnCtxLogistics.Text = "🚚 Logistyka";
+            btnCtxLogistics.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            btnCtxLogistics.Size = new Size(100, 22);
+            btnCtxLogistics.Location = new Point(155, 90);
+            btnCtxLogistics.FlatStyle = FlatStyle.Flat;
+            btnCtxLogistics.FlatAppearance.BorderSize = 1;
+            btnCtxLogistics.FlatAppearance.BorderColor = Color.FromArgb(240, 140, 20);
+            btnCtxLogistics.BackColor = Color.FromArgb(35, 35, 35);
+            btnCtxLogistics.ForeColor = Color.FromArgb(240, 180, 50);
+            btnCtxLogistics.Cursor = Cursors.Hand;
+            btnCtxLogistics.Click += (s, e) =>
+            {
+                if (_inspectingBuilding != null) OpenLogisticsManager(_inspectingBuilding);
+            };
+            pnlContextInspector.Controls.Add(btnCtxLogistics);
+
+            // Przycisk Rynku
+            Button btnCtxMarket = new Button();
+            btnCtxMarket.Text = "📈 Rynek";
+            btnCtxMarket.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            btnCtxMarket.Size = new Size(85, 22);
+            btnCtxMarket.Location = new Point(265, 90);
+            btnCtxMarket.FlatStyle = FlatStyle.Flat;
+            btnCtxMarket.FlatAppearance.BorderSize = 1;
+            btnCtxMarket.FlatAppearance.BorderColor = Color.FromArgb(240, 140, 20);
+            btnCtxMarket.BackColor = Color.FromArgb(35, 35, 35);
+            btnCtxMarket.ForeColor = Color.FromArgb(240, 140, 20);
+            btnCtxMarket.Cursor = Cursors.Hand;
+            btnCtxMarket.Click += (s, e) => OpenMarketBuyer(_inspectingBuilding);
+            pnlContextInspector.Controls.Add(btnCtxMarket);
 
             // Kolumna 2: Stan Magazynu i fill-bary
             lblContextInv = new Label();
@@ -679,6 +717,8 @@ namespace Conglomerate
                 CenterSaveGameOverlayPanel();
                 CenterEscapeMenuPanel();
                 CenterContextInspectorPanel();
+                CenterPanel(pnlLogisticsManager);
+                CenterPanel(pnlMarketBuyer);
             };
 
             // Rejestracja zdarzeń mapy (jednorazowo)
@@ -690,6 +730,8 @@ namespace Conglomerate
             InitializeLoadGameMenuPanel();
             InitializeSaveGameOverlayPanel();
             InitializeEscapeMenu();
+            InitializeLogisticsManagerPanel();
+            InitializeMarketBuyerPanel();
 
             // Automatyczne pozycjonowanie paneli przy starcie
             pnlStartScreen.SizeChanged += (s, e) =>
@@ -2707,6 +2749,7 @@ namespace Conglomerate
             }
         }
 
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -2714,6 +2757,595 @@ namespace Conglomerate
                 _gameTimer?.Dispose();
             }
             base.Dispose(disposing);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  SYSTEM LOGISTYCZNY — UI
+        // ═══════════════════════════════════════════════════════════════════
+
+        private void InitializeLogisticsManagerPanel()
+        {
+            pnlLogisticsManager = new Panel();
+            pnlLogisticsManager.Size = new Size(700, 480);
+            pnlLogisticsManager.BackColor = Color.FromArgb(22, 22, 22);
+            pnlLogisticsManager.BorderStyle = BorderStyle.FixedSingle;
+            pnlLogisticsManager.Visible = false;
+            pnlGameBoard.Controls.Add(pnlLogisticsManager);
+            pnlLogisticsManager.BringToFront();
+        }
+
+        private void InitializeMarketBuyerPanel()
+        {
+            pnlMarketBuyer = new Panel();
+            pnlMarketBuyer.Size = new Size(600, 420);
+            pnlMarketBuyer.BackColor = Color.FromArgb(22, 22, 22);
+            pnlMarketBuyer.BorderStyle = BorderStyle.FixedSingle;
+            pnlMarketBuyer.Visible = false;
+            pnlGameBoard.Controls.Add(pnlMarketBuyer);
+            pnlMarketBuyer.BringToFront();
+        }
+
+        /// <summary>Centruje dowolny panel na planszy.</summary>
+        private void CenterPanel(Panel? panel)
+        {
+            if (panel == null || pnlGameBoard == null) return;
+            panel.Location = new Point(
+                (pnlGameBoard.Width - panel.Width) / 2,
+                (pnlGameBoard.Height - panel.Height) / 2);
+        }
+
+        // ───────────────────────────────────────────────────────────────────
+        //  PANEL ZARZĄDZANIA TRASAMI LOGISTYCZNYMI
+        // ───────────────────────────────────────────────────────────────────
+
+        private void OpenLogisticsManager(Building targetBuilding)
+        {
+            if (_gameManager == null || _company == null) return;
+
+            _gameTimer.Stop();
+            pnlLogisticsManager.Controls.Clear();
+            BuildLogisticsPanel(targetBuilding);
+            CenterPanel(pnlLogisticsManager);
+            pnlLogisticsManager.Visible = true;
+            pnlLogisticsManager.BringToFront();
+        }
+
+        private void BuildLogisticsPanel(Building targetBuilding)
+        {
+            // Górna linia akcentu
+            var topLine = new Panel { Dock = DockStyle.Top, Height = 3, BackColor = Color.FromArgb(240, 140, 20) };
+            pnlLogisticsManager.Controls.Add(topLine);
+
+            // Tytuł
+            var lblTitle = new Label
+            {
+                Text = $"🚚  LOGISTYKA — {targetBuilding.Name}",
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                ForeColor = Color.FromArgb(240, 180, 50),
+                Location = new Point(15, 15),
+                Size = new Size(560, 24)
+            };
+            pnlLogisticsManager.Controls.Add(lblTitle);
+
+            // Przycisk zamknięcia
+            var btnClose = new Button
+            {
+                Text = "✕",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Size = new Size(30, 28),
+                Location = new Point(660, 10),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.Gray,
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
+            };
+            btnClose.FlatAppearance.BorderSize = 0;
+            btnClose.Click += (s, e) =>
+            {
+                pnlLogisticsManager.Visible = false;
+                if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
+                    _gameTimer.Start();
+            };
+            pnlLogisticsManager.Controls.Add(btnClose);
+
+            // Lista istniejących tras
+            var lblRoutesHeader = new Label
+            {
+                Text = "AKTYWNE TRASY:",
+                Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                ForeColor = Color.DarkGray,
+                Location = new Point(15, 50),
+                Size = new Size(200, 16)
+            };
+            pnlLogisticsManager.Controls.Add(lblRoutesHeader);
+
+            var routes = _gameManager!.Logistics.GetRoutesForTarget(targetBuilding.FacilityId);
+            int routeY = 70;
+
+            if (routes.Count == 0)
+            {
+                var lblEmpty = new Label
+                {
+                    Text = "Brak aktywnych tras. Dodaj pierwszą trasę poniżej.",
+                    Font = new Font("Segoe UI", 9, FontStyle.Italic),
+                    ForeColor = Color.FromArgb(100, 100, 100),
+                    Location = new Point(15, routeY),
+                    Size = new Size(660, 20)
+                };
+                pnlLogisticsManager.Controls.Add(lblEmpty);
+                routeY += 28;
+            }
+            else
+            {
+                foreach (var route in routes)
+                {
+                    BuildRouteRow(route, targetBuilding, routeY);
+                    routeY += 38;
+                }
+            }
+
+            // Separator
+            var sep = new Panel { Location = new Point(0, routeY + 5), Size = new Size(700, 1), BackColor = Color.FromArgb(45, 45, 45) };
+            pnlLogisticsManager.Controls.Add(sep);
+            routeY += 18;
+
+            // ── FORMULARZ DODAWANIA NOWEJ TRASY ──
+            var lblNewRoute = new Label
+            {
+                Text = "DODAJ NOWĄ TRASĘ:",
+                Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                ForeColor = Color.FromArgb(50, 150, 250),
+                Location = new Point(15, routeY),
+                Size = new Size(200, 16)
+            };
+            pnlLogisticsManager.Controls.Add(lblNewRoute);
+            routeY += 22;
+
+            // Wybór źródła
+            var lblSource = new Label { Text = "Źródło:", Font = new Font("Segoe UI", 8.5f), ForeColor = Color.LightGray, Location = new Point(15, routeY + 4), Size = new Size(60, 18) };
+            pnlLogisticsManager.Controls.Add(lblSource);
+
+            var cmbSourceType = new ComboBox
+            {
+                Location = new Point(80, routeY),
+                Size = new Size(130, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            cmbSourceType.Items.Add("Wolny Rynek");
+            cmbSourceType.Items.Add("Budynek");
+            cmbSourceType.SelectedIndex = 0;
+            pnlLogisticsManager.Controls.Add(cmbSourceType);
+
+            var cmbSourceBuilding = new ComboBox
+            {
+                Location = new Point(220, routeY),
+                Size = new Size(220, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Visible = false
+            };
+            // Wypełnij budynkami źródłowymi (wszystkie oprócz celu)
+            foreach (var b in _company!.Buildings)
+            {
+                if (b.FacilityId != targetBuilding.FacilityId)
+                    cmbSourceBuilding.Items.Add(b);
+            }
+            cmbSourceBuilding.DisplayMember = "Name";
+            if (cmbSourceBuilding.Items.Count > 0) cmbSourceBuilding.SelectedIndex = 0;
+            pnlLogisticsManager.Controls.Add(cmbSourceBuilding);
+
+            cmbSourceType.SelectedIndexChanged += (s, e) =>
+            {
+                cmbSourceBuilding.Visible = cmbSourceType.SelectedIndex == 1;
+            };
+
+            routeY += 32;
+
+            // Surowiec
+            var lblRes = new Label { Text = "Surowiec:", Font = new Font("Segoe UI", 8.5f), ForeColor = Color.LightGray, Location = new Point(15, routeY + 4), Size = new Size(70, 18) };
+            pnlLogisticsManager.Controls.Add(lblRes);
+
+            var cmbResource = new ComboBox
+            {
+                Location = new Point(90, routeY),
+                Size = new Size(160, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            // Surowce wejściowe fabryki lub wszystkie jeśli nie fabryka
+            if (targetBuilding is FactoryBuilding fb && fb.ActiveRecipe != null)
+            {
+                foreach (var inp in fb.ActiveRecipe.Inputs.Keys) cmbResource.Items.Add(inp);
+            }
+            else
+            {
+                foreach (var res in _gameManager!.Market.Listings.Keys) cmbResource.Items.Add(res);
+            }
+            if (cmbResource.Items.Count > 0) cmbResource.SelectedIndex = 0;
+            pnlLogisticsManager.Controls.Add(cmbResource);
+
+            // Ilość na trip
+            var lblAmt = new Label { Text = "Ilość/trip:", Font = new Font("Segoe UI", 8.5f), ForeColor = Color.LightGray, Location = new Point(270, routeY + 4), Size = new Size(70, 18) };
+            pnlLogisticsManager.Controls.Add(lblAmt);
+
+            var numAmount = new NumericUpDown
+            {
+                Location = new Point(345, routeY),
+                Size = new Size(70, 23),
+                Minimum = 1, Maximum = 500, Value = 10,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White
+            };
+            pnlLogisticsManager.Controls.Add(numAmount);
+
+            // Interwał
+            var lblInterval = new Label { Text = "Co (h):", Font = new Font("Segoe UI", 8.5f), ForeColor = Color.LightGray, Location = new Point(430, routeY + 4), Size = new Size(55, 18) };
+            pnlLogisticsManager.Controls.Add(lblInterval);
+
+            var numInterval = new NumericUpDown
+            {
+                Location = new Point(490, routeY),
+                Size = new Size(65, 23),
+                Minimum = 1, Maximum = 168, Value = 24,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White
+            };
+            pnlLogisticsManager.Controls.Add(numInterval);
+
+            routeY += 32;
+
+            // Koszt transportu
+            var lblTransCost = new Label { Text = "Koszt transp. (zł/szt.):", Font = new Font("Segoe UI", 8.5f), ForeColor = Color.LightGray, Location = new Point(15, routeY + 4), Size = new Size(160, 18) };
+            pnlLogisticsManager.Controls.Add(lblTransCost);
+
+            var numTransCost = new NumericUpDown
+            {
+                Location = new Point(180, routeY),
+                Size = new Size(80, 23),
+                Minimum = 0, Maximum = 500, Value = 10,
+                DecimalPlaces = 0,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White
+            };
+            pnlLogisticsManager.Controls.Add(numTransCost);
+
+            routeY += 40;
+
+            // Przycisk Dodaj Trasę
+            var btnAdd = new Button
+            {
+                Text = "➕  DODAJ TRASĘ",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Location = new Point(15, routeY),
+                Size = new Size(200, 36),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(50, 150, 250),
+                ForeColor = Color.White,
+                Cursor = Cursors.Hand
+            };
+            btnAdd.FlatAppearance.BorderSize = 0;
+            btnAdd.Click += (s, e) =>
+            {
+                if (cmbResource.SelectedItem == null) return;
+
+                var route = new SupplyRoute
+                {
+                    TargetFacilityId    = targetBuilding.FacilityId,
+                    ResourceName        = cmbResource.SelectedItem.ToString()!,
+                    AmountPerTrip       = (int)numAmount.Value,
+                    IntervalHours       = (int)numInterval.Value,
+                    TransportCostPerUnit = (decimal)numTransCost.Value,
+                    IsEnabled           = true
+                };
+
+                if (cmbSourceType.SelectedIndex == 1 && cmbSourceBuilding.SelectedItem is Building srcBuilding)
+                {
+                    route.SourceType       = RouteSourceType.Building;
+                    route.SourceFacilityId = srcBuilding.FacilityId;
+                    route.SourceDisplayName = srcBuilding.Name;
+                }
+                else
+                {
+                    route.SourceType = RouteSourceType.Market;
+                    route.SourceDisplayName = "Wolny Rynek";
+                }
+
+                _gameManager!.Logistics.AddRoute(route);
+
+                // Odbuduj panel po dodaniu
+                OpenLogisticsManager(targetBuilding);
+            };
+            pnlLogisticsManager.Controls.Add(btnAdd);
+
+            // Przycisk Otwórz Rynek
+            var btnOpenMarket = new Button
+            {
+                Text = "📈  OTWÓRZ RYNEK",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Location = new Point(230, routeY),
+                Size = new Size(200, 36),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(240, 140, 20),
+                ForeColor = Color.White,
+                Cursor = Cursors.Hand
+            };
+            btnOpenMarket.FlatAppearance.BorderSize = 0;
+            btnOpenMarket.Click += (s, e) =>
+            {
+                pnlLogisticsManager.Visible = false;
+                OpenMarketBuyer(targetBuilding);
+            };
+            pnlLogisticsManager.Controls.Add(btnOpenMarket);
+        }
+
+        private void BuildRouteRow(SupplyRoute route, Building target, int y)
+        {
+            var buildingMap = _company!.Buildings.ToDictionary(b => b.FacilityId, b => b);
+
+            string sourceName = route.SourceType == RouteSourceType.Market
+                ? "🏪 Rynek"
+                : (buildingMap.TryGetValue(route.SourceFacilityId, out var src) ? $"🏭 {src.Name}" : "?");
+
+            Color statusColor = route.LastTripResult.StartsWith("✅") ? Color.FromArgb(100, 220, 100)
+                              : route.LastTripResult.StartsWith("❌") ? Color.FromArgb(240, 80, 80)
+                              : Color.FromArgb(200, 180, 50);
+
+            // Wiersz trasy
+            var pnlRow = new Panel
+            {
+                Location = new Point(10, y),
+                Size = new Size(675, 34),
+                BackColor = Color.FromArgb(30, 30, 30)
+            };
+
+            var lblRoute = new Label
+            {
+                Text = $"{sourceName}  →  {route.ResourceName}  ×{route.AmountPerTrip}  co {route.IntervalHours}h   | {route.LastTripResult}",
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = statusColor,
+                Location = new Point(8, 8),
+                Size = new Size(560, 18),
+                AutoEllipsis = true
+            };
+            pnlRow.Controls.Add(lblRoute);
+
+            var btnRemove = new Button
+            {
+                Text = "✕",
+                Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                Size = new Size(24, 24),
+                Location = new Point(645, 5),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.Gray,
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
+            };
+            btnRemove.FlatAppearance.BorderSize = 0;
+            string routeId = route.Id;
+            btnRemove.Click += (s, e) =>
+            {
+                _gameManager!.Logistics.RemoveRoute(routeId);
+                OpenLogisticsManager(target);
+            };
+            pnlRow.Controls.Add(btnRemove);
+
+            // Toggle enable/disable
+            var btnToggle = new Button
+            {
+                Text = route.IsEnabled ? "⏸" : "▶",
+                Font = new Font("Segoe UI", 9),
+                Size = new Size(28, 24),
+                Location = new Point(613, 5),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = route.IsEnabled ? Color.FromArgb(100, 220, 100) : Color.Gray,
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
+            };
+            btnToggle.FlatAppearance.BorderSize = 0;
+            bool isEnabled = route.IsEnabled;
+            btnToggle.Click += (s, e) =>
+            {
+                route.IsEnabled = !route.IsEnabled;
+                OpenLogisticsManager(target);
+            };
+            pnlRow.Controls.Add(btnToggle);
+
+            pnlLogisticsManager.Controls.Add(pnlRow);
+        }
+
+        // ───────────────────────────────────────────────────────────────────
+        //  PANEL WOLNEGO RYNKU — ZAKUP SUROWCÓW
+        // ───────────────────────────────────────────────────────────────────
+
+        private void OpenMarketBuyer(Building? targetBuilding)
+        {
+            if (_gameManager == null || _company == null) return;
+            _gameTimer.Stop();
+
+            pnlMarketBuyer.Controls.Clear();
+            BuildMarketPanel(targetBuilding);
+            CenterPanel(pnlMarketBuyer);
+            pnlMarketBuyer.Visible = true;
+            pnlMarketBuyer.BringToFront();
+        }
+
+        private void BuildMarketPanel(Building? defaultTarget)
+        {
+            // Górna linia akcentu
+            var topLine = new Panel { Dock = DockStyle.Top, Height = 3, BackColor = Color.FromArgb(240, 140, 20) };
+            pnlMarketBuyer.Controls.Add(topLine);
+
+            var lblTitle = new Label
+            {
+                Text = "📈  WOLNY RYNEK",
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                ForeColor = Color.FromArgb(240, 180, 50),
+                Location = new Point(15, 15),
+                Size = new Size(400, 24)
+            };
+            pnlMarketBuyer.Controls.Add(lblTitle);
+
+            var lblSubtitle = new Label
+            {
+                Text = "Ceny aktualizują się każdego dnia gry. Zakup jest natychmiastowy.",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Italic),
+                ForeColor = Color.Gray,
+                Location = new Point(15, 40),
+                Size = new Size(560, 16)
+            };
+            pnlMarketBuyer.Controls.Add(lblSubtitle);
+
+            // Przycisk zamknięcia
+            var btnClose = new Button
+            {
+                Text = "✕", Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Size = new Size(30, 28), Location = new Point(562, 10),
+                FlatStyle = FlatStyle.Flat, ForeColor = Color.Gray, BackColor = Color.Transparent, Cursor = Cursors.Hand
+            };
+            btnClose.FlatAppearance.BorderSize = 0;
+            btnClose.Click += (s, e) =>
+            {
+                pnlMarketBuyer.Visible = false;
+                if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
+                    _gameTimer.Start();
+            };
+            pnlMarketBuyer.Controls.Add(btnClose);
+
+            // Tabela rynku
+            int rowY = 65;
+            var market = _gameManager!.Market;
+
+            // Nagłówki kolumn
+            void AddHeader(string text, int x, int w)
+            {
+                pnlMarketBuyer.Controls.Add(new Label
+                {
+                    Text = text, Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                    ForeColor = Color.DarkGray, Location = new Point(x, rowY), Size = new Size(w, 16)
+                });
+            }
+            AddHeader("SUROWIEC", 15, 120);
+            AddHeader("CENA RYNK.", 140, 90);
+            AddHeader("DOSTĘPNOŚĆ", 235, 90);
+            AddHeader("CEL DOSTAWY", 330, 150);
+            AddHeader("ILOŚĆ", 485, 55);
+            rowY += 20;
+
+            foreach (var kvp in market.Listings)
+            {
+                var listing = kvp.Value;
+                bool available = listing.RemainingToday > 0;
+
+                Color rowColor = available ? Color.FromArgb(28, 28, 28) : Color.FromArgb(22, 22, 22);
+                var pnlRow = new Panel { Location = new Point(8, rowY), Size = new Size(580, 32), BackColor = rowColor };
+
+                // Nazwa surowca
+                pnlRow.Controls.Add(new Label
+                {
+                    Text = kvp.Key, Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                    ForeColor = available ? Color.White : Color.DimGray,
+                    Location = new Point(5, 8), Size = new Size(120, 18)
+                });
+
+                // Cena
+                pnlRow.Controls.Add(new Label
+                {
+                    Text = $"{listing.CurrentPrice:C}",
+                    Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(240, 180, 50),
+                    Location = new Point(125, 8), Size = new Size(100, 18)
+                });
+
+                // Dostępność
+                pnlRow.Controls.Add(new Label
+                {
+                    Text = available ? $"{listing.RemainingToday} szt." : "Wyczerpane",
+                    Font = new Font("Segoe UI", 9),
+                    ForeColor = available ? Color.FromArgb(100, 220, 100) : Color.FromArgb(100, 100, 100),
+                    Location = new Point(230, 8), Size = new Size(90, 18)
+                });
+
+                if (available)
+                {
+                    // Dropdown budynku docelowego
+                    var cmbTarget = new ComboBox
+                    {
+                        Location = new Point(325, 5), Size = new Size(150, 22),
+                        DropDownStyle = ComboBoxStyle.DropDownList,
+                        BackColor = Color.FromArgb(40, 40, 40), ForeColor = Color.White,
+                        FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8)
+                    };
+                    foreach (var b in _company!.Buildings) cmbTarget.Items.Add(b);
+                    cmbTarget.DisplayMember = "Name";
+                    if (defaultTarget != null)
+                    {
+                        int idx = _company.Buildings.IndexOf(defaultTarget);
+                        if (idx >= 0) cmbTarget.SelectedIndex = idx;
+                    }
+                    else if (cmbTarget.Items.Count > 0) cmbTarget.SelectedIndex = 0;
+                    pnlRow.Controls.Add(cmbTarget);
+
+                    // Spinner ilości
+                    var numQty = new NumericUpDown
+                    {
+                        Location = new Point(480, 5), Size = new Size(55, 22),
+                        Minimum = 1, Maximum = listing.RemainingToday, Value = Math.Min(10, listing.RemainingToday),
+                        BackColor = Color.FromArgb(40, 40, 40), ForeColor = Color.White,
+                        Font = new Font("Segoe UI", 8)
+                    };
+                    pnlRow.Controls.Add(numQty);
+
+                    // Przycisk KUP
+                    var btnBuy = new Button
+                    {
+                        Text = "KUP", Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                        Location = new Point(540, 5), Size = new Size(36, 22),
+                        FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(240, 140, 20),
+                        ForeColor = Color.White, Cursor = Cursors.Hand
+                    };
+                    btnBuy.FlatAppearance.BorderSize = 0;
+                    string resName = kvp.Key;
+                    btnBuy.Click += (s, e) =>
+                    {
+                        if (cmbTarget.SelectedItem is Building tgt)
+                        {
+                            bool ok = market.BuyResource(resName, (int)numQty.Value, tgt, _company!, _gameManager!.CurrentDay, _gameManager!.CurrentHour);
+                            if (ok)
+                            {
+                                RefreshStats();
+                                OpenMarketBuyer(defaultTarget); // Odśwież panel
+                            }
+                            else
+                            {
+                                MessageBox.Show("Zakup nie powiódł się.\nSprawdź czy masz wystarczające środki i czy magazyn ma wolne miejsce.",
+                                    "Błąd zakupu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            }
+                        }
+                    };
+                    pnlRow.Controls.Add(btnBuy);
+                }
+
+                pnlMarketBuyer.Controls.Add(pnlRow);
+                rowY += 36;
+            }
+
+            // Cena premium info
+            var lblInfo = new Label
+            {
+                Text = "💡 Ceny rynkowe są o 40–120% wyższe niż koszt własnej produkcji.\n    Opłaca się zorganizować własną farmę lub kopalnię jako źródło surowców.",
+                Font = new Font("Segoe UI", 8, FontStyle.Italic),
+                ForeColor = Color.FromArgb(100, 100, 100),
+                Location = new Point(15, rowY + 10),
+                Size = new Size(570, 36)
+            };
+            pnlMarketBuyer.Controls.Add(lblInfo);
         }
     }
 }

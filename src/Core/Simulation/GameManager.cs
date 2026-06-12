@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Conglomerate.Logistics;
 
 namespace Conglomerate
 {
@@ -9,6 +10,10 @@ namespace Conglomerate
         public Map ActiveMap { get; }
         public int CurrentDay { get; private set; } = 1;
         public int CurrentHour { get; private set; } = 8; // Start o godzinie 08:00 rano
+
+        // ── System Logistyczny ──
+        public FreeMarket Market { get; } = new FreeMarket();
+        public LogisticsManager Logistics { get; } = new LogisticsManager();
 
         public event Action? OnTickPerformed;
 
@@ -32,6 +37,9 @@ namespace Conglomerate
             {
                 CurrentHour = 0;
                 CurrentDay++;
+
+                // Aktualizacja cen rynkowych (raz na dobę)
+                Market.OnNewDay(CurrentDay);
 
                 // Ekstraktorzy (Farm, CoalMine itp.) produkują raz na dobę (o północy)
                 foreach (var building in ActiveCompany.Buildings)
@@ -79,6 +87,9 @@ namespace Conglomerate
                 }
             }
 
+            // Trasy logistyczne — tick co każdą godzinę
+            Logistics.Tick(ActiveCompany, Market, CurrentDay, CurrentHour);
+
             // Fabryki przetwórcze — tick produkcji co każdą godzinę
             foreach (var factory in ActiveCompany.Buildings.OfType<FactoryBuilding>())
             {
@@ -125,7 +136,6 @@ namespace Conglomerate
                 int quantity = source.Warehouse[resourceKey];
                 if (quantity <= 0) continue;
 
-                // Find matching warehouses with capacity
                 var category = ResourceRegistry.GetCategory(resourceKey);
                 var warehouses = company.Buildings
                     .OfType<WarehouseBuilding>()
@@ -140,12 +150,9 @@ namespace Conglomerate
                     int amountToTransfer = Math.Min(quantity, freeSpace);
                     if (amountToTransfer > 0)
                     {
-                        // Transfer
                         source.Warehouse[resourceKey] -= amountToTransfer;
                         if (!wh.Warehouse.ContainsKey(resourceKey))
-                        {
                             wh.Warehouse[resourceKey] = 0;
-                        }
                         wh.Warehouse[resourceKey] += amountToTransfer;
 
                         quantity -= amountToTransfer;

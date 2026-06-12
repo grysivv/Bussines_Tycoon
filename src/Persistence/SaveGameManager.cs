@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 using System.Collections.Generic;
+using Conglomerate.Logistics;
 
 namespace Conglomerate
 {
@@ -29,7 +30,7 @@ namespace Conglomerate
             container.Metadata.CorporationName = company.Name;
             container.Metadata.CurrentDay = gameManager.CurrentDay;
             container.Metadata.CurrentHour = gameManager.CurrentHour;
-            container.Metadata.NetWorth = bs.TotalEquity; // Net Worth = Assets - Liabilities = Equity
+            container.Metadata.NetWorth = bs.TotalEquity;
             container.Metadata.LogoIconName = "LogoStandard";
             container.Metadata.RealWorldSaveTime = DateTime.Now;
 
@@ -47,15 +48,28 @@ namespace Conglomerate
             // Save Buildings
             foreach (var building in company.Buildings)
             {
+                string type = building switch
+                {
+                    Farm             => "Farm",
+                    CoalMine         => "CoalMine",
+                    CheeseFactory    => "CheeseFactory",
+                    WarehouseBuilding wh => wh.AllowedCategory == ResourceCategory.Food
+                                            ? "FoodWarehouse"
+                                            : wh.AllowedCategory == ResourceCategory.ProcessedFood
+                                                ? "ProcessedFoodWarehouse"
+                                                : "MiningWarehouse",
+                    _                => "Unknown"
+                };
+
                 var bData = new BuildingSaveData
                 {
-                    FacilityId = building.FacilityId,
-                    Type = building is Farm ? "Farm" : 
-                           (building is CoalMine ? "CoalMine" : 
-                           (building is WarehouseBuilding wh ? (wh.AllowedCategory == ResourceCategory.Food ? "FoodWarehouse" : "MiningWarehouse") : "Unknown")),
-                    Name = building.Name,
-                    AutoSell = building.AutoSell,
-                    AccumulatedDepreciation = building.AccumulatedDepreciation
+                    FacilityId               = building.FacilityId,
+                    Type                     = type,
+                    Name                     = building.Name,
+                    AutoSell                 = building.AutoSell,
+                    AccumulatedDepreciation  = building.AccumulatedDepreciation,
+                    // Zapisz aktywny przepis fabryki
+                    ActiveRecipeId           = (building is FactoryBuilding fb) ? fb.ActiveRecipe?.Id : null
                 };
 
                 // Find building coordinates
@@ -86,15 +100,17 @@ namespace Conglomerate
                 for (int y = 0; y < map.Height; y++)
                 {
                     var tile = map.GetTile(x, y);
-                    var tData = new TileSaveData
+                    container.State.Tiles.Add(new TileSaveData
                     {
                         X = x,
                         Y = y,
                         BuildingFacilityId = tile.Building?.FacilityId ?? ""
-                    };
-                    container.State.Tiles.Add(tData);
+                    });
                 }
             }
+
+            // Save Supply Routes (Logistics)
+            container.State.SupplyRoutes.AddRange(gameManager.Logistics.Routes);
 
             // Serialize and write to file
             var options = new JsonSerializerOptions { WriteIndented = true };
@@ -117,8 +133,6 @@ namespace Conglomerate
         public static SaveGameMetadata GetSaveMetadata(string filePath)
         {
             string json = File.ReadAllText(filePath);
-            
-            // Deserialize only the metadata wrapper to avoid loading the whole game state
             var wrapper = JsonSerializer.Deserialize<SaveGameMetadataWrapper>(json);
             return wrapper?.Metadata ?? new SaveGameMetadata();
         }
@@ -126,7 +140,46 @@ namespace Conglomerate
         public static GameSaveContainer LoadGame(string filePath)
         {
             string json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<GameSaveContainer>(json);
+            return JsonSerializer.Deserialize<GameSaveContainer>(json)!;
+        }
+
+        /// <summary>
+        /// Przywraca budynki z danych zapisu, uwzględniając nowe typy (CheeseFactory itp.).
+        /// </summary>
+        public static Building? RestoreBuilding(BuildingSaveData bData)
+        {
+            Building? building = bData.Type switch
+            {
+                "Farm"                   => new Farm(bData.Name),
+                "CoalMine"               => new CoalMine(bData.Name),
+                "CheeseFactory"          => new CheeseFactory(bData.Name),
+                "FoodWarehouse"          => new WarehouseBuilding(bData.Name, ResourceCategory.Food),
+                "ProcessedFoodWarehouse" => new WarehouseBuilding(bData.Name, ResourceCategory.ProcessedFood),
+                "MiningWarehouse"        => new WarehouseBuilding(bData.Name, ResourceCategory.Mining),
+                _                        => null
+            };
+
+            if (building == null) return null;
+
+            building.FacilityId             = bData.FacilityId;
+            building.AutoSell               = bData.AutoSell;
+            building.AccumulatedDepreciation = bData.AccumulatedDepreciation;
+
+            // Przywróć stan magazynu
+            foreach (var item in bData.Warehouse)
+            {
+                building.Warehouse[item.Key] = item.Value;
+            }
+
+            // Przywróć aktywny przepis fabryki
+            if (building is FactoryBuilding factory && bData.ActiveRecipeId != null)
+            {
+                var recipe = factory.AvailableRecipes.Find(r => r.Id == bData.ActiveRecipeId);
+                if (recipe != null)
+                    factory.SetRecipe(recipe);
+            }
+
+            return building;
         }
     }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Conglomerate.Logistics;
 
 namespace Conglomerate
 {
@@ -23,17 +24,22 @@ namespace Conglomerate
 
         public List<BuildingSaveData> Buildings { get; set; } = new List<BuildingSaveData>();
         public List<TileSaveData> Tiles { get; set; } = new List<TileSaveData>();
+
+        /// <summary>Trasy logistyczne — zapisywane razem ze stanem gry.</summary>
+        public List<SupplyRoute> SupplyRoutes { get; set; } = new List<SupplyRoute>();
     }
 
     public class BuildingSaveData
     {
         public string FacilityId { get; set; } = "";
-        public string Type { get; set; } = ""; // "Farm" or "CoalMine"
+        public string Type { get; set; } = ""; // "Farm", "CoalMine", "CheeseFactory", itp.
         public string Name { get; set; } = "";
         public int X { get; set; }
         public int Y { get; set; }
         public bool AutoSell { get; set; }
         public decimal AccumulatedDepreciation { get; set; }
+        /// <summary>ID aktywnego przepisu dla FactoryBuilding (null = Idle).</summary>
+        public string? ActiveRecipeId { get; set; } = null;
         public List<WarehouseItem> Warehouse { get; set; } = new List<WarehouseItem>();
     }
 

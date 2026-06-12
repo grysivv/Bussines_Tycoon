@@ -1434,6 +1434,8 @@ namespace Conglomerate
             pnlNewGameSettings.Controls.Add(lblStartYear);
 
             NumericUpDown numStartYear = new NumericUpDown();
+            numStartYear.Minimum = 2000;
+            numStartYear.Maximum = 3000;
             numStartYear.Value = 2026;
             numStartYear.Enabled = false;
             numStartYear.Location = new Point(490, 93);
@@ -1512,6 +1514,8 @@ namespace Conglomerate
             pnlNewGameSettings.Controls.Add(lblShares);
 
             NumericUpDown numShares = new NumericUpDown();
+            numShares.Minimum = 0;
+            numShares.Maximum = 1000000;
             numShares.Value = 1000;
             numShares.Enabled = false;
             numShares.Location = new Point(490, 243);

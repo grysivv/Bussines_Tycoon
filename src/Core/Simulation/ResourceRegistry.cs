@@ -5,8 +5,9 @@ namespace Conglomerate
 {
     public enum ResourceCategory
     {
-        Food,
-        Mining,
+        Food,           // Surowce spożywcze (Mleko, Mięso)
+        ProcessedFood,  // Produkty przetworzone (Ser, Masło, itp.)
+        Mining,         // Surowce kopalniane (Węgiel, Ruda Żelaza, itp.)
         Other
     }
 
@@ -15,9 +16,16 @@ namespace Conglomerate
         private static readonly Dictionary<string, (ResourceCategory Category, decimal DefaultPrice)> Registry = 
             new Dictionary<string, (ResourceCategory, decimal)>
             {
-                { "Mleko", (ResourceCategory.Food, 50m) },
-                { "Mięso", (ResourceCategory.Food, 150m) },
-                { "Węgiel", (ResourceCategory.Mining, 100m) }
+                // Surowce rolne (surowe)
+                { "Mleko",   (ResourceCategory.Food, 50m) },
+                { "Mięso",   (ResourceCategory.Food, 150m) },
+
+                // Produkty przetworzone (wyjścia fabryk)
+                { "Ser",     (ResourceCategory.ProcessedFood, 220m) },
+                { "Masło",   (ResourceCategory.ProcessedFood, 130m) },
+
+                // Surowce kopalniane
+                { "Węgiel",  (ResourceCategory.Mining, 100m) },
             };
 
         public static ResourceCategory GetCategory(string resourceName)

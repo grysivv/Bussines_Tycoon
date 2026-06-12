@@ -33,18 +33,21 @@ namespace Conglomerate
                 CurrentHour = 0;
                 CurrentDay++;
 
-                // Produkcja i opłaty za utrzymanie naliczane są raz dziennie (o północy) dla wszystkich budynków
+                // Ekstraktorzy (Farm, CoalMine itp.) produkują raz na dobę (o północy)
                 foreach (var building in ActiveCompany.Buildings)
                 {
+                    if (building is FactoryBuilding) continue; // fabryki tickowane co godzinę poniżej
+
                     decimal oldBalance = ActiveCompany.Balance;
                     building.Produce(ActiveCompany);
                     decimal maintenanceCharged = oldBalance - ActiveCompany.Balance;
                     if (maintenanceCharged > 0)
                     {
-                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour, $"Utrzymanie: {building.Name}", -maintenanceCharged, "Utrzymanie", building.FacilityId);
+                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour,
+                            $"Utrzymanie: {building.Name}", -maintenanceCharged, "Utrzymanie", building.FacilityId);
                     }
 
-                    // Przeniesienie nadmiaru wyprodukowanych surowców do dedykowanych magazynów
+                    // Przeniesienie nadmiaru surowców do dedykowanych magazynów
                     TransferResourcesToWarehouses(building, ActiveCompany);
 
                     if (building.AutoSell)
@@ -53,10 +56,19 @@ namespace Conglomerate
                         {
                             int qty = building.Warehouse[key];
                             if (qty > 0)
-                            {
                                 building.SellResource(key, qty, ActiveCompany, CurrentDay, CurrentHour);
-                            }
                         }
+                    }
+                }
+
+                // Opłata dzienna za utrzymanie fabryk (niezależna od produkcji)
+                foreach (var factory in ActiveCompany.Buildings.OfType<FactoryBuilding>())
+                {
+                    if (ActiveCompany.Balance >= factory.MaintenanceCost)
+                    {
+                        ActiveCompany.Balance -= factory.MaintenanceCost;
+                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour,
+                            $"Utrzymanie: {factory.Name}", -factory.MaintenanceCost, "Utrzymanie", factory.FacilityId);
                     }
                 }
 
@@ -64,6 +76,39 @@ namespace Conglomerate
                 if (CurrentDay > 1 && (CurrentDay - 1) % 30 == 0)
                 {
                     ActiveCompany.Engine.CloseMonth(CurrentDay, CurrentHour);
+                }
+            }
+
+            // Fabryki przetwórcze — tick produkcji co każdą godzinę
+            foreach (var factory in ActiveCompany.Buildings.OfType<FactoryBuilding>())
+            {
+                bool cycleCompleted = factory.TryAdvanceProduction(ActiveCompany);
+
+                if (cycleCompleted)
+                {
+                    // Zaksięguj przychód za ukończony cykl (AutoSell lub do magazynu)
+                    if (factory.AutoSell && factory.ActiveRecipe != null)
+                    {
+                        foreach (var output in factory.ActiveRecipe.Outputs)
+                        {
+                            int qty = factory.Warehouse.ContainsKey(output.Key) ? factory.Warehouse[output.Key] : 0;
+                            if (qty > 0)
+                                factory.SellResource(output.Key, qty, ActiveCompany, CurrentDay, CurrentHour);
+                        }
+                    }
+                    else
+                    {
+                        // Przenieś do magazynów jeśli są dostępne
+                        TransferResourcesToWarehouses(factory, ActiveCompany);
+                    }
+
+                    // Zaksięguj koszt operacyjny cyklu
+                    if (factory.ActiveRecipe != null && factory.ActiveRecipe.OperationalCostPerCycle > 0)
+                    {
+                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour,
+                            $"Produkcja: {factory.Name} ({factory.ActiveRecipe.DisplayName})",
+                            -factory.ActiveRecipe.OperationalCostPerCycle, "Koszty produkcji", factory.FacilityId);
+                    }
                 }
             }
 

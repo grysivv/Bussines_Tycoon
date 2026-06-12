@@ -52,12 +52,16 @@ namespace Conglomerate
         private Label lblBottomStatus = null!;
         private Label lblSelectedTileInfo = null!;
 
-        private enum SelectedBlueprint { None, Farm, CoalMine, FoodWarehouse, MiningWarehouse }
+        private enum SelectedBlueprint { None, Farm, CoalMine, FoodWarehouse, MiningWarehouse, CheeseFactory }
         private SelectedBlueprint _selectedBlueprint = SelectedBlueprint.None;
         private Button btnBuildFarm = null!;
         private Button btnBuildCoalMine = null!;
         private Button btnBuildFoodWarehouse = null!;
         private Button btnBuildMiningWarehouse = null!;
+        private Button btnBuildCheeseFactory = null!;
+
+        // Kontrolki fabryki — przechowujemy referencję do dropdownu przepisu
+        private ComboBox? _activeRecipeComboBox = null;
 
         // Przyciski kontroli prędkości czasu
         private Button btnSpeedPause = null!;
@@ -220,13 +224,13 @@ namespace Conglomerate
             pnlTopNavBottomBorder.BackColor = Color.FromArgb(45, 45, 45);
             pnlTopNav.Controls.Add(pnlTopNavBottomBorder);
 
-            // Zegar / Data gry
+            // Zegar / Data gry (teraz dwuliniowy: data + godzina)
             lblDate = new Label();
-            lblDate.Text = "12 Czerwca 2026";
-            lblDate.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            lblDate.Text = "12 Czerwca 2026\n08:00";
+            lblDate.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             lblDate.ForeColor = Color.FromArgb(240, 180, 50);
-            lblDate.Location = new Point(15, 18);
-            lblDate.Size = new Size(160, 25);
+            lblDate.Location = new Point(15, 10);
+            lblDate.Size = new Size(165, 40);
             pnlTopNav.Controls.Add(lblDate);
 
             // Kontrolki prędkości w pasku górnym
@@ -614,6 +618,29 @@ namespace Conglomerate
             btnBuildMiningWarehouse.Click += (s, e) => SelectBlueprint(SelectedBlueprint.MiningWarehouse, btnBuildMiningWarehouse);
             pnlRight.Controls.Add(btnBuildMiningWarehouse);
 
+            // Separator — Fabryki przetwórcze
+            Label lblFactoriesHeader = new Label();
+            lblFactoriesHeader.Text = "FABRYKI";
+            lblFactoriesHeader.Font = new Font("Segoe UI", 8, FontStyle.Bold);
+            lblFactoriesHeader.ForeColor = Color.FromArgb(240, 180, 50);
+            lblFactoriesHeader.Location = new Point(15, 305);
+            lblFactoriesHeader.Size = new Size(160, 18);
+            pnlRight.Controls.Add(lblFactoriesHeader);
+
+            btnBuildCheeseFactory = new Button();
+            btnBuildCheeseFactory.Text = "Mleczarnia / Ser\n(Koszt: $25k)";
+            btnBuildCheeseFactory.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBuildCheeseFactory.Location = new Point(15, 325);
+            btnBuildCheeseFactory.Size = new Size(160, 50);
+            btnBuildCheeseFactory.FlatStyle = FlatStyle.Flat;
+            btnBuildCheeseFactory.FlatAppearance.BorderSize = 1;
+            btnBuildCheeseFactory.FlatAppearance.BorderColor = Color.FromArgb(240, 180, 50);
+            btnBuildCheeseFactory.BackColor = Color.FromArgb(35, 35, 35);
+            btnBuildCheeseFactory.ForeColor = Color.FromArgb(240, 180, 50);
+            btnBuildCheeseFactory.Cursor = Cursors.Hand;
+            btnBuildCheeseFactory.Click += (s, e) => SelectBlueprint(SelectedBlueprint.CheeseFactory, btnBuildCheeseFactory);
+            pnlRight.Controls.Add(btnBuildCheeseFactory);
+
             // 2.3 PANEL DOLNY (Status) - ukryty w celu uzyskania nowoczesnego HUDu
             pnlBottom = new Panel();
             pnlBottom.Visible = false;
@@ -787,9 +814,14 @@ namespace Conglomerate
                 btnBuildFoodWarehouse.ForeColor = Color.FromArgb(50, 150, 250);
                 btnBuildMiningWarehouse.BackColor = Color.FromArgb(35, 35, 35);
                 btnBuildMiningWarehouse.ForeColor = Color.FromArgb(50, 150, 250);
+                btnBuildCheeseFactory.BackColor = Color.FromArgb(35, 35, 35);
+                btnBuildCheeseFactory.ForeColor = Color.FromArgb(240, 180, 50);
 
                 _selectedBlueprint = blueprint;
-                clickedButton.BackColor = Color.FromArgb(50, 150, 250);
+                // Podświetl kliknięty przycisk
+                clickedButton.BackColor = blueprint == SelectedBlueprint.CheeseFactory
+                    ? Color.FromArgb(240, 180, 50)
+                    : Color.FromArgb(50, 150, 250);
                 clickedButton.ForeColor = Color.White;
                 ToggleBuildMode(true);
             }
@@ -836,6 +868,11 @@ namespace Conglomerate
                     {
                         buildingName = $"Magazyn Kopalniany #{_company.Buildings.Count + 1}";
                         building = new WarehouseBuilding(buildingName, ResourceCategory.Mining);
+                    }
+                    else if (_selectedBlueprint == SelectedBlueprint.CheeseFactory)
+                    {
+                        buildingName = $"Mleczarnia #{_company.Buildings.Count + 1}";
+                        building = new CheeseFactory(buildingName);
                     }
                     else
                     {
@@ -966,9 +1003,11 @@ namespace Conglomerate
             lblCash.Text = $"{_company.Balance:C}";
             lblCash.ForeColor = _company.Balance >= 0 ? Color.FromArgb(100, 220, 100) : Color.FromArgb(240, 80, 80);
             
-            // Format zegara: dd MMMM yyyy (np. 12 czerwca 2026)
+            // Format zegara: dd MMMM yyyy + godzina HH:00
             var currentInGameDate = new DateTime(2026, 6, 12).AddDays(_gameManager.CurrentDay - 1);
-            lblDate.Text = currentInGameDate.ToString("dd MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("pl-PL"));
+            string dateLine = currentInGameDate.ToString("dd MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("pl-PL"));
+            string timeLine = $"{_gameManager.CurrentHour:D2}:00";
+            lblDate.Text = $"{dateLine}\n{timeLine}";
 
             // Trend gotówki w oparciu o historię ostatnich 24 ticków (1 doba gry)
             _cashHistory.Enqueue(_company.Balance);
@@ -1236,6 +1275,14 @@ namespace Conglomerate
 
         private void ShowContextInspector(Building building)
         {
+            // Jeśli zmieniamy budynek — wyczyść sekcję fabryki (może być nieaktualna)
+            if (_inspectingBuilding != building)
+            {
+                var oldSection = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
+                if (oldSection != null) pnlContextInspector.Controls.Remove(oldSection);
+                _activeRecipeComboBox = null;
+            }
+
             _inspectingBuilding = building;
             pnlContextInspector.Visible = true;
             pnlContextInspector.BringToFront();
@@ -1258,6 +1305,24 @@ namespace Conglomerate
             bool isPlayerOwned = _company.Buildings.Contains(_inspectingBuilding);
             string ownerSuffix = isPlayerOwned ? "(Gracz)" : "(Konkurent)";
             lblContextTitle.Text = $"{_inspectingBuilding.Name} {ownerSuffix}";
+
+            // ──────────────────────────────────────────────
+            //  FABRYKA: Specjalny tryb inspektora z przepisami
+            // ──────────────────────────────────────────────
+            if (_inspectingBuilding is FactoryBuilding factory && isPlayerOwned)
+            {
+                UpdateFactoryInspector(factory);
+                return;
+            }
+
+            // ──────────────────────────────────────────────
+            //  STANDARDOWY Inspektor (Extractory, Magazyny)
+            // ──────────────────────────────────────────────
+
+            // Usuń kontrolki fabryki jeśli były wcześniej
+            var existingFactoryPanel = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
+            if (existingFactoryPanel != null) pnlContextInspector.Controls.Remove(existingFactoryPanel);
+            _activeRecipeComboBox = null;
 
             // 1. Capacity Utilization
             int utilization = 100;
@@ -1301,10 +1366,164 @@ namespace Conglomerate
             int maxStock = _inspectingBuilding.WarehouseCapacity;
             lblContextInv.Text = $"Stan Magazynu: {currentStock} / {maxStock} szt.";
 
-            // Render fill-bary zasobów
+            RenderInventoryBars(_inspectingBuilding);
+
+            // 3. Local P&L
+            decimal pnlValue = isPlayerOwned
+                ? _company.Engine.CalculateFacilityMonthlyPnL(_inspectingBuilding.FacilityId)
+                : 4250m;
+
+            lblContextPnL.Text = $"Wynik (P&L): {pnlValue:C}";
+            lblContextPnL.ForeColor = pnlValue >= 0 ? Color.FromArgb(100, 220, 100) : Color.FromArgb(240, 80, 80);
+        }
+
+        /// <summary>
+        /// Specjalny widok inspektora dla FactoryBuilding — pokazuje:
+        /// - Stan produkcji (FacilityState)
+        /// - Selector przepisu (ComboBox)
+        /// - Pasek postępu bieżącego cyklu
+        /// - Stany magazynowe surowców wejście/wyjście
+        /// - P&L
+        /// </summary>
+        private void UpdateFactoryInspector(FactoryBuilding factory)
+        {
+            // ── Stan (wskaźnik kolorowy) ──
+            (string stateText, Color stateColor) = factory.State switch
+            {
+                Conglomerate.Production.FacilityState.Producing        => ("▶ PRODUKUJE", Color.FromArgb(100, 220, 100)),
+                Conglomerate.Production.FacilityState.WaitingForInputs  => ("⏸ Brak surowców", Color.FromArgb(240, 180, 50)),
+                Conglomerate.Production.FacilityState.OutputStorageFull => ("⏸ Magazyn pełny", Color.FromArgb(240, 80, 80)),
+                Conglomerate.Production.FacilityState.InsufficientFunds => ("⛔ Brak środków", Color.FromArgb(240, 80, 80)),
+                Conglomerate.Production.FacilityState.Maintenance       => ("🔧 Konserwacja", Color.DimGray),
+                _                                                        => ("⏹ Bezczynna", Color.Gray)
+            };
+
+            lblContextUtilization.Text = stateText;
+            lblContextUtilization.ForeColor = stateColor;
+
+            // Pasek postępu cyklu
+            float progress = factory.ProductionProgressNormalized;
+            pnlContextUtilProgressFg.Width = (int)(progress * pnlContextUtilProgressBg.Width);
+            pnlContextUtilProgressFg.BackColor = stateColor;
+
+            // ── Magazyn ──
+            int currentStock = factory.GetTotalStock();
+            int maxStock = factory.WarehouseCapacity;
+            lblContextInv.Text = $"Magazyn: {currentStock} / {maxStock} szt.";
+            RenderInventoryBars(factory);
+
+            // ── Sekcja fabryki (ComboBox + informacje przepisu) ──
+            //    Używamy Panel o nazwie "pnlFactorySection" — usuwamy stary i tworzymy nowy przy zmianie budynku
+            var oldSection = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
+            bool needsRebuild = oldSection == null;
+
+            if (needsRebuild)
+            {
+                if (oldSection != null) pnlContextInspector.Controls.Remove(oldSection);
+
+                Panel pnlFactorySection = new Panel();
+                pnlFactorySection.Name = "pnlFactorySection";
+                pnlFactorySection.Location = new Point(15, 90);
+                pnlFactorySection.Size = new Size(570, 32);
+                pnlFactorySection.BackColor = Color.Transparent;
+
+                Label lblRecipeLabel = new Label();
+                lblRecipeLabel.Text = "Przepis:";
+                lblRecipeLabel.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+                lblRecipeLabel.ForeColor = Color.DarkGray;
+                lblRecipeLabel.Location = new Point(0, 7);
+                lblRecipeLabel.Size = new Size(60, 18);
+                pnlFactorySection.Controls.Add(lblRecipeLabel);
+
+                ComboBox cmbRecipe = new ComboBox();
+                cmbRecipe.Name = "cmbRecipe";
+                cmbRecipe.Location = new Point(65, 3);
+                cmbRecipe.Size = new Size(220, 23);
+                cmbRecipe.DropDownStyle = ComboBoxStyle.DropDownList;
+                cmbRecipe.BackColor = Color.FromArgb(40, 40, 40);
+                cmbRecipe.ForeColor = Color.White;
+                cmbRecipe.Font = new Font("Segoe UI", 9);
+                cmbRecipe.FlatStyle = FlatStyle.Flat;
+
+                // Opcja "Brak (Idle)"
+                cmbRecipe.Items.Add("— Brak (Bezczynna) —");
+                foreach (var recipe in factory.AvailableRecipes)
+                    cmbRecipe.Items.Add(recipe.DisplayName);
+
+                // Ustaw aktualny wybór
+                if (factory.ActiveRecipe == null)
+                    cmbRecipe.SelectedIndex = 0;
+                else
+                {
+                    int idx = factory.AvailableRecipes.FindIndex(r => r.Id == factory.ActiveRecipe.Id);
+                    cmbRecipe.SelectedIndex = idx >= 0 ? idx + 1 : 0;
+                }
+
+                cmbRecipe.SelectedIndexChanged += (s, e) =>
+                {
+                    int sel = cmbRecipe.SelectedIndex;
+                    if (sel <= 0)
+                        factory.SetRecipe(null);
+                    else
+                        factory.SetRecipe(factory.AvailableRecipes[sel - 1]);
+                    UpdateContextInspector();
+                };
+
+                pnlFactorySection.Controls.Add(cmbRecipe);
+                _activeRecipeComboBox = cmbRecipe;
+
+                // Etykieta opisu przepisu
+                Label lblRecipeDesc = new Label();
+                lblRecipeDesc.Name = "lblRecipeDesc";
+                lblRecipeDesc.Font = new Font("Segoe UI", 8, FontStyle.Italic);
+                lblRecipeDesc.ForeColor = Color.Gray;
+                lblRecipeDesc.Location = new Point(295, 8);
+                lblRecipeDesc.Size = new Size(270, 16);
+                pnlFactorySection.Controls.Add(lblRecipeDesc);
+
+                pnlContextInspector.Controls.Add(pnlFactorySection);
+                pnlContextInspector.Visible = true;
+            }
+
+            // Zaktualizuj opis przepisu w istniejącej sekcji
+            var section = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault() as Panel;
+            if (section != null)
+            {
+                var descLabel = section.Controls.Find("lblRecipeDesc", false).FirstOrDefault() as Label;
+                if (descLabel != null)
+                    descLabel.Text = factory.ActiveRecipe?.Description ?? "Wybierz przepis aby uruchomić produkcję";
+
+                // Synchronizuj ComboBox jeśli zmienił się z zewnątrz (bez eventów)
+                var cmb = section.Controls.Find("cmbRecipe", false).FirstOrDefault() as ComboBox;
+                if (cmb != null && _activeRecipeComboBox == cmb)
+                {
+                    int expectedIdx = factory.ActiveRecipe == null ? 0
+                        : factory.AvailableRecipes.FindIndex(r => r.Id == factory.ActiveRecipe.Id) + 1;
+                    if (cmb.SelectedIndex != expectedIdx)
+                        cmb.SelectedIndex = expectedIdx;
+                }
+            }
+
+            // ── P&L ──
+            decimal pnlValue = _company!.Engine.CalculateFacilityMonthlyPnL(factory.FacilityId);
+            lblContextPnL.Text = $"Wynik (P&L): {pnlValue:C}";
+            lblContextPnL.ForeColor = pnlValue >= 0 ? Color.FromArgb(100, 220, 100) : Color.FromArgb(240, 80, 80);
+
+            // ── Cykle ukończone ──
+            string cycleInfo = $"Cykle: {factory.TotalCyclesCompleted}";
+            if (factory.ActiveRecipe != null)
+                cycleInfo += $"  |  Czas cyklu: {factory.ActiveRecipe.CycleDurationHours}h";
+            lblContextTitle.Text = $"{factory.Name} (Gracz)  —  {cycleInfo}";
+        }
+
+        /// <summary>Renderuje fill-bary dla każdego surowca w magazynie budynku.</summary>
+        private void RenderInventoryBars(Building building)
+        {
             pnlContextInvBars.Controls.Clear();
             int barY = 0;
-            foreach (var kvp in _inspectingBuilding.Warehouse.ToList())
+            int maxStock = building.WarehouseCapacity;
+
+            foreach (var kvp in building.Warehouse.ToList())
             {
                 string resName = kvp.Key;
                 int qty = kvp.Value;
@@ -1332,20 +1551,6 @@ namespace Conglomerate
 
                 barY += 18;
             }
-
-            // 3. Local P&L
-            decimal pnlValue = 0m;
-            if (isPlayerOwned)
-            {
-                pnlValue = _company.Engine.CalculateFacilityMonthlyPnL(_inspectingBuilding.FacilityId);
-            }
-            else
-            {
-                pnlValue = 4250m;
-            }
-
-            lblContextPnL.Text = $"Wynik (P&L): {pnlValue:C}";
-            lblContextPnL.ForeColor = pnlValue >= 0 ? Color.FromArgb(100, 220, 100) : Color.FromArgb(240, 80, 80);
         }
 
         private Button CreateShortcutButton(string iconText, int yPos, Color accentColor, EventHandler onClick)

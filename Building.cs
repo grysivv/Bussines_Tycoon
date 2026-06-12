@@ -46,7 +46,7 @@ namespace Conglomerate
                     Warehouse[resource] -= amount;
                     decimal revenue = price * amount;
                     company.Balance += revenue;
-                    company.AddTransaction(day, hour, $"Sprzedaż: {amount}x {resource}", revenue, "Sprzedaż");
+                    company.AddTransaction(day, hour, $"Sprzedaż: {amount}x {resource}", revenue, "Sprzedaż", FacilityId);
                     return true;
                 }
             }

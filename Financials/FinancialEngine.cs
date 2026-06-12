@@ -203,6 +203,14 @@ namespace Conglomerate.Financials
             CurrentMonthIndex++;
         }
 
+        public decimal CalculateFacilityMonthlyPnL(string facilityId)
+        {
+            if (string.IsNullOrEmpty(facilityId)) return 0m;
+            return _currentMonthTransactions
+                .Where(tx => tx.FacilityId == facilityId)
+                .Sum(tx => tx.Amount);
+        }
+
         private bool HasDepreciationPosted()
         {
             return _currentMonthTransactions.Any(tx => tx.Category == FinancialCategory.Depreciation);

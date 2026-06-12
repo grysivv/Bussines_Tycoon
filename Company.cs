@@ -23,7 +23,7 @@ namespace Conglomerate
             Engine = new FinancialEngine(startingBalance, startingBalance);
         }
 
-        public void AddTransaction(int day, int hour, string description, decimal amount, string category)
+        public void AddTransaction(int day, int hour, string description, decimal amount, string category, string facilityId = "")
         {
             // Support legacy ledger
             Ledger.Record(day, hour, description, amount, category);
@@ -34,7 +34,7 @@ namespace Conglomerate
             else if (category == "Utrzymanie") cat = FinancialCategory.Salaries;
             else if (category == "Budowa") cat = FinancialCategory.RawMaterials;
 
-            Engine.RecordTransactionWithoutCashImpact(day, hour, amount, cat, description);
+            Engine.RecordTransactionWithoutCashImpact(day, hour, amount, cat, description, facilityId);
         }
 
         public bool BuyBuilding(Building building, Map map, int x, int y, int day, int hour)

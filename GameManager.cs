@@ -41,7 +41,7 @@ namespace Conglomerate
                     decimal maintenanceCharged = oldBalance - ActiveCompany.Balance;
                     if (maintenanceCharged > 0)
                     {
-                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour, $"Utrzymanie: {building.Name}", -maintenanceCharged, "Utrzymanie");
+                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour, $"Utrzymanie: {building.Name}", -maintenanceCharged, "Utrzymanie", building.FacilityId);
                     }
 
                     // Przeniesienie nadmiaru wyprodukowanych surowców do dedykowanych magazynów

@@ -36,6 +36,7 @@ namespace Conglomerate.Financials.Tests
             TestHistoryAndQuarterlyRoll();
             TestSaveAndLoadSettingsAndMetadata();
             TestWarehouseResourceTransferAndPersistence();
+            TestFacilityPnLTracking();
 
             Console.WriteLine("=== WSZYSTKIE TESTY ZAKOŃCZONE SUKCESEM! ===");
         }
@@ -314,6 +315,41 @@ namespace Conglomerate.Financials.Tests
                 }
             }
             catch {}
+
+            Console.WriteLine("OK");
+        }
+
+        private static void TestFacilityPnLTracking()
+        {
+            Console.Write("Test 6: Śledzenie P&L Placówek (Facility ID)... ");
+
+            var company = new Company("FacilityTestCorp", 100000m);
+            var map = new Map(10, 10);
+            var gameManager = new GameManager(company, map);
+
+            var farm = new Farm("Farma P&L");
+            company.BuyBuilding(farm, map, 1, 1, 1, 8); 
+
+            string facId = farm.FacilityId;
+            decimal initialCostPnL = company.Engine.CalculateFacilityMonthlyPnL(facId);
+            Debug.Assert(initialCostPnL == -10000m, $"Initial cost PnL: oczekiwano -10000, otrzymano {initialCostPnL}");
+
+            farm.Warehouse["Mleko"] = 10;
+            bool sold = farm.SellResource("Mleko", 5, company, 1, 9);
+            Debug.Assert(sold, "Sprzedaż mleka powinna się udać");
+
+            decimal revenue = 5 * farm.ResourcePrices["Mleko"];
+            decimal expectedPnLAfterSale = -10000m + revenue;
+            decimal currentPnL = company.Engine.CalculateFacilityMonthlyPnL(facId);
+            Debug.Assert(currentPnL == expectedPnLAfterSale, $"PnL po sprzedaży: oczekiwano {expectedPnLAfterSale}, otrzymano {currentPnL}");
+
+            gameManager.RestoreState(1, 23);
+            gameManager.NextTick(); 
+
+            decimal maintenance = farm.MaintenanceCost; 
+            decimal expectedPnLAfterMaintenance = expectedPnLAfterSale - maintenance;
+            decimal finalPnL = company.Engine.CalculateFacilityMonthlyPnL(facId);
+            Debug.Assert(finalPnL == expectedPnLAfterMaintenance, $"PnL po utrzymaniu: oczekiwano {expectedPnLAfterMaintenance}, otrzymano {finalPnL}");
 
             Console.WriteLine("OK");
         }

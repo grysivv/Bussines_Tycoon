@@ -58,13 +58,11 @@ namespace Conglomerate
         private Button btnBuildCoalMine = null!;
         private Button btnBuildFoodWarehouse = null!;
         private Button btnBuildMiningWarehouse = null!;
-        private Button btnCenterCamera = null!;
 
         // Przyciski kontroli prędkości czasu
         private Button btnSpeedPause = null!;
         private Button btnSpeed1x = null!;
         private Button btnSpeed2x = null!;
-        private Button btnSpeed3x = null!;
         private Button btnSpeed5x = null!;
         private Button? _activeSpeedButton = null;
 
@@ -73,6 +71,29 @@ namespace Conglomerate
         private Building? _inspectingBuilding = null;
         private Dictionary<string, string> _enteredSellQuantities = new Dictionary<string, string>();
         private Panel pnlFinanceReport = null!;
+
+        // HUD Components
+        private Panel pnlTopNav = null!;
+        private Label lblDate = null!;
+        private Label lblCashTrend = null!;
+        private Label lblNetWorth = null!;
+        private Queue<decimal> _cashHistory = new Queue<decimal>();
+
+        private Panel pnlRightShortcutBar = null!;
+
+        private Panel pnlNewsTicker = null!;
+        private Label lblNewsMarquee = null!;
+        private System.Windows.Forms.Timer _newsTickerTimer = null!;
+        private List<string> _newsQueue = new List<string>();
+
+        private Panel pnlContextInspector = null!;
+        private Label lblContextTitle = null!;
+        private Label lblContextPnL = null!;
+        private Label lblContextUtilization = null!;
+        private Panel pnlContextUtilProgressBg = null!;
+        private Panel pnlContextUtilProgressFg = null!;
+        private Label lblContextInv = null!;
+        private Panel pnlContextInvBars = null!;
 
         public MainForm()
         {
@@ -184,69 +205,98 @@ namespace Conglomerate
             pnlGameBoard.Visible = false; // Domyślnie ukryta
             this.Controls.Add(pnlGameBoard);
 
-            // 2.0 PANEL GÓRNY NAWIGACJI
-            Panel pnlTopNav = new Panel();
+            // 2.0 PANEL GÓRNY NAWIGACJI (TOP BAR)
+            pnlTopNav = new Panel();
             pnlTopNav.Dock = DockStyle.Top;
-            pnlTopNav.Height = 45;
+            pnlTopNav.Height = 60;
             pnlTopNav.BackColor = Color.FromArgb(20, 20, 20);
             pnlTopNav.Padding = new Padding(15, 0, 15, 0);
             pnlGameBoard.Controls.Add(pnlTopNav);
 
-            Label lblLogo = new Label();
-            lblLogo.Text = "CONGLOMERATE TYCOON 2";
-            lblLogo.Font = new Font("Segoe UI", 11, FontStyle.Bold);
-            lblLogo.ForeColor = Color.FromArgb(50, 150, 250);
-            lblLogo.Location = new Point(15, 12);
-            lblLogo.Size = new Size(200, 25);
-            pnlTopNav.Controls.Add(lblLogo);
+            // Dolne ozdobne obramowanie paska górnego
+            Panel pnlTopNavBottomBorder = new Panel();
+            pnlTopNavBottomBorder.Dock = DockStyle.Bottom;
+            pnlTopNavBottomBorder.Height = 1;
+            pnlTopNavBottomBorder.BackColor = Color.FromArgb(45, 45, 45);
+            pnlTopNav.Controls.Add(pnlTopNavBottomBorder);
 
-            // Przycisk FINANSE
-            Button btnNavFinance = new Button();
-            btnNavFinance.Text = "FINANSE";
-            btnNavFinance.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            btnNavFinance.Location = new Point(230, 8);
-            btnNavFinance.Size = new Size(100, 30);
-            btnNavFinance.FlatStyle = FlatStyle.Flat;
-            btnNavFinance.FlatAppearance.BorderSize = 1;
-            btnNavFinance.FlatAppearance.BorderColor = Color.FromArgb(50, 150, 250);
-            btnNavFinance.BackColor = Color.FromArgb(35, 35, 35);
-            btnNavFinance.ForeColor = Color.FromArgb(50, 150, 250);
-            btnNavFinance.Cursor = Cursors.Hand;
-            btnNavFinance.Click += (s, e) => ToggleFinanceReport();
-            pnlTopNav.Controls.Add(btnNavFinance);
+            // Zegar / Data gry
+            lblDate = new Label();
+            lblDate.Text = "12 Czerwca 2026";
+            lblDate.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            lblDate.ForeColor = Color.FromArgb(240, 180, 50);
+            lblDate.Location = new Point(15, 18);
+            lblDate.Size = new Size(160, 25);
+            pnlTopNav.Controls.Add(lblDate);
 
-            // Atrapy innych przycisków
-            Button btnNavMarket = new Button();
-            btnNavMarket.Text = "RYNEK (Lock)";
-            btnNavMarket.Font = new Font("Segoe UI", 8, FontStyle.Regular);
-            btnNavMarket.Location = new Point(340, 8);
-            btnNavMarket.Size = new Size(100, 30);
-            btnNavMarket.FlatStyle = FlatStyle.Flat;
-            btnNavMarket.FlatAppearance.BorderSize = 1;
-            btnNavMarket.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
-            btnNavMarket.BackColor = Color.FromArgb(25, 25, 25);
-            btnNavMarket.ForeColor = Color.Gray;
-            btnNavMarket.Enabled = false;
-            pnlTopNav.Controls.Add(btnNavMarket);
+            // Kontrolki prędkości w pasku górnym
+            Panel pnlSpeedControls = new Panel();
+            pnlSpeedControls.Location = new Point(185, 15);
+            pnlSpeedControls.Size = new Size(160, 32);
+            pnlTopNav.Controls.Add(pnlSpeedControls);
 
-            Button btnNavCongress = new Button();
-            btnNavCongress.Text = "KONGRES (Lock)";
-            btnNavCongress.Font = new Font("Segoe UI", 8, FontStyle.Regular);
-            btnNavCongress.Location = new Point(450, 8);
-            btnNavCongress.Size = new Size(110, 30);
-            btnNavCongress.FlatStyle = FlatStyle.Flat;
-            btnNavCongress.FlatAppearance.BorderSize = 1;
-            btnNavCongress.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
-            btnNavCongress.BackColor = Color.FromArgb(25, 25, 25);
-            btnNavCongress.ForeColor = Color.Gray;
-            btnNavCongress.Enabled = false;
-            pnlTopNav.Controls.Add(btnNavCongress);
+            btnSpeedPause = CreateSpeedButton("||", 0, (s, e) => SetGameSpeed(0, btnSpeedPause));
+            btnSpeedPause.Size = new Size(35, 30);
+            btnSpeedPause.Location = new Point(0, 0);
 
+            btnSpeed1x = CreateSpeedButton("1x", 0, (s, e) => SetGameSpeed(1000, btnSpeed1x));
+            btnSpeed1x.Size = new Size(35, 30);
+            btnSpeed1x.Location = new Point(40, 0);
+
+            btnSpeed2x = CreateSpeedButton("2x", 0, (s, e) => SetGameSpeed(500, btnSpeed2x));
+            btnSpeed2x.Size = new Size(35, 30);
+            btnSpeed2x.Location = new Point(80, 0);
+
+            btnSpeed5x = CreateSpeedButton("5x", 0, (s, e) => SetGameSpeed(200, btnSpeed5x));
+            btnSpeed5x.Size = new Size(35, 30);
+            btnSpeed5x.Location = new Point(120, 0);
+
+            pnlSpeedControls.Controls.Add(btnSpeedPause);
+            pnlSpeedControls.Controls.Add(btnSpeed1x);
+            pnlSpeedControls.Controls.Add(btnSpeed2x);
+            pnlSpeedControls.Controls.Add(btnSpeed5x);
+
+            // Wyświetlacz Wolnej Gotówki (Free Cash)
+            Label lblCashTitle = new Label();
+            lblCashTitle.Text = "GOTÓWKA:";
+            lblCashTitle.Font = new Font("Segoe UI", 8, FontStyle.Bold);
+            lblCashTitle.ForeColor = Color.DarkGray;
+            lblCashTitle.Location = new Point(360, 10);
+            lblCashTitle.Size = new Size(160, 15);
+            pnlTopNav.Controls.Add(lblCashTitle);
+
+            lblCash = new Label();
+            lblCash.Text = "0,00 zł";
+            lblCash.Font = new Font("Segoe UI", 13, FontStyle.Bold);
+            lblCash.ForeColor = Color.FromArgb(100, 220, 100);
+            lblCash.Location = new Point(360, 25);
+            lblCash.Size = new Size(180, 25);
+            pnlTopNav.Controls.Add(lblCash);
+
+            // Wskaźnik Trendu Gotówkowego (Trend Indicator)
+            lblCashTrend = new Label();
+            lblCashTrend.Text = "+0,00 zł / min";
+            lblCashTrend.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblCashTrend.ForeColor = Color.FromArgb(100, 220, 100);
+            lblCashTrend.Location = new Point(545, 27);
+            lblCashTrend.Size = new Size(110, 20);
+            pnlTopNav.Controls.Add(lblCashTrend);
+
+            // Corporate Net Worth Display
+            lblNetWorth = new Label();
+            lblNetWorth.Text = "Net Worth: ...";
+            lblNetWorth.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            lblNetWorth.ForeColor = Color.FromArgb(50, 150, 250);
+            lblNetWorth.Location = new Point(665, 18);
+            lblNetWorth.Size = new Size(220, 25);
+            pnlTopNav.Controls.Add(lblNetWorth);
+
+            // Przycisk Zapisu Gry
             Button btnNavSave = new Button();
             btnNavSave.Text = "ZAPISZ GRĘ";
             btnNavSave.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
             btnNavSave.Size = new Size(100, 30);
-            btnNavSave.Location = new Point(pnlTopNav.Width - 230, 8);
+            btnNavSave.Location = new Point(pnlTopNav.Width - 230, 15);
             btnNavSave.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnNavSave.FlatStyle = FlatStyle.Flat;
             btnNavSave.FlatAppearance.BorderSize = 1;
@@ -272,11 +322,12 @@ namespace Conglomerate
             };
             pnlTopNav.Controls.Add(btnNavSave);
 
+            // Przycisk Wczytania Gry
             Button btnNavLoad = new Button();
             btnNavLoad.Text = "WCZYTAJ GRĘ";
             btnNavLoad.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
             btnNavLoad.Size = new Size(100, 30);
-            btnNavLoad.Location = new Point(pnlTopNav.Width - 120, 8);
+            btnNavLoad.Location = new Point(pnlTopNav.Width - 120, 15);
             btnNavLoad.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnNavLoad.FlatStyle = FlatStyle.Flat;
             btnNavLoad.FlatAppearance.BorderSize = 1;
@@ -290,121 +341,206 @@ namespace Conglomerate
             };
             pnlTopNav.Controls.Add(btnNavLoad);
 
-            // 2.1 PANEL LEWY (Statystyki i Akcje)
+            // Wyświetlacz loga w tle (mały)
+            Label lblCompanyNameDummy = new Label();
+            lblCompanyNameDummy.Location = new Point(0, 0);
+            lblCompanyNameDummy.Visible = false;
+            lblCompanyName = lblCompanyNameDummy; // Zachowaj referencję dla kompatybilności wstecznej
+
+            lblDay = new Label(); // Dummy dla kompatybilności wstecznej
+
+            // Wyłączenie starego panelu lewego (statystyki zostały zintegrowane z HUD)
             pnlLeft = new Panel();
-            pnlLeft.Dock = DockStyle.Left;
-            pnlLeft.Width = 260;
-            pnlLeft.BackColor = Color.FromArgb(24, 24, 24);
-            pnlLeft.Padding = new Padding(15);
-            pnlGameBoard.Controls.Add(pnlLeft);
+            pnlLeft.Size = new Size(0, 0);
+            pnlLeft.Visible = false;
 
-            // Nagłówek gry w panelu bocznym
-            Label lblGameTitle = new Label();
-            lblGameTitle.Text = "CONGLOMERATE";
-            lblGameTitle.Font = new Font("Segoe UI", 16, FontStyle.Bold);
-            lblGameTitle.ForeColor = Color.FromArgb(50, 150, 250);
-            lblGameTitle.Location = new Point(15, 20);
-            lblGameTitle.Size = new Size(230, 30);
-            pnlLeft.Controls.Add(lblGameTitle);
-
-            Label lblSubTitleGame = new Label();
-            lblSubTitleGame.Text = "Business Tycoon Simulator";
-            lblSubTitleGame.Font = new Font("Segoe UI", 8, FontStyle.Italic);
-            lblSubTitleGame.ForeColor = Color.DarkGray;
-            lblSubTitleGame.Location = new Point(17, 50);
-            lblSubTitleGame.Size = new Size(230, 20);
-            pnlLeft.Controls.Add(lblSubTitleGame);
-
-            // Nazwa firmy
-            lblCompanyName = new Label();
-            lblCompanyName.Text = "Firma: ...";
-            lblCompanyName.Font = new Font("Segoe UI", 11, FontStyle.Bold);
-            lblCompanyName.Location = new Point(15, 90);
-            lblCompanyName.Size = new Size(230, 25);
-            pnlLeft.Controls.Add(lblCompanyName);
-
-            // Stan Gotówki
-            Label lblCashTitle = new Label();
-            lblCashTitle.Text = "SALDO FINANSOWE:";
-            lblCashTitle.Font = new Font("Segoe UI", 8, FontStyle.Regular);
-            lblCashTitle.ForeColor = Color.Gray;
-            lblCashTitle.Location = new Point(15, 120);
-            lblCashTitle.Size = new Size(230, 15);
-            pnlLeft.Controls.Add(lblCashTitle);
-
-            lblCash = new Label();
-            lblCash.Text = "0,00 zł";
-            lblCash.Font = new Font("Segoe UI", 18, FontStyle.Bold);
-            lblCash.ForeColor = Color.FromArgb(100, 220, 100);
-            lblCash.Location = new Point(12, 135);
-            lblCash.Size = new Size(230, 35);
-            pnlLeft.Controls.Add(lblCash);
-
-            // Dzień / Godzina
-            lblDay = new Label();
-            lblDay.Text = "DZIEŃ: 1 (08:00)";
-            lblDay.Font = new Font("Segoe UI", 11, FontStyle.Bold);
-            lblDay.ForeColor = Color.FromArgb(240, 180, 50);
-            lblDay.Location = new Point(15, 180);
-            lblDay.Size = new Size(230, 25);
-            pnlLeft.Controls.Add(lblDay);
-
-            // Kontrola prędkości czasu (Pause, 1x, 2x, 3x, 5x)
-            Label lblSpeedTitle = new Label();
-            lblSpeedTitle.Text = "PRĘDKOŚĆ SYMULACJI:";
-            lblSpeedTitle.Font = new Font("Segoe UI", 8, FontStyle.Regular);
-            lblSpeedTitle.ForeColor = Color.Gray;
-            lblSpeedTitle.Location = new Point(15, 215);
-            lblSpeedTitle.Size = new Size(230, 15);
-            pnlLeft.Controls.Add(lblSpeedTitle);
-
-            Panel pnlSpeedControls = new Panel();
-            pnlSpeedControls.Location = new Point(15, 230);
-            pnlSpeedControls.Size = new Size(230, 40);
-            pnlLeft.Controls.Add(pnlSpeedControls);
-
-            btnSpeedPause = CreateSpeedButton("||", 0, (s, e) => SetGameSpeed(0, btnSpeedPause));
-            btnSpeed1x = CreateSpeedButton("1x", 46, (s, e) => SetGameSpeed(1000, btnSpeed1x));
-            btnSpeed2x = CreateSpeedButton("2x", 92, (s, e) => SetGameSpeed(500, btnSpeed2x));
-            btnSpeed3x = CreateSpeedButton("3x", 138, (s, e) => SetGameSpeed(333, btnSpeed3x));
-            btnSpeed5x = CreateSpeedButton("5x", 184, (s, e) => SetGameSpeed(200, btnSpeed5x));
-
-            pnlSpeedControls.Controls.Add(btnSpeedPause);
-            pnlSpeedControls.Controls.Add(btnSpeed1x);
-            pnlSpeedControls.Controls.Add(btnSpeed2x);
-            pnlSpeedControls.Controls.Add(btnSpeed3x);
-            pnlSpeedControls.Controls.Add(btnSpeed5x);
-
-            // Przycisk "Wycentruj Kamerę" - przesunięty w górę
-            btnCenterCamera = new Button();
-            btnCenterCamera.Text = "Wycentruj Widok";
-            btnCenterCamera.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            btnCenterCamera.Location = new Point(15, 280);
-            btnCenterCamera.Size = new Size(230, 30);
-            btnCenterCamera.FlatStyle = FlatStyle.Flat;
-            btnCenterCamera.FlatAppearance.BorderSize = 0;
-            btnCenterCamera.BackColor = Color.FromArgb(50, 50, 50);
-            btnCenterCamera.ForeColor = Color.White;
-            btnCenterCamera.Cursor = Cursors.Hand;
-            btnCenterCamera.Click += (s, e) => mapControl.CenterCamera();
-            pnlLeft.Controls.Add(btnCenterCamera);
-
-            // Informacja o zaznaczonym polu
-            Label lblSelectedTitle = new Label();
-            lblSelectedTitle.Text = "HOVEROWANY KAFEL:";
-            lblSelectedTitle.Font = new Font("Segoe UI", 8, FontStyle.Regular);
-            lblSelectedTitle.ForeColor = Color.Gray;
-            lblSelectedTitle.Location = new Point(15, 330);
-            lblSelectedTitle.Size = new Size(230, 15);
-            pnlLeft.Controls.Add(lblSelectedTitle);
-
+            // Etykieta szczegółów kafela (Hover Info w lewym dolnym rogu)
             lblSelectedTileInfo = new Label();
             lblSelectedTileInfo.Text = "Najedź myszką na mapę,\naby zobaczyć szczegóły.";
             lblSelectedTileInfo.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            lblSelectedTileInfo.ForeColor = Color.FromArgb(180, 180, 180);
-            lblSelectedTileInfo.Location = new Point(15, 350);
-            lblSelectedTileInfo.Size = new Size(230, 180);
-            pnlLeft.Controls.Add(lblSelectedTileInfo);
+            lblSelectedTileInfo.ForeColor = Color.FromArgb(200, 200, 200);
+            lblSelectedTileInfo.Location = new Point(10, 10);
+            lblSelectedTileInfo.Size = new Size(180, 80);
+
+            Panel pnlHoverInfo = new Panel();
+            pnlHoverInfo.Size = new Size(200, 100);
+            pnlHoverInfo.Location = new Point(15, this.ClientSize.Height - 30 - 100 - 15); // Nad tickerem newsowym
+            pnlHoverInfo.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            pnlHoverInfo.BackColor = Color.FromArgb(180, 20, 20, 20); // Półprzeźroczyste ciemne tło
+            pnlHoverInfo.BorderStyle = BorderStyle.FixedSingle;
+            pnlHoverInfo.Controls.Add(lblSelectedTileInfo);
+            pnlGameBoard.Controls.Add(pnlHoverInfo);
+            pnlHoverInfo.BringToFront();
+
+            // 2.1a PASEK NEWSÓW (BOTTOM TICKER)
+            pnlNewsTicker = new Panel();
+            pnlNewsTicker.Dock = DockStyle.Bottom;
+            pnlNewsTicker.Height = 30;
+            pnlNewsTicker.BackColor = Color.FromArgb(15, 15, 15);
+            pnlGameBoard.Controls.Add(pnlNewsTicker);
+
+            Panel pnlNewsTopBorder = new Panel();
+            pnlNewsTopBorder.Dock = DockStyle.Top;
+            pnlNewsTopBorder.Height = 1;
+            pnlNewsTopBorder.BackColor = Color.FromArgb(45, 45, 45);
+            pnlNewsTicker.Controls.Add(pnlNewsTopBorder);
+
+            // Kolejka newsów i etykieta przewijana
+            _newsQueue = new List<string>
+            {
+                "MAKRO: Globalna inflacja stabilizuje się na poziomie 2.1%. Analitycy przewidują stabilny wzrost gospodarczy.",
+                "KONKURENCJA: AI Megacorp otwiera nowy sklep detaliczny w pobliżu Twojego sektora!",
+                "PODATKI: Kongres rozważa obniżenie globalnego podatku dochodowego (CIT) w przyszłym roku podatkowym.",
+                "SUROWCE: Popyt na węgiel wzrasta z powodu mroźnej zimy, ceny surowców energetycznych rosną o 5%!",
+                "ROLNICTWO: Rekordowa produkcja mleka w tym kwartale. Nadchodzi korekta cen produktów spożywczych."
+            };
+
+            lblNewsMarquee = new Label();
+            lblNewsMarquee.Text = "   |   " + string.Join("   |   ", _newsQueue) + "   |   ";
+            lblNewsMarquee.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblNewsMarquee.ForeColor = Color.LightGray;
+            lblNewsMarquee.AutoSize = true;
+            lblNewsMarquee.Location = new Point(800, 8);
+            pnlNewsTicker.Controls.Add(lblNewsMarquee);
+
+            // Timer do przewijania newsów
+            _newsTickerTimer = new System.Windows.Forms.Timer();
+            _newsTickerTimer.Interval = 30;
+            _newsTickerTimer.Tick += (s, e) =>
+            {
+                if (pnlGameBoard.Visible)
+                {
+                    lblNewsMarquee.Left -= 1;
+                    if (lblNewsMarquee.Right < 0)
+                    {
+                        lblNewsMarquee.Left = pnlNewsTicker.Width;
+                    }
+                }
+            };
+            _newsTickerTimer.Start();
+
+            // 2.1b KONTEKSTOWY INSPEKTOR BUDYNKU (SELECTED OBJECT INSPECTOR)
+            pnlContextInspector = new Panel();
+            pnlContextInspector.Size = new Size(600, 130);
+            pnlContextInspector.BackColor = Color.FromArgb(25, 25, 25);
+            pnlContextInspector.BorderStyle = BorderStyle.FixedSingle;
+            pnlContextInspector.Visible = false;
+            pnlGameBoard.Controls.Add(pnlContextInspector);
+
+            // Obramowanie ozdobne na górze inspektora
+            Panel pnlCtxTopLine = new Panel();
+            pnlCtxTopLine.Dock = DockStyle.Top;
+            pnlCtxTopLine.Height = 3;
+            pnlCtxTopLine.BackColor = Color.FromArgb(50, 150, 250);
+            pnlContextInspector.Controls.Add(pnlCtxTopLine);
+
+            // Przycisk zamknięcia [X]
+            Button btnCtxClose = new Button();
+            btnCtxClose.Text = "X";
+            btnCtxClose.Font = new Font("Segoe UI", 8, FontStyle.Bold);
+            btnCtxClose.Size = new Size(20, 20);
+            btnCtxClose.Location = new Point(570, 8);
+            btnCtxClose.FlatStyle = FlatStyle.Flat;
+            btnCtxClose.FlatAppearance.BorderSize = 0;
+            btnCtxClose.ForeColor = Color.Gray;
+            btnCtxClose.Cursor = Cursors.Hand;
+            btnCtxClose.Click += (s, e) => CloseContextInspector();
+            pnlContextInspector.Controls.Add(btnCtxClose);
+
+            // Tytuł i P&L w pierwszej linii
+            lblContextTitle = new Label();
+            lblContextTitle.Text = "Farma Krów (Gracz)";
+            lblContextTitle.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            lblContextTitle.ForeColor = Color.FromArgb(50, 150, 250);
+            lblContextTitle.Location = new Point(15, 10);
+            lblContextTitle.Size = new Size(300, 22);
+            pnlContextInspector.Controls.Add(lblContextTitle);
+
+            lblContextPnL = new Label();
+            lblContextPnL.Text = "Wynik (P&L): +0,00 zł";
+            lblContextPnL.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            lblContextPnL.ForeColor = Color.FromArgb(100, 220, 100);
+            lblContextPnL.Location = new Point(320, 10);
+            lblContextPnL.Size = new Size(240, 22);
+            lblContextPnL.TextAlign = ContentAlignment.TopRight;
+            pnlContextInspector.Controls.Add(lblContextPnL);
+
+            // Kolumna 1: Wydajność (Capacity Utilization)
+            lblContextUtilization = new Label();
+            lblContextUtilization.Text = "Wykorzystanie Mocy: 100%";
+            lblContextUtilization.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            lblContextUtilization.ForeColor = Color.DarkGray;
+            lblContextUtilization.Location = new Point(15, 45);
+            lblContextUtilization.Size = new Size(250, 15);
+            pnlContextInspector.Controls.Add(lblContextUtilization);
+
+            pnlContextUtilProgressBg = new Panel();
+            pnlContextUtilProgressBg.Location = new Point(15, 65);
+            pnlContextUtilProgressBg.Size = new Size(250, 14);
+            pnlContextUtilProgressBg.BackColor = Color.FromArgb(45, 45, 45);
+            pnlContextInspector.Controls.Add(pnlContextUtilProgressBg);
+
+            pnlContextUtilProgressFg = new Panel();
+            pnlContextUtilProgressFg.Location = new Point(0, 0);
+            pnlContextUtilProgressFg.Size = new Size(250, 14);
+            pnlContextUtilProgressFg.BackColor = Color.FromArgb(50, 150, 250);
+            pnlContextUtilProgressBg.Controls.Add(pnlContextUtilProgressFg);
+
+            // Przycisk do wycentrowania widoku wewnątrz inspektora (bardzo przydatny)
+            Button btnCtxCenter = new Button();
+            btnCtxCenter.Text = "Wypozycjonuj Kamerę";
+            btnCtxCenter.Font = new Font("Segoe UI", 7.5f, FontStyle.Regular);
+            btnCtxCenter.Size = new Size(150, 22);
+            btnCtxCenter.Location = new Point(15, 90);
+            btnCtxCenter.FlatStyle = FlatStyle.Flat;
+            btnCtxCenter.FlatAppearance.BorderSize = 1;
+            btnCtxCenter.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
+            btnCtxCenter.BackColor = Color.FromArgb(35, 35, 35);
+            btnCtxCenter.ForeColor = Color.LightGray;
+            btnCtxCenter.Cursor = Cursors.Hand;
+            btnCtxCenter.Click += (s, e) => mapControl.CenterCamera();
+            pnlContextInspector.Controls.Add(btnCtxCenter);
+
+            // Kolumna 2: Stan Magazynu i fill-bary
+            lblContextInv = new Label();
+            lblContextInv.Text = "Stan Magazynu: 0 / 30 szt.";
+            lblContextInv.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            lblContextInv.ForeColor = Color.DarkGray;
+            lblContextInv.Location = new Point(300, 45);
+            lblContextInv.Size = new Size(250, 15);
+            pnlContextInspector.Controls.Add(lblContextInv);
+
+            pnlContextInvBars = new Panel();
+            pnlContextInvBars.Location = new Point(300, 65);
+            pnlContextInvBars.Size = new Size(270, 50);
+            pnlContextInvBars.BackColor = Color.FromArgb(20, 20, 20);
+            pnlContextInvBars.AutoScroll = true;
+            pnlContextInspector.Controls.Add(pnlContextInvBars);
+
+            // 2.1c PIONOWY PASEK SKRÓTÓW (RIGHT SHORTCUT SIDEBAR)
+            pnlRightShortcutBar = new Panel();
+            pnlRightShortcutBar.Dock = DockStyle.Right;
+            pnlRightShortcutBar.Width = 60;
+            pnlRightShortcutBar.BackColor = Color.FromArgb(15, 15, 15);
+            pnlGameBoard.Controls.Add(pnlRightShortcutBar);
+
+            // Ozdobna linia boczna
+            Panel pnlRightShortcutBorder = new Panel();
+            pnlRightShortcutBorder.Dock = DockStyle.Left;
+            pnlRightShortcutBorder.Width = 1;
+            pnlRightShortcutBorder.BackColor = Color.FromArgb(45, 45, 45);
+            pnlRightShortcutBar.Controls.Add(pnlRightShortcutBorder);
+
+            // Stack przycisków skrótów
+            Button btnShortcutFinance = CreateShortcutButton("$", 15, Color.FromArgb(100, 220, 100), (s, e) => ToggleFinanceReport());
+            Button btnShortcutResearch = CreateShortcutButton("🔬", 80, Color.FromArgb(50, 150, 250), (s, e) => MessageBox.Show("Moduł Badawczo-Rozwojowy (R&D) jest zablokowany w tej wersji demonstracyjnej.\n\nAby odblokować drzewo technologiczne i badania, zakup pełną wersję gry.", "Moduł R&D Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            Button btnShortcutMarketing = CreateShortcutButton("📢", 145, Color.FromArgb(240, 180, 50), (s, e) => MessageBox.Show("Moduł Marketingu i Zarządzania Marką jest zablokowany w tej wersji demonstracyjnej.\n\nAby prowadzić kampanie reklamowe i budować wizerunek firmy, zakup pełną wersję gry.", "Moduł Marketingu Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            Button btnShortcutHR = CreateShortcutButton("👥", 210, Color.FromArgb(220, 100, 220), (s, e) => MessageBox.Show("Moduł HR i Zarządzania Kadrą Kierowniczą jest zablokowany w tej wersji demonstracyjnej.\n\nAby zatrudniać dyrektorów (CEO, CFO, COO) i zarządzać płacami, zakup pełną wersję gry.", "Moduł HR Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
+
+            pnlRightShortcutBar.Controls.Add(btnShortcutFinance);
+            pnlRightShortcutBar.Controls.Add(btnShortcutResearch);
+            pnlRightShortcutBar.Controls.Add(btnShortcutMarketing);
+            pnlRightShortcutBar.Controls.Add(btnShortcutHR);
 
             // 2.2 PANEL PRAWY (Budownictwo)
             pnlRight = new Panel();
@@ -478,21 +614,12 @@ namespace Conglomerate
             btnBuildMiningWarehouse.Click += (s, e) => SelectBlueprint(SelectedBlueprint.MiningWarehouse, btnBuildMiningWarehouse);
             pnlRight.Controls.Add(btnBuildMiningWarehouse);
 
-            // 2.3 PANEL DOLNY (Status)
+            // 2.3 PANEL DOLNY (Status) - ukryty w celu uzyskania nowoczesnego HUDu
             pnlBottom = new Panel();
-            pnlBottom.Dock = DockStyle.Bottom;
-            pnlBottom.Height = 40;
-            pnlBottom.BackColor = Color.FromArgb(20, 20, 20);
-            pnlBottom.Padding = new Padding(10, 5, 10, 5);
-            pnlGameBoard.Controls.Add(pnlBottom);
+            pnlBottom.Visible = false;
 
             lblBottomStatus = new Label();
-            lblBottomStatus.Text = "Sterowanie: [Lewy / Prawy myszy] Przesuwanie mapy | [Kółko myszy] Zoom | [Kliknięcie] Zaznaczenie kafla terenu";
-            lblBottomStatus.Font = new Font("Segoe UI", 8, FontStyle.Regular);
-            lblBottomStatus.ForeColor = Color.DarkGray;
-            lblBottomStatus.Location = new Point(10, 12);
-            lblBottomStatus.Size = new Size(800, 20);
-            pnlBottom.Controls.Add(lblBottomStatus);
+            lblBottomStatus.Text = "";
 
             // 2.4 CENTRALNY MONOGAME PANEL (Renderer)
             mapControl = new IsometricMapControl();
@@ -524,6 +651,7 @@ namespace Conglomerate
                 CenterFinanceReportPanel();
                 CenterSaveGameOverlayPanel();
                 CenterEscapeMenuPanel();
+                CenterContextInspectorPanel();
             };
 
             // Rejestracja zdarzeń mapy (jednorazowo)
@@ -737,10 +865,12 @@ namespace Conglomerate
                 if (tile.Type == TileType.Building && tile.Building != null)
                 {
                     OpenBuildingDetails(tile.Building);
+                    ShowContextInspector(tile.Building);
                 }
                 else
                 {
                     CloseBuildingDetails();
+                    CloseContextInspector();
                 }
             }
         }
@@ -834,9 +964,37 @@ namespace Conglomerate
 
             lblCompanyName.Text = $"Firma: {_company.Name}";
             lblCash.Text = $"{_company.Balance:C}";
+            lblCash.ForeColor = _company.Balance >= 0 ? Color.FromArgb(100, 220, 100) : Color.FromArgb(240, 80, 80);
             
-            // Format zegara: Dzień X (Godzina YY:00)
-            lblDay.Text = $"DZIEŃ: {_gameManager.CurrentDay} ({_gameManager.CurrentHour:D2}:00)";
+            // Format zegara: dd MMMM yyyy (np. 12 czerwca 2026)
+            var currentInGameDate = new DateTime(2026, 6, 12).AddDays(_gameManager.CurrentDay - 1);
+            lblDate.Text = currentInGameDate.ToString("dd MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("pl-PL"));
+
+            // Trend gotówki w oparciu o historię ostatnich 24 ticków (1 doba gry)
+            _cashHistory.Enqueue(_company.Balance);
+            if (_cashHistory.Count > 24) _cashHistory.Dequeue();
+
+            decimal hourlyTrend = 0m;
+            if (_cashHistory.Count > 1)
+            {
+                decimal firstCash = _cashHistory.Peek();
+                decimal lastCash = _company.Balance;
+                hourlyTrend = (lastCash - firstCash) / (_cashHistory.Count - 1);
+            }
+            decimal minTrend = hourlyTrend / 60m;
+            lblCashTrend.Text = $"{(minTrend >= 0 ? "+" : "")}{minTrend:C}/min";
+            lblCashTrend.ForeColor = minTrend >= 0 ? Color.FromArgb(100, 220, 100) : Color.FromArgb(240, 80, 80);
+
+            // Corporate Net Worth
+            var bs = _company.Engine.CalculateCurrentBalanceSheet();
+            decimal netWorth = bs.TotalAssets - bs.TotalLiabilities;
+            lblNetWorth.Text = $"Net Worth: {netWorth:C}";
+
+            // Live Context Inspector Update
+            if (pnlContextInspector.Visible)
+            {
+                UpdateContextInspector();
+            }
         }
 
         private void OpenBuildingDetails(Building building)
@@ -1065,13 +1223,156 @@ namespace Conglomerate
             }
         }
 
+        private void CenterContextInspectorPanel()
+        {
+            if (pnlContextInspector != null && pnlGameBoard != null)
+            {
+                pnlContextInspector.Location = new Point(
+                    (pnlGameBoard.Width - pnlContextInspector.Width) / 2,
+                    pnlGameBoard.Height - pnlNewsTicker.Height - pnlContextInspector.Height - 15
+                );
+            }
+        }
+
+        private void ShowContextInspector(Building building)
+        {
+            _inspectingBuilding = building;
+            pnlContextInspector.Visible = true;
+            pnlContextInspector.BringToFront();
+            CenterContextInspectorPanel();
+            UpdateContextInspector();
+        }
+
+        private void CloseContextInspector()
+        {
+            if (pnlContextInspector != null)
+            {
+                pnlContextInspector.Visible = false;
+            }
+        }
+
+        private void UpdateContextInspector()
+        {
+            if (_inspectingBuilding == null || _company == null) return;
+
+            bool isPlayerOwned = _company.Buildings.Contains(_inspectingBuilding);
+            string ownerSuffix = isPlayerOwned ? "(Gracz)" : "(Konkurent)";
+            lblContextTitle.Text = $"{_inspectingBuilding.Name} {ownerSuffix}";
+
+            // 1. Capacity Utilization
+            int utilization = 100;
+            string utilText = "Wykorzystanie: 100%";
+
+            if (isPlayerOwned)
+            {
+                if (_inspectingBuilding.GetTotalStock() >= _inspectingBuilding.WarehouseCapacity)
+                {
+                    utilization = 0;
+                    utilText = "Moc: 0% (Magazyn Pełny)";
+                }
+                else if (_company.Balance < _inspectingBuilding.MaintenanceCost)
+                {
+                    utilization = 0;
+                    utilText = "Moc: 0% (Brak Środków)";
+                }
+                else if (_inspectingBuilding is WarehouseBuilding)
+                {
+                    int totalStock = _inspectingBuilding.GetTotalStock();
+                    int cap = _inspectingBuilding.WarehouseCapacity;
+                    utilization = cap > 0 ? (int)((double)totalStock / cap * 100) : 0;
+                    utilText = $"Zapełnienie: {utilization}%";
+                }
+                else
+                {
+                    utilText = "Moc: 100% (Praca)";
+                }
+            }
+            else
+            {
+                utilization = 85;
+                utilText = "Moc: 85% (Praca AI)";
+            }
+
+            lblContextUtilization.Text = utilText;
+            pnlContextUtilProgressFg.Width = (int)((utilization / 100.0) * pnlContextUtilProgressBg.Width);
+
+            // 2. Inventory Status
+            int currentStock = _inspectingBuilding.GetTotalStock();
+            int maxStock = _inspectingBuilding.WarehouseCapacity;
+            lblContextInv.Text = $"Stan Magazynu: {currentStock} / {maxStock} szt.";
+
+            // Render fill-bary zasobów
+            pnlContextInvBars.Controls.Clear();
+            int barY = 0;
+            foreach (var kvp in _inspectingBuilding.Warehouse.ToList())
+            {
+                string resName = kvp.Key;
+                int qty = kvp.Value;
+
+                Label lblRes = new Label();
+                lblRes.Text = $"{resName}: {qty}";
+                lblRes.Font = new Font("Segoe UI", 8, FontStyle.Bold);
+                lblRes.ForeColor = Color.LightGray;
+                lblRes.Location = new Point(5, barY);
+                lblRes.Size = new Size(100, 15);
+                pnlContextInvBars.Controls.Add(lblRes);
+
+                Panel pnlBg = new Panel();
+                pnlBg.Location = new Point(110, barY + 2);
+                pnlBg.Size = new Size(130, 10);
+                pnlBg.BackColor = Color.FromArgb(45, 45, 45);
+                pnlContextInvBars.Controls.Add(pnlBg);
+
+                Panel pnlFg = new Panel();
+                pnlFg.Location = new Point(0, 0);
+                int fgWidth = maxStock > 0 ? (int)((double)qty / maxStock * 130) : 0;
+                pnlFg.Size = new Size(Math.Min(130, fgWidth), 10);
+                pnlFg.BackColor = Color.FromArgb(100, 220, 100);
+                pnlBg.Controls.Add(pnlFg);
+
+                barY += 18;
+            }
+
+            // 3. Local P&L
+            decimal pnlValue = 0m;
+            if (isPlayerOwned)
+            {
+                pnlValue = _company.Engine.CalculateFacilityMonthlyPnL(_inspectingBuilding.FacilityId);
+            }
+            else
+            {
+                pnlValue = 4250m;
+            }
+
+            lblContextPnL.Text = $"Wynik (P&L): {pnlValue:C}";
+            lblContextPnL.ForeColor = pnlValue >= 0 ? Color.FromArgb(100, 220, 100) : Color.FromArgb(240, 80, 80);
+        }
+
+        private Button CreateShortcutButton(string iconText, int yPos, Color accentColor, EventHandler onClick)
+        {
+            Button btn = new Button();
+            btn.Text = iconText;
+            btn.Font = new Font("Segoe UI Semibold", 13, FontStyle.Bold);
+            btn.Size = new Size(46, 46);
+            btn.Location = new Point(7, yPos);
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.FromArgb(40, 40, 40);
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(35, 35, 35);
+            btn.BackColor = Color.FromArgb(25, 25, 25);
+            btn.ForeColor = accentColor;
+            btn.Cursor = Cursors.Hand;
+            btn.Click += onClick;
+            return btn;
+        }
+
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
             if (e.KeyCode == Keys.Escape)
             {
                 // 1. Jeśli otwarte są panele szczegółowe lub modalne, zamknij je w pierwszej kolejności
-                if (pnlBuildingDetails.Visible || pnlFinanceReport.Visible || pnlSaveGameOverlay.Visible || pnlEscapeMenu.Visible)
+                if (pnlBuildingDetails.Visible || pnlFinanceReport.Visible || pnlSaveGameOverlay.Visible || pnlEscapeMenu.Visible || pnlContextInspector.Visible)
                 {
                     if (pnlEscapeMenu.Visible)
                     {
@@ -1081,6 +1382,7 @@ namespace Conglomerate
                     
                     CloseBuildingDetails();
                     CloseFinanceReport();
+                    CloseContextInspector();
                     pnlSaveGameOverlay.Visible = false;
                     
                     if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)

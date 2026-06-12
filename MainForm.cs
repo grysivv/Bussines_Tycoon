@@ -433,7 +433,7 @@ namespace Conglomerate
 
             // 2.6 PANEL RAPORTU FINANSOWEGO (Floating Overlay Panel)
             pnlFinanceReport = new Panel();
-            pnlFinanceReport.Size = new Size(600, 480);
+            pnlFinanceReport.Size = new Size(800, 480);
             pnlFinanceReport.BackColor = Color.FromArgb(30, 30, 30);
             pnlFinanceReport.BorderStyle = BorderStyle.FixedSingle;
             pnlFinanceReport.Visible = false;
@@ -1000,30 +1000,30 @@ namespace Conglomerate
             var bs = _company.Engine.CalculateCurrentBalanceSheet();
 
             // Format strings for P&L and Balance Sheet details with padded alignment
-            string pnlText = $"{ "Przychody ze sprzedaży:",-26 } {pnl.Revenue,15:C}\n" +
-                             $"{ "Koszty surowców (COGS):",-26 } {pnl.RawMaterials,15:C}\n" +
-                             $"{ "Logistyka i marketing:",-26 } {(pnl.Logistics + pnl.Marketing),15:C}\n" +
-                             $"{ "Wynagrodzenia i płace:",-26 } {pnl.Salaries,15:C}\n" +
-                             $"---------------------------------------------\n" +
-                             $"{ "EBITDA:",-26 } {pnl.EBITDA,15:C}\n" +
-                             $"{ "Amortyzacja (niegotówk.):",-26 } {pnl.Depreciation,15:C}\n" +
-                             $"{ "EBIT (Zysk operacyjny):",-26 } {pnl.EBIT,15:C}\n" +
-                             $"{ "Podatek dochodowy (CIT):",-26 } {pnl.CorporateTax,15:C}\n";
+            string pnlText = $"{ "Przychody ze sprzedaży:",-28 } {pnl.Revenue,16:C}\n" +
+                             $"{ "Koszty surowców (COGS):",-28 } {pnl.RawMaterials,16:C}\n" +
+                             $"{ "Logistyka i marketing:",-28 } {(pnl.Logistics + pnl.Marketing),16:C}\n" +
+                             $"{ "Wynagrodzenia i płace:",-28 } {pnl.Salaries,16:C}\n" +
+                             $"------------------------------------------------\n" +
+                             $"{ "EBITDA:",-28 } {pnl.EBITDA,16:C}\n" +
+                             $"{ "Amortyzacja (niegotówk.):",-28 } {pnl.Depreciation,16:C}\n" +
+                             $"{ "EBIT (Zysk operacyjny):",-28 } {pnl.EBIT,16:C}\n" +
+                             $"{ "Podatek dochodowy (CIT):",-28 } {pnl.CorporateTax,16:C}\n";
 
-            string netIncomeText = $"{ "ZYSK NETTO:",-26 } {pnl.NetIncome,15:C}";
+            string netIncomeText = $"{ "ZYSK NETTO:",-28 } {pnl.NetIncome,16:C}";
 
             string bsText = $"AKTYWA (Assets)\n" +
-                            $"{ "  Gotówka:",-26 } {bs.Cash,15:C}\n" +
-                            $"{ "  Zapasy (magazyn):",-26 } {bs.InventoryValue,15:C}\n" +
-                            $"{ "  Nieruchomości (netto):",-26 } {bs.PropertyBookValue,15:C}\n" +
-                            $"  -------------------------------------------\n" +
-                            $"{ "  SUMA AKTYWÓW:",-26 } {bs.TotalAssets,15:C}\n\n" +
+                            $"{ "  Gotówka:",-28 } {bs.Cash,16:C}\n" +
+                            $"{ "  Zapasy (magazyn):",-28 } {bs.InventoryValue,16:C}\n" +
+                            $"{ "  Nieruchomości (netto):",-28 } {bs.PropertyBookValue,16:C}\n" +
+                            $"  --------------------------------------------\n" +
+                            $"{ "  SUMA AKTYWÓW:",-28 } {bs.TotalAssets,16:C}\n\n" +
                             $"PASYWA (Liabilities & Equity)\n" +
-                            $"{ "  Kredyty bankowe:",-26 } {bs.Loans,15:C}\n" +
-                            $"{ "  Kapitał akcyjny:",-26 } {bs.ShareCapital,15:C}\n" +
-                            $"{ "  Zyski zatrzymane:",-26 } {bs.RetainedEarnings,15:C}\n" +
-                            $"  -------------------------------------------\n" +
-                            $"{ "  SUMA PASYWÓW:",-26 } {bs.TotalLiabilitiesAndEquity,15:C}";
+                            $"{ "  Kredyty bankowe:",-28 } {bs.Loans,16:C}\n" +
+                            $"{ "  Kapitał akcyjny:",-28 } {bs.ShareCapital,16:C}\n" +
+                            $"{ "  Zyski zatrzymane:",-28 } {bs.RetainedEarnings,16:C}\n" +
+                            $"  --------------------------------------------\n" +
+                            $"{ "  SUMA PASYWÓW:",-28 } {bs.TotalLiabilitiesAndEquity,16:C}";
 
             string balanceStatusText = $"Bilans zrównoważony: {(bs.IsBalanced ? "TAK" : "NIE")}";
 
@@ -1106,7 +1106,7 @@ namespace Conglomerate
             // Sekcja lewa: P&L
             Panel pnlPnL = new Panel();
             pnlPnL.Location = new Point(20, 75);
-            pnlPnL.Size = new Size(330, 340);
+            pnlPnL.Size = new Size(360, 340);
             pnlPnL.BackColor = Color.FromArgb(25, 25, 25);
             pnlPnL.BorderStyle = BorderStyle.FixedSingle;
             pnlFinanceReport.Controls.Add(pnlPnL);
@@ -1116,7 +1116,7 @@ namespace Conglomerate
             lblPnLTitle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             lblPnLTitle.ForeColor = Color.FromArgb(50, 150, 250);
             lblPnLTitle.Location = new Point(10, 10);
-            lblPnLTitle.Size = new Size(310, 15);
+            lblPnLTitle.Size = new Size(340, 15);
             pnlPnL.Controls.Add(lblPnLTitle);
 
             Label lblPnLDetails = new Label();
@@ -1125,7 +1125,7 @@ namespace Conglomerate
             lblPnLDetails.Font = new Font("Consolas", 8.5f, FontStyle.Regular);
             lblPnLDetails.ForeColor = Color.LightGray;
             lblPnLDetails.Location = new Point(10, 35);
-            lblPnLDetails.Size = new Size(310, 240);
+            lblPnLDetails.Size = new Size(340, 240);
             pnlPnL.Controls.Add(lblPnLDetails);
 
             Label lblNetIncome = new Label();
@@ -1134,13 +1134,13 @@ namespace Conglomerate
             lblNetIncome.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             lblNetIncome.ForeColor = pnl.NetIncome >= 0 ? Color.FromArgb(100, 220, 100) : Color.LightCoral;
             lblNetIncome.Location = new Point(10, 295);
-            lblNetIncome.Size = new Size(310, 20);
+            lblNetIncome.Size = new Size(340, 20);
             pnlPnL.Controls.Add(lblNetIncome);
 
             // Sekcja prawa: Balance Sheet
             Panel pnlBS = new Panel();
-            pnlBS.Location = new Point(370, 75);
-            pnlBS.Size = new Size(330, 340);
+            pnlBS.Location = new Point(410, 75);
+            pnlBS.Size = new Size(360, 340);
             pnlBS.BackColor = Color.FromArgb(25, 25, 25);
             pnlBS.BorderStyle = BorderStyle.FixedSingle;
             pnlFinanceReport.Controls.Add(pnlBS);
@@ -1150,7 +1150,7 @@ namespace Conglomerate
             lblBSTitle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             lblBSTitle.ForeColor = Color.FromArgb(50, 150, 250);
             lblBSTitle.Location = new Point(10, 10);
-            lblBSTitle.Size = new Size(310, 15);
+            lblBSTitle.Size = new Size(340, 15);
             pnlBS.Controls.Add(lblBSTitle);
 
             Label lblBSRef = new Label();
@@ -1159,7 +1159,7 @@ namespace Conglomerate
             lblBSRef.Font = new Font("Consolas", 8.5f, FontStyle.Regular);
             lblBSRef.ForeColor = Color.LightGray;
             lblBSRef.Location = new Point(10, 35);
-            lblBSRef.Size = new Size(310, 240);
+            lblBSRef.Size = new Size(340, 240);
             pnlBS.Controls.Add(lblBSRef);
 
             Label lblBalanceStatus = new Label();
@@ -1168,7 +1168,7 @@ namespace Conglomerate
             lblBalanceStatus.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             lblBalanceStatus.ForeColor = bs.IsBalanced ? Color.FromArgb(100, 220, 100) : Color.LightCoral;
             lblBalanceStatus.Location = new Point(10, 295);
-            lblBalanceStatus.Size = new Size(310, 20);
+            lblBalanceStatus.Size = new Size(340, 20);
             pnlBS.Controls.Add(lblBalanceStatus);
 
             // Stopka ESC

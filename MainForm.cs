@@ -19,6 +19,19 @@ namespace Conglomerate
         private Panel pnlStartScreen = null!;
         private Panel pnlStartCenter = null!;
         private Panel pnlGameBoard = null!;
+        private Panel pnlNewGameSettings = null!;
+        private Panel pnlLoadGameMenu = null!;
+        private Panel pnlSaveGameOverlay = null!;
+
+        public enum MenuState
+        {
+            MainMenu,
+            NewGameSettings,
+            LoadGameMenu,
+            Playing
+        }
+
+        private MenuState _currentMenuState = MenuState.MainMenu;
 
         // Zegar gry (System Tick)
         private System.Windows.Forms.Timer _gameTimer = null!;
@@ -133,46 +146,32 @@ namespace Conglomerate
             lblSubTitleStart.TextAlign = ContentAlignment.MiddleCenter;
             pnlStartCenter.Controls.Add(lblSubTitleStart);
 
-            Label lblPrompt = new Label();
-            lblPrompt.Text = "Wprowadź nazwę swojej nowej korporacji:";
-            lblPrompt.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            lblPrompt.Location = new Point(30, 95);
-            lblPrompt.Size = new Size(340, 20);
-            pnlStartCenter.Controls.Add(lblPrompt);
+            Button btnNewGame = new Button();
+            btnNewGame.Text = "NOWA ROZGRYWKA";
+            btnNewGame.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            btnNewGame.Location = new Point(30, 110);
+            btnNewGame.Size = new Size(340, 45);
+            btnNewGame.FlatStyle = FlatStyle.Flat;
+            btnNewGame.FlatAppearance.BorderSize = 0;
+            btnNewGame.BackColor = Color.FromArgb(50, 150, 250);
+            btnNewGame.ForeColor = Color.White;
+            btnNewGame.Cursor = Cursors.Hand;
+            btnNewGame.Click += (s, e) => ChangeMenuState(MenuState.NewGameSettings);
+            pnlStartCenter.Controls.Add(btnNewGame);
 
-            TextBox txtCompanyName = new TextBox();
-            txtCompanyName.Text = "Moja Korporacja";
-            txtCompanyName.Font = new Font("Segoe UI", 10);
-            txtCompanyName.Location = new Point(30, 120);
-            txtCompanyName.Size = new Size(340, 25);
-            txtCompanyName.BackColor = Color.FromArgb(45, 45, 45);
-            txtCompanyName.ForeColor = Color.White;
-            txtCompanyName.BorderStyle = BorderStyle.FixedSingle;
-            pnlStartCenter.Controls.Add(txtCompanyName);
-
-            Button btnStartGame = new Button();
-            btnStartGame.Text = "Rozpocznij Symulację";
-            btnStartGame.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            btnStartGame.Location = new Point(30, 165);
-            btnStartGame.Size = new Size(340, 45);
-            btnStartGame.FlatStyle = FlatStyle.Flat;
-            btnStartGame.FlatAppearance.BorderSize = 0;
-            btnStartGame.BackColor = Color.FromArgb(50, 150, 250);
-            btnStartGame.ForeColor = Color.White;
-            btnStartGame.Cursor = Cursors.Hand;
-            btnStartGame.Click += (s, e) =>
-            {
-                string name = txtCompanyName.Text.Trim();
-                if (!string.IsNullOrWhiteSpace(name))
-                {
-                    StartGame(name);
-                }
-                else
-                {
-                    MessageBox.Show("Nazwa korporacji nie może być pusta!", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-            };
-            pnlStartCenter.Controls.Add(btnStartGame);
+            Button btnLoadGameMenu = new Button();
+            btnLoadGameMenu.Text = "WCZYTAJ GRĘ";
+            btnLoadGameMenu.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            btnLoadGameMenu.Location = new Point(30, 170);
+            btnLoadGameMenu.Size = new Size(340, 45);
+            btnLoadGameMenu.FlatStyle = FlatStyle.Flat;
+            btnLoadGameMenu.FlatAppearance.BorderSize = 1;
+            btnLoadGameMenu.FlatAppearance.BorderColor = Color.FromArgb(50, 150, 250);
+            btnLoadGameMenu.BackColor = Color.FromArgb(30, 30, 30);
+            btnLoadGameMenu.ForeColor = Color.FromArgb(50, 150, 250);
+            btnLoadGameMenu.Cursor = Cursors.Hand;
+            btnLoadGameMenu.Click += (s, e) => ChangeMenuState(MenuState.LoadGameMenu);
+            pnlStartCenter.Controls.Add(btnLoadGameMenu);
 
             // ========================================================
             // SCENA 2: PLANSZA ROZGRYWKI (GRA)
@@ -239,6 +238,54 @@ namespace Conglomerate
             btnNavCongress.ForeColor = Color.Gray;
             btnNavCongress.Enabled = false;
             pnlTopNav.Controls.Add(btnNavCongress);
+
+            Button btnNavSave = new Button();
+            btnNavSave.Text = "ZAPISZ GRĘ";
+            btnNavSave.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btnNavSave.Size = new Size(100, 30);
+            btnNavSave.Location = new Point(pnlTopNav.Width - 230, 8);
+            btnNavSave.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnNavSave.FlatStyle = FlatStyle.Flat;
+            btnNavSave.FlatAppearance.BorderSize = 1;
+            btnNavSave.FlatAppearance.BorderColor = Color.FromArgb(100, 220, 100);
+            btnNavSave.BackColor = Color.FromArgb(35, 35, 35);
+            btnNavSave.ForeColor = Color.FromArgb(100, 220, 100);
+            btnNavSave.Cursor = Cursors.Hand;
+            btnNavSave.Click += (s, e) =>
+            {
+                if (_company != null)
+                {
+                    _gameTimer.Stop();
+                    var txtSave = pnlSaveGameOverlay.Controls.Find("txtSaveName", true).FirstOrDefault() as TextBox;
+                    if (txtSave != null)
+                    {
+                        txtSave.Text = $"{_company.Name}_Dzień{_gameManager?.CurrentDay ?? 1}";
+                    }
+                    CenterSaveGameOverlayPanel();
+                    pnlSaveGameOverlay.Visible = true;
+                    pnlSaveGameOverlay.BringToFront();
+                    pnlSaveGameOverlay.Focus();
+                }
+            };
+            pnlTopNav.Controls.Add(btnNavSave);
+
+            Button btnNavLoad = new Button();
+            btnNavLoad.Text = "WCZYTAJ GRĘ";
+            btnNavLoad.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btnNavLoad.Size = new Size(100, 30);
+            btnNavLoad.Location = new Point(pnlTopNav.Width - 120, 8);
+            btnNavLoad.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnNavLoad.FlatStyle = FlatStyle.Flat;
+            btnNavLoad.FlatAppearance.BorderSize = 1;
+            btnNavLoad.FlatAppearance.BorderColor = Color.FromArgb(240, 180, 50);
+            btnNavLoad.BackColor = Color.FromArgb(35, 35, 35);
+            btnNavLoad.ForeColor = Color.FromArgb(240, 180, 50);
+            btnNavLoad.Cursor = Cursors.Hand;
+            btnNavLoad.Click += (s, e) =>
+            {
+                ChangeMenuState(MenuState.LoadGameMenu);
+            };
+            pnlTopNav.Controls.Add(btnNavLoad);
 
             // 2.1 PANEL LEWY (Statystyki i Akcje)
             pnlLeft = new Panel();
@@ -444,6 +491,33 @@ namespace Conglomerate
             pnlGameBoard.SizeChanged += (s, e) => {
                 CenterBuildingDetailsPanel();
                 CenterFinanceReportPanel();
+                CenterSaveGameOverlayPanel();
+            };
+
+            // Rejestracja zdarzeń mapy (jednorazowo)
+            mapControl.OnTileSelected += OnTileSelectedOnMap;
+            mapControl.OnTileHovered += OnTileHoveredOnMap;
+
+            // Inicjalizacja nowych paneli nakładkowych i menu
+            InitializeNewGameSettingsPanel();
+            InitializeLoadGameMenuPanel();
+            InitializeSaveGameOverlayPanel();
+
+            // Automatyczne pozycjonowanie paneli przy starcie
+            pnlStartScreen.SizeChanged += (s, e) =>
+            {
+                pnlStartCenter.Location = new Point(
+                    (pnlStartScreen.Width - pnlStartCenter.Width) / 2,
+                    (pnlStartScreen.Height - pnlStartCenter.Height) / 2
+                );
+                pnlNewGameSettings.Location = new Point(
+                    (pnlStartScreen.Width - pnlNewGameSettings.Width) / 2,
+                    (pnlStartScreen.Height - pnlNewGameSettings.Height) / 2
+                );
+                pnlLoadGameMenu.Location = new Point(
+                    (pnlStartScreen.Width - pnlLoadGameMenu.Width) / 2,
+                    (pnlStartScreen.Height - pnlLoadGameMenu.Height) / 2
+                );
             };
         }
 
@@ -486,24 +560,22 @@ namespace Conglomerate
             }
         }
 
-        private void StartGame(string companyName)
+        private void StartGameWithSettings(string companyName, GameGenerationSettings settings)
         {
             // Inicjalizacja modeli silnika gry (Core)
-            _company = new Company(companyName, 50000m);
+            _company = new Company(companyName, settings.StartingCash);
+            _company.Engine.TaxRate = settings.GlobalCorporateTax;
             _map = new Map(10, 10);
             _gameManager = new GameManager(_company, _map);
 
             // Subskrypcja zdarzeń
             _gameManager.OnTickPerformed += OnTickPerformed;
-            mapControl.OnTileSelected += OnTileSelectedOnMap;
-            mapControl.OnTileHovered += OnTileHoveredOnMap;
 
             // Inicjalizacja danych mapy w kontrolce
             mapControl.Initialize(_map, _gameManager);
 
             // Przejście scen: Ukrycie startowego, wyświetlenie gry
-            pnlStartScreen.Visible = false;
-            pnlGameBoard.Visible = true;
+            ChangeMenuState(MenuState.Playing);
 
             // Domyślne uruchomienie gry z prędkością 1x (tick co 1 sekunda)
             SetGameSpeed(1000, btnSpeed1x);
@@ -1179,6 +1251,734 @@ namespace Conglomerate
             lblFooter.Location = new Point(20, 445);
             lblFooter.Size = new Size(400, 15);
             pnlFinanceReport.Controls.Add(lblFooter);
+        }
+
+        private void InitializeNewGameSettingsPanel()
+        {
+            pnlNewGameSettings = new Panel();
+            pnlNewGameSettings.Size = new Size(650, 480);
+            pnlNewGameSettings.BackColor = Color.FromArgb(30, 30, 30);
+            pnlNewGameSettings.Visible = false;
+            pnlStartScreen.Controls.Add(pnlNewGameSettings);
+
+            // Obramowanie ozdobne na górze
+            Panel pnlBorder = new Panel();
+            pnlBorder.Dock = DockStyle.Top;
+            pnlBorder.Height = 4;
+            pnlBorder.BackColor = Color.FromArgb(50, 150, 250);
+            pnlNewGameSettings.Controls.Add(pnlBorder);
+
+            // Przycisk wstecz
+            Button btnBack = new Button();
+            btnBack.Text = "< Powrót";
+            btnBack.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBack.Location = new Point(20, 20);
+            btnBack.Size = new Size(90, 30);
+            btnBack.FlatStyle = FlatStyle.Flat;
+            btnBack.FlatAppearance.BorderSize = 1;
+            btnBack.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+            btnBack.ForeColor = Color.LightGray;
+            btnBack.Cursor = Cursors.Hand;
+            btnBack.Click += (s, e) => ChangeMenuState(MenuState.MainMenu);
+            pnlNewGameSettings.Controls.Add(btnBack);
+
+            // Tytuł
+            Label lblTitle = new Label();
+            lblTitle.Text = "USTAWIENIA NOWEJ ROZGRYWKI";
+            lblTitle.Font = new Font("Segoe UI", 14, FontStyle.Bold);
+            lblTitle.ForeColor = Color.FromArgb(50, 150, 250);
+            lblTitle.Location = new Point(120, 20);
+            lblTitle.Size = new Size(410, 30);
+            lblTitle.TextAlign = ContentAlignment.MiddleCenter;
+            pnlNewGameSettings.Controls.Add(lblTitle);
+
+            // KOLUMNA LEWA: Ustawienia Aktywne i Mapy
+            // Nazwa firmy
+            Label lblName = new Label();
+            lblName.Text = "Nazwa Korporacji:";
+            lblName.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblName.Location = new Point(40, 75);
+            lblName.Size = new Size(250, 20);
+            pnlNewGameSettings.Controls.Add(lblName);
+
+            TextBox txtCompanyNameSettings = new TextBox();
+            txtCompanyNameSettings.Name = "txtCompanyNameSettings";
+            txtCompanyNameSettings.Text = "Moja Korporacja";
+            txtCompanyNameSettings.Font = new Font("Segoe UI", 10);
+            txtCompanyNameSettings.Location = new Point(40, 95);
+            txtCompanyNameSettings.Size = new Size(250, 25);
+            txtCompanyNameSettings.BackColor = Color.FromArgb(45, 45, 45);
+            txtCompanyNameSettings.ForeColor = Color.White;
+            txtCompanyNameSettings.BorderStyle = BorderStyle.FixedSingle;
+            pnlNewGameSettings.Controls.Add(txtCompanyNameSettings);
+
+            // Kapitał Startowy (Aktywny)
+            Label lblCash = new Label();
+            lblCash.Text = "Kapitał Startowy ($):";
+            lblCash.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblCash.Location = new Point(40, 135);
+            lblCash.Size = new Size(250, 20);
+            pnlNewGameSettings.Controls.Add(lblCash);
+
+            NumericUpDown numStartingCash = new NumericUpDown();
+            numStartingCash.Name = "numStartingCash";
+            numStartingCash.Minimum = 10000;
+            numStartingCash.Maximum = 1000000;
+            numStartingCash.Value = 50000;
+            numStartingCash.Increment = 10000;
+            numStartingCash.ThousandsSeparator = true;
+            numStartingCash.Font = new Font("Segoe UI", 10);
+            numStartingCash.Location = new Point(40, 155);
+            numStartingCash.Size = new Size(250, 25);
+            numStartingCash.BackColor = Color.FromArgb(45, 45, 45);
+            numStartingCash.ForeColor = Color.White;
+            pnlNewGameSettings.Controls.Add(numStartingCash);
+
+            // Podatki CIT (Aktywne)
+            Label lblTax = new Label();
+            lblTax.Text = "Podatki Korporacyjne (CIT %):";
+            lblTax.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblTax.Location = new Point(40, 195);
+            lblTax.Size = new Size(250, 20);
+            pnlNewGameSettings.Controls.Add(lblTax);
+
+            NumericUpDown numTax = new NumericUpDown();
+            numTax.Name = "numTax";
+            numTax.Minimum = 0;
+            numTax.Maximum = 50;
+            numTax.Value = 19;
+            numTax.Font = new Font("Segoe UI", 10);
+            numTax.Location = new Point(40, 215);
+            numTax.Size = new Size(250, 25);
+            numTax.BackColor = Color.FromArgb(45, 45, 45);
+            numTax.ForeColor = Color.White;
+            pnlNewGameSettings.Controls.Add(numTax);
+
+            // Parametry Mapy (Nieaktywne)
+            Label lblMapSection = new Label();
+            lblMapSection.Text = "PARAMETRY MAPY (ZABLOKOWANE):";
+            lblMapSection.Font = new Font("Segoe UI", 9, FontStyle.Bold | FontStyle.Italic);
+            lblMapSection.ForeColor = Color.Gray;
+            lblMapSection.Location = new Point(40, 260);
+            lblMapSection.Size = new Size(250, 20);
+            pnlNewGameSettings.Controls.Add(lblMapSection);
+
+            Label lblCities = new Label();
+            lblCities.Text = "Liczba miast:";
+            lblCities.Font = new Font("Segoe UI", 8.5f);
+            lblCities.ForeColor = Color.Gray;
+            lblCities.Location = new Point(40, 280);
+            lblCities.Size = new Size(120, 20);
+            pnlNewGameSettings.Controls.Add(lblCities);
+
+            NumericUpDown numCities = new NumericUpDown();
+            numCities.Value = 1;
+            numCities.Enabled = false;
+            numCities.Location = new Point(170, 278);
+            numCities.Size = new Size(120, 23);
+            numCities.BackColor = Color.FromArgb(40, 40, 40);
+            numCities.ForeColor = Color.Gray;
+            pnlNewGameSettings.Controls.Add(numCities);
+
+            Label lblDensity = new Label();
+            lblDensity.Text = "Gęstość populacji:";
+            lblDensity.Font = new Font("Segoe UI", 8.5f);
+            lblDensity.ForeColor = Color.Gray;
+            lblDensity.Location = new Point(40, 310);
+            lblDensity.Size = new Size(120, 20);
+            pnlNewGameSettings.Controls.Add(lblDensity);
+
+            ComboBox cmbDensity = new ComboBox();
+            cmbDensity.Items.AddRange(new object[] { "Niska", "Średnia", "Wysoka" });
+            cmbDensity.SelectedIndex = 1;
+            cmbDensity.Enabled = false;
+            cmbDensity.Location = new Point(170, 308);
+            cmbDensity.Size = new Size(120, 23);
+            cmbDensity.BackColor = Color.FromArgb(40, 40, 40);
+            cmbDensity.ForeColor = Color.Gray;
+            pnlNewGameSettings.Controls.Add(cmbDensity);
+
+            Label lblResources = new Label();
+            lblResources.Text = "Surowce naturalne:";
+            lblResources.Font = new Font("Segoe UI", 8.5f);
+            lblResources.ForeColor = Color.Gray;
+            lblResources.Location = new Point(40, 340);
+            lblResources.Size = new Size(120, 20);
+            pnlNewGameSettings.Controls.Add(lblResources);
+
+            ComboBox cmbResources = new ComboBox();
+            cmbResources.Items.AddRange(new object[] { "Uboga", "Standardowa", "Obfita" });
+            cmbResources.SelectedIndex = 1;
+            cmbResources.Enabled = false;
+            cmbResources.Location = new Point(170, 338);
+            cmbResources.Size = new Size(120, 23);
+            cmbResources.BackColor = Color.FromArgb(40, 40, 40);
+            cmbResources.ForeColor = Color.Gray;
+            pnlNewGameSettings.Controls.Add(cmbResources);
+
+            // KOLUMNA PRAWA: Parametry Makro i Kapitał Startowy (Nieaktywne)
+            Label lblMacroSection = new Label();
+            lblMacroSection.Text = "PARAMETRY MAKRO (ZABLOKOWANE):";
+            lblMacroSection.Font = new Font("Segoe UI", 9, FontStyle.Bold | FontStyle.Italic);
+            lblMacroSection.ForeColor = Color.Gray;
+            lblMacroSection.Location = new Point(360, 75);
+            lblMacroSection.Size = new Size(250, 20);
+            pnlNewGameSettings.Controls.Add(lblMacroSection);
+
+            Label lblStartYear = new Label();
+            lblStartYear.Text = "Rok startowy:";
+            lblStartYear.Font = new Font("Segoe UI", 8.5f);
+            lblStartYear.ForeColor = Color.Gray;
+            lblStartYear.Location = new Point(360, 95);
+            lblStartYear.Size = new Size(120, 20);
+            pnlNewGameSettings.Controls.Add(lblStartYear);
+
+            NumericUpDown numStartYear = new NumericUpDown();
+            numStartYear.Value = 2026;
+            numStartYear.Enabled = false;
+            numStartYear.Location = new Point(490, 93);
+            numStartYear.Size = new Size(120, 23);
+            numStartYear.BackColor = Color.FromArgb(40, 40, 40);
+            numStartYear.ForeColor = Color.Gray;
+            pnlNewGameSettings.Controls.Add(numStartYear);
+
+            Label lblInflation = new Label();
+            lblInflation.Text = "Inflacja bazowa (%):";
+            lblInflation.Font = new Font("Segoe UI", 8.5f);
+            lblInflation.ForeColor = Color.Gray;
+            lblInflation.Location = new Point(360, 125);
+            lblInflation.Size = new Size(120, 20);
+            pnlNewGameSettings.Controls.Add(lblInflation);
+
+            NumericUpDown numInflation = new NumericUpDown();
+            numInflation.DecimalPlaces = 1;
+            numInflation.Value = 2.0m;
+            numInflation.Enabled = false;
+            numInflation.Location = new Point(490, 123);
+            numInflation.Size = new Size(120, 23);
+            numInflation.BackColor = Color.FromArgb(40, 40, 40);
+            numInflation.ForeColor = Color.Gray;
+            pnlNewGameSettings.Controls.Add(numInflation);
+
+            Label lblAggressiveness = new Label();
+            lblAggressiveness.Text = "Agresywność AI:";
+            lblAggressiveness.Font = new Font("Segoe UI", 8.5f);
+            lblAggressiveness.ForeColor = Color.Gray;
+            lblAggressiveness.Location = new Point(360, 155);
+            lblAggressiveness.Size = new Size(120, 20);
+            pnlNewGameSettings.Controls.Add(lblAggressiveness);
+
+            ComboBox cmbAggressiveness = new ComboBox();
+            cmbAggressiveness.Items.AddRange(new object[] { "Niska", "Normalna", "Agresywna" });
+            cmbAggressiveness.SelectedIndex = 1;
+            cmbAggressiveness.Enabled = false;
+            cmbAggressiveness.Location = new Point(490, 153);
+            cmbAggressiveness.Size = new Size(120, 23);
+            cmbAggressiveness.BackColor = Color.FromArgb(40, 40, 40);
+            cmbAggressiveness.ForeColor = Color.Gray;
+            pnlNewGameSettings.Controls.Add(cmbAggressiveness);
+
+            Label lblCapitalSection = new Label();
+            lblCapitalSection.Text = "KAPITAŁ STARTOWY (ZABLOKOWANE):";
+            lblCapitalSection.Font = new Font("Segoe UI", 9, FontStyle.Bold | FontStyle.Italic);
+            lblCapitalSection.ForeColor = Color.Gray;
+            lblCapitalSection.Location = new Point(360, 195);
+            lblCapitalSection.Size = new Size(250, 20);
+            pnlNewGameSettings.Controls.Add(lblCapitalSection);
+
+            Label lblDebt = new Label();
+            lblDebt.Text = "Zadłużenie na starcie:";
+            lblDebt.Font = new Font("Segoe UI", 8.5f);
+            lblDebt.ForeColor = Color.Gray;
+            lblDebt.Location = new Point(360, 215);
+            lblDebt.Size = new Size(120, 20);
+            pnlNewGameSettings.Controls.Add(lblDebt);
+
+            NumericUpDown numDebt = new NumericUpDown();
+            numDebt.Value = 0;
+            numDebt.Enabled = false;
+            numDebt.Location = new Point(490, 213);
+            numDebt.Size = new Size(120, 23);
+            numDebt.BackColor = Color.FromArgb(40, 40, 40);
+            numDebt.ForeColor = Color.Gray;
+            pnlNewGameSettings.Controls.Add(numDebt);
+
+            Label lblShares = new Label();
+            lblShares.Text = "Akcje własne:";
+            lblShares.Font = new Font("Segoe UI", 8.5f);
+            lblShares.ForeColor = Color.Gray;
+            lblShares.Location = new Point(360, 245);
+            lblShares.Size = new Size(120, 20);
+            pnlNewGameSettings.Controls.Add(lblShares);
+
+            NumericUpDown numShares = new NumericUpDown();
+            numShares.Value = 1000;
+            numShares.Enabled = false;
+            numShares.Location = new Point(490, 243);
+            numShares.Size = new Size(120, 23);
+            numShares.BackColor = Color.FromArgb(40, 40, 40);
+            numShares.ForeColor = Color.Gray;
+            pnlNewGameSettings.Controls.Add(numShares);
+
+            // Przycisk zatwierdzenia gry
+            Button btnCreateGame = new Button();
+            btnCreateGame.Text = "ROZPOCZNIJ ROZGRYWKĘ";
+            btnCreateGame.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            btnCreateGame.Location = new Point(150, 395);
+            btnCreateGame.Size = new Size(350, 50);
+            btnCreateGame.FlatStyle = FlatStyle.Flat;
+            btnCreateGame.FlatAppearance.BorderSize = 0;
+            btnCreateGame.BackColor = Color.FromArgb(100, 220, 100);
+            btnCreateGame.ForeColor = Color.White;
+            btnCreateGame.Cursor = Cursors.Hand;
+            btnCreateGame.Click += (s, e) =>
+            {
+                string companyName = txtCompanyNameSettings.Text.Trim();
+                if (string.IsNullOrWhiteSpace(companyName))
+                {
+                    MessageBox.Show("Nazwa korporacji nie może być pusta!", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var settings = new GameGenerationSettings
+                {
+                    StartingCash = numStartingCash.Value,
+                    GlobalCorporateTax = numTax.Value / 100.0m
+                };
+
+                StartGameWithSettings(companyName, settings);
+            };
+            pnlNewGameSettings.Controls.Add(btnCreateGame);
+        }
+
+        private void InitializeLoadGameMenuPanel()
+        {
+            pnlLoadGameMenu = new Panel();
+            pnlLoadGameMenu.Size = new Size(650, 480);
+            pnlLoadGameMenu.BackColor = Color.FromArgb(30, 30, 30);
+            pnlLoadGameMenu.Visible = false;
+            pnlStartScreen.Controls.Add(pnlLoadGameMenu);
+
+            // Obramowanie ozdobne na górze
+            Panel pnlBorder = new Panel();
+            pnlBorder.Dock = DockStyle.Top;
+            pnlBorder.Height = 4;
+            pnlBorder.BackColor = Color.FromArgb(50, 150, 250);
+            pnlLoadGameMenu.Controls.Add(pnlBorder);
+
+            // Przycisk wstecz
+            Button btnBack = new Button();
+            btnBack.Text = "< Powrót";
+            btnBack.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBack.Location = new Point(20, 20);
+            btnBack.Size = new Size(90, 30);
+            btnBack.FlatStyle = FlatStyle.Flat;
+            btnBack.FlatAppearance.BorderSize = 1;
+            btnBack.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+            btnBack.ForeColor = Color.LightGray;
+            btnBack.Cursor = Cursors.Hand;
+            btnBack.Click += (s, e) =>
+            {
+                if (_company != null)
+                {
+                    ChangeMenuState(MenuState.Playing);
+                }
+                else
+                {
+                    ChangeMenuState(MenuState.MainMenu);
+                }
+            };
+            pnlLoadGameMenu.Controls.Add(btnBack);
+
+            // Tytuł
+            Label lblTitle = new Label();
+            lblTitle.Text = "WCZYTAJ ZAPISANĄ GRĘ";
+            lblTitle.Font = new Font("Segoe UI", 14, FontStyle.Bold);
+            lblTitle.ForeColor = Color.FromArgb(50, 150, 250);
+            lblTitle.Location = new Point(120, 20);
+            lblTitle.Size = new Size(410, 30);
+            lblTitle.TextAlign = ContentAlignment.MiddleCenter;
+            pnlLoadGameMenu.Controls.Add(lblTitle);
+
+            // Panel scrollowany na listę zapisów
+            Panel pnlSavesList = new Panel();
+            pnlSavesList.Name = "pnlSavesList";
+            pnlSavesList.Location = new Point(30, 70);
+            pnlSavesList.Size = new Size(590, 380);
+            pnlSavesList.BackColor = Color.FromArgb(24, 24, 24);
+            pnlSavesList.AutoScroll = true;
+            pnlLoadGameMenu.Controls.Add(pnlSavesList);
+        }
+
+        private void RefreshSavesList()
+        {
+            var pnlSavesList = pnlLoadGameMenu.Controls.Find("pnlSavesList", true).FirstOrDefault() as Panel;
+            if (pnlSavesList == null) return;
+
+            pnlSavesList.Controls.Clear();
+
+            List<System.IO.FileInfo> saveFiles;
+            try
+            {
+                saveFiles = SaveGameManager.GetSaveFiles();
+                // Posortuj od najnowszego zapisu na dysku
+                saveFiles.Sort((x, y) => y.LastWriteTime.CompareTo(x.LastWriteTime));
+            }
+            catch (Exception ex)
+            {
+                Label lblError = new Label();
+                lblError.Text = $"Błąd odczytu katalogu: {ex.Message}";
+                lblError.ForeColor = Color.Red;
+                lblError.Location = new Point(20, 20);
+                lblError.Size = new Size(500, 30);
+                pnlSavesList.Controls.Add(lblError);
+                return;
+            }
+
+            if (saveFiles.Count == 0)
+            {
+                Label lblNoSaves = new Label();
+                lblNoSaves.Text = "Brak zapisanych gier w folderze Dokumenty.";
+                lblNoSaves.Font = new Font("Segoe UI", 10, FontStyle.Italic);
+                lblNoSaves.ForeColor = Color.Gray;
+                lblNoSaves.Location = new Point(20, 20);
+                lblNoSaves.Size = new Size(500, 30);
+                pnlSavesList.Controls.Add(lblNoSaves);
+                return;
+            }
+
+            int yOffset = 10;
+            foreach (var file in saveFiles)
+            {
+                SaveGameMetadata meta;
+                try
+                {
+                    meta = SaveGameManager.GetSaveMetadata(file.FullName);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                Panel pnlRow = new Panel();
+                pnlRow.Size = new Size(550, 75);
+                pnlRow.Location = new Point(10, yOffset);
+                pnlRow.BackColor = Color.FromArgb(35, 35, 35);
+                pnlRow.BorderStyle = BorderStyle.FixedSingle;
+
+                // Logo firmy placeholder
+                Panel pnlLogo = new Panel();
+                pnlLogo.Size = new Size(55, 55);
+                pnlLogo.Location = new Point(10, 9);
+                pnlLogo.BackColor = Color.FromArgb(50, 150, 250);
+                
+                Label lblLogoLetter = new Label();
+                lblLogoLetter.Text = string.IsNullOrEmpty(meta.CorporationName) ? "C" : meta.CorporationName.Substring(0, 1).ToUpper();
+                lblLogoLetter.Font = new Font("Segoe UI", 18, FontStyle.Bold);
+                lblLogoLetter.ForeColor = Color.White;
+                lblLogoLetter.TextAlign = ContentAlignment.MiddleCenter;
+                lblLogoLetter.Dock = DockStyle.Fill;
+                pnlLogo.Controls.Add(lblLogoLetter);
+                pnlRow.Controls.Add(pnlLogo);
+
+                // Szczegóły zapisu
+                Label lblCorp = new Label();
+                lblCorp.Text = meta.CorporationName;
+                lblCorp.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+                lblCorp.ForeColor = Color.White;
+                lblCorp.Location = new Point(75, 8);
+                lblCorp.Size = new Size(200, 20);
+                pnlRow.Controls.Add(lblCorp);
+
+                Label lblNetWorth = new Label();
+                lblNetWorth.Text = $"Net Worth: {meta.NetWorth:C}";
+                lblNetWorth.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+                lblNetWorth.ForeColor = Color.FromArgb(100, 220, 100);
+                lblNetWorth.Location = new Point(75, 32);
+                lblNetWorth.Size = new Size(200, 20);
+                pnlRow.Controls.Add(lblNetWorth);
+
+                Label lblTime = new Label();
+                lblTime.Text = $"Dzień {meta.CurrentDay} ({meta.CurrentHour:D2}:00)";
+                lblTime.Font = new Font("Segoe UI", 9);
+                lblTime.ForeColor = Color.FromArgb(240, 180, 50);
+                lblTime.Location = new Point(285, 8);
+                lblTime.Size = new Size(140, 20);
+                pnlRow.Controls.Add(lblTime);
+
+                Label lblRealDate = new Label();
+                lblRealDate.Text = $"Data zapisu: {meta.RealWorldSaveTime:dd.MM.yyyy HH:mm}";
+                lblRealDate.Font = new Font("Segoe UI", 8, FontStyle.Italic);
+                lblRealDate.ForeColor = Color.DarkGray;
+                lblRealDate.Location = new Point(285, 32);
+                lblRealDate.Size = new Size(150, 20);
+                pnlRow.Controls.Add(lblRealDate);
+
+                // Przycisk Wczytaj
+                Button btnLoad = new Button();
+                btnLoad.Text = "Wczytaj";
+                btnLoad.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+                btnLoad.Location = new Point(445, 17);
+                btnLoad.Size = new Size(90, 40);
+                btnLoad.FlatStyle = FlatStyle.Flat;
+                btnLoad.FlatAppearance.BorderSize = 0;
+                btnLoad.BackColor = Color.FromArgb(50, 150, 250);
+                btnLoad.ForeColor = Color.White;
+                btnLoad.Cursor = Cursors.Hand;
+                
+                string filePath = file.FullName;
+                btnLoad.Click += (s, e) => LoadGameFromFile(filePath);
+                pnlRow.Controls.Add(btnLoad);
+
+                pnlSavesList.Controls.Add(pnlRow);
+                yOffset += 85;
+            }
+        }
+
+        private void InitializeSaveGameOverlayPanel()
+        {
+            pnlSaveGameOverlay = new Panel();
+            pnlSaveGameOverlay.Size = new Size(350, 180);
+            pnlSaveGameOverlay.BackColor = Color.FromArgb(30, 30, 30);
+            pnlSaveGameOverlay.BorderStyle = BorderStyle.FixedSingle;
+            pnlSaveGameOverlay.Visible = false;
+            pnlGameBoard.Controls.Add(pnlSaveGameOverlay);
+            pnlSaveGameOverlay.BringToFront();
+
+            // Obramowanie ozdobne na górze
+            Panel pnlTopLine = new Panel();
+            pnlTopLine.Dock = DockStyle.Top;
+            pnlTopLine.Height = 4;
+            pnlTopLine.BackColor = Color.FromArgb(50, 150, 250);
+            pnlSaveGameOverlay.Controls.Add(pnlTopLine);
+
+            Label lblTitle = new Label();
+            lblTitle.Text = "ZAPISZ GRĘ";
+            lblTitle.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            lblTitle.ForeColor = Color.FromArgb(50, 150, 250);
+            lblTitle.Location = new Point(20, 15);
+            lblTitle.Size = new Size(310, 25);
+            pnlSaveGameOverlay.Controls.Add(lblTitle);
+
+            Label lblPrompt = new Label();
+            lblPrompt.Text = "Wprowadź nazwę zapisu:";
+            lblPrompt.Font = new Font("Segoe UI", 9);
+            lblPrompt.Location = new Point(20, 45);
+            lblPrompt.Size = new Size(310, 20);
+            pnlSaveGameOverlay.Controls.Add(lblPrompt);
+
+            TextBox txtSaveName = new TextBox();
+            txtSaveName.Name = "txtSaveName";
+            txtSaveName.Font = new Font("Segoe UI", 10);
+            txtSaveName.Location = new Point(20, 70);
+            txtSaveName.Size = new Size(310, 25);
+            txtSaveName.BackColor = Color.FromArgb(45, 45, 45);
+            txtSaveName.ForeColor = Color.White;
+            txtSaveName.BorderStyle = BorderStyle.FixedSingle;
+            pnlSaveGameOverlay.Controls.Add(txtSaveName);
+
+            Button btnSave = new Button();
+            btnSave.Text = "Zapisz";
+            btnSave.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnSave.Location = new Point(20, 115);
+            btnSave.Size = new Size(140, 35);
+            btnSave.FlatStyle = FlatStyle.Flat;
+            btnSave.FlatAppearance.BorderSize = 0;
+            btnSave.BackColor = Color.FromArgb(100, 220, 100);
+            btnSave.ForeColor = Color.White;
+            btnSave.Cursor = Cursors.Hand;
+            btnSave.Click += (s, e) =>
+            {
+                string saveName = txtSaveName.Text.Trim();
+                if (string.IsNullOrWhiteSpace(saveName))
+                {
+                    MessageBox.Show("Nazwa zapisu nie może być pusta!", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (_company != null && _map != null && _gameManager != null)
+                {
+                    try
+                    {
+                        SaveGameManager.SaveGame(saveName, _company, _map, _gameManager);
+                        lblBottomStatus.Text = $"Stan gry został pomyślnie zapisany jako: '{saveName}'";
+                        pnlSaveGameOverlay.Visible = false;
+                        
+                        // Zrestartuj zegar gry jeśli był uruchomiony
+                        if (_activeSpeedButton != null && _activeSpeedButton != btnSpeedPause)
+                        {
+                            _gameTimer.Start();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Błąd podczas zapisu: {ex.Message}", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            };
+            pnlSaveGameOverlay.Controls.Add(btnSave);
+
+            Button btnCancel = new Button();
+            btnCancel.Text = "Anuluj";
+            btnCancel.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnCancel.Location = new Point(190, 115);
+            btnCancel.Size = new Size(140, 35);
+            btnCancel.FlatStyle = FlatStyle.Flat;
+            btnCancel.FlatAppearance.BorderSize = 1;
+            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+            btnCancel.ForeColor = Color.LightGray;
+            btnCancel.Cursor = Cursors.Hand;
+            btnCancel.Click += (s, e) =>
+            {
+                pnlSaveGameOverlay.Visible = false;
+                // Zrestartuj zegar gry jeśli był uruchomiony
+                if (_activeSpeedButton != null && _activeSpeedButton != btnSpeedPause)
+                {
+                    _gameTimer.Start();
+                }
+            };
+            pnlSaveGameOverlay.Controls.Add(btnCancel);
+        }
+
+        private void CenterSaveGameOverlayPanel()
+        {
+            if (pnlSaveGameOverlay != null && pnlGameBoard != null)
+            {
+                pnlSaveGameOverlay.Location = new Point(
+                    (pnlGameBoard.Width - pnlSaveGameOverlay.Width) / 2,
+                    (pnlGameBoard.Height - pnlSaveGameOverlay.Height) / 2
+                );
+            }
+        }
+
+        private void ChangeMenuState(MenuState newState)
+        {
+            _currentMenuState = newState;
+
+            // Pokaż/ukryj nadrzędne sceny
+            pnlStartScreen.Visible = (newState == MenuState.MainMenu || newState == MenuState.NewGameSettings || newState == MenuState.LoadGameMenu);
+            pnlGameBoard.Visible = (newState == MenuState.Playing);
+
+            // Pokaż/ukryj pod-panele w pnlStartScreen
+            pnlStartCenter.Visible = (newState == MenuState.MainMenu);
+            pnlNewGameSettings.Visible = (newState == MenuState.NewGameSettings);
+            pnlLoadGameMenu.Visible = (newState == MenuState.LoadGameMenu);
+
+            if (newState == MenuState.Playing)
+            {
+                // Unpause if speed isn't pause
+                if (_activeSpeedButton != btnSpeedPause)
+                {
+                    _gameTimer.Start();
+                }
+            }
+            else
+            {
+                _gameTimer.Stop();
+            }
+
+            if (newState == MenuState.LoadGameMenu)
+            {
+                RefreshSavesList();
+            }
+        }
+
+        private void LoadGameFromFile(string filePath)
+        {
+            try
+            {
+                var container = SaveGameManager.LoadGame(filePath);
+                if (container == null || container.State == null)
+                {
+                    MessageBox.Show("Nie udało się wczytać pliku zapisu!", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                var state = container.State;
+
+                // Stop timer
+                _gameTimer.Stop();
+
+                // 1. Recreate Company & restore FinancialEngine state
+                _company = new Company(state.CompanyName, state.Cash);
+                _company.Engine.RestoreState(
+                    state.Cash, 
+                    state.ShareCapital, 
+                    state.RetainedEarnings, 
+                    state.Loans, 
+                    state.CurrentMonthIndex, 
+                    state.TaxRate
+                );
+
+                // 2. Recreate Map
+                _map = new Map(10, 10);
+
+                // 3. Recreate Buildings
+                foreach (var bData in state.Buildings)
+                {
+                    Building building;
+                    if (bData.Type == "Farm")
+                    {
+                        building = new Farm(bData.Name);
+                    }
+                    else if (bData.Type == "CoalMine")
+                    {
+                        building = new CoalMine(bData.Name);
+                    }
+                    else
+                    {
+                        continue;
+                    }
+
+                    // Restore properties
+                    building.FacilityId = bData.FacilityId;
+                    building.AutoSell = bData.AutoSell;
+                    building.AccumulatedDepreciation = bData.AccumulatedDepreciation;
+
+                    // Restore warehouse
+                    foreach (var item in bData.Warehouse)
+                    {
+                        if (building.Warehouse.ContainsKey(item.Key))
+                        {
+                            building.Warehouse[item.Key] = item.Value;
+                        }
+                    }
+
+                    // Register in Company and Engine
+                    _company.Buildings.Add(building);
+                    _company.Engine.RegisterFacility(building);
+
+                    // Place on Map
+                    _map.BuildBuildingOnTile(bData.X, bData.Y, building);
+                }
+
+                // 4. Recreate GameManager & restore day/hour
+                _gameManager = new GameManager(_company, _map);
+                _gameManager.RestoreState(state.CurrentDay, state.CurrentHour);
+
+                // 5. Re-subscribe events
+                _gameManager.OnTickPerformed += OnTickPerformed;
+
+                // 6. Initialize Map Control
+                mapControl.Initialize(_map, _gameManager);
+
+                // 7. Transition to Playing State
+                ChangeMenuState(MenuState.Playing);
+
+                // 8. Domyślne uruchomienie gry z prędkością 1x
+                SetGameSpeed(1000, btnSpeed1x);
+
+                // 9. Refresh stats & UI
+                CloseBuildingDetails();
+                CloseFinanceReport();
+                RefreshStats();
+
+                lblBottomStatus.Text = $"Gra została pomyślnie wczytana z pliku: {System.IO.Path.GetFileName(filePath)}";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Błąd podczas wczytywania gry: {ex.Message}", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         protected override void Dispose(bool disposing)

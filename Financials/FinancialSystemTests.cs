@@ -34,6 +34,7 @@ namespace Conglomerate.Financials.Tests
             TestPnLCalculations();
             TestBalanceSheetEquation();
             TestHistoryAndQuarterlyRoll();
+            TestSaveAndLoadSettingsAndMetadata();
 
             Console.WriteLine("=== WSZYSTKIE TESTY ZAKOŃCZONE SUKCESEM! ===");
         }
@@ -172,6 +173,71 @@ namespace Conglomerate.Financials.Tests
             Debug.Assert(engine.MonthlyHistory.Count == 24, "Miesięczna historia powinna być obcięta do maksymalnie 24 miesięcy");
             // Pierwszy zachowany element to miesiąc 3 (indeks okresu = 3) bo miesiące 1 i 2 zostały usunięte
             Debug.Assert(engine.MonthlyHistory.First().PeriodIndex == 3, $"Pierwszy okres w historii: {engine.MonthlyHistory.First().PeriodIndex}");
+
+            Console.WriteLine("OK");
+        }
+
+        private static void TestSaveAndLoadSettingsAndMetadata()
+        {
+            Console.Write("Test 4: Zapis, Odczyt Metadanych i Ustawienia Rozgrywki... ");
+
+            // 1. Ustawienia rozgrywki (GameGenerationSettings)
+            var settings = new GameGenerationSettings
+            {
+                StartingCash = 75000m,
+                GlobalCorporateTax = 0.25m
+            };
+            Debug.Assert(settings.StartingCash == 75000m);
+            Debug.Assert(settings.GlobalCorporateTax == 0.25m);
+
+            // 2. Symulacja firmy, mapy i czasu gry
+            var company = new Company("TestSaveCorp", settings.StartingCash);
+            company.Engine.TaxRate = settings.GlobalCorporateTax;
+
+            var map = new Map(10, 10);
+            var farm = new Farm("Farma Testowa");
+            company.BuyBuilding(farm, map, 2, 3, 1, 8);
+
+            var gameManager = new GameManager(company, map);
+            gameManager.RestoreState(5, 12); // Dzień 5, godzina 12
+
+            // Zapisz grę
+            string testSaveName = "AutoTestSaveFile";
+            SaveGameManager.SaveGame(testSaveName, company, map, gameManager);
+
+            // 3. Odczyt wyłącznie metadanych (Metadata wrapper)
+            var saveFiles = SaveGameManager.GetSaveFiles();
+            var testFile = saveFiles.FirstOrDefault(f => f.Name.Contains(testSaveName));
+            Debug.Assert(testFile != null, "Plik zapisu powinien istnieć");
+
+            var meta = SaveGameManager.GetSaveMetadata(testFile.FullName);
+            Debug.Assert(meta.CorporationName == "TestSaveCorp", $"Oczekiwano TestSaveCorp, otrzymano {meta.CorporationName}");
+            Debug.Assert(meta.CurrentDay == 5, $"Oczekiwano Day 5, otrzymano {meta.CurrentDay}");
+            Debug.Assert(meta.CurrentHour == 12, $"Oczekiwano Hour 12, otrzymano {meta.CurrentHour}");
+            Debug.Assert(meta.NetWorth == 75000m, $"Oczekiwano NetWorth 75000, otrzymano {meta.NetWorth}");
+
+            // 4. Odczyt całego pliku i rekonstrukcja kontenera
+            var container = SaveGameManager.LoadGame(testFile.FullName);
+            Debug.Assert(container != null);
+            Debug.Assert(container.State.CompanyName == "TestSaveCorp");
+            Debug.Assert(container.State.Cash == 65000m); // 75000 - 10000
+            Debug.Assert(container.State.TaxRate == 0.25m);
+            Debug.Assert(container.State.Buildings.Count == 1);
+            
+            var bData = container.State.Buildings[0];
+            Debug.Assert(bData.Name == "Farma Testowa");
+            Debug.Assert(bData.X == 2);
+            Debug.Assert(bData.Y == 3);
+
+            // Usuń plik testowy po zakończeniu weryfikacji
+            try
+            {
+                if (System.IO.File.Exists(testFile.FullName))
+                {
+                    System.IO.File.Delete(testFile.FullName);
+                }
+            }
+            catch {}
 
             Console.WriteLine("OK");
         }

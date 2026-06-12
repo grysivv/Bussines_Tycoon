@@ -18,6 +18,12 @@ namespace Conglomerate
             ActiveMap = map;
         }
 
+        public void RestoreState(int day, int hour)
+        {
+            CurrentDay = day;
+            CurrentHour = hour;
+        }
+
         public void NextTick()
         {
             CurrentHour++;

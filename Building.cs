@@ -7,7 +7,7 @@ namespace Conglomerate
 {
     public abstract class Building : IFacilitySegment
     {
-        public string FacilityId { get; } = Guid.NewGuid().ToString();
+        public string FacilityId { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; }
         public abstract string ActivityType { get; }
         public abstract decimal BuildCost { get; }

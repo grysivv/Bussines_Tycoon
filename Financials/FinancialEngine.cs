@@ -11,7 +11,7 @@ namespace Conglomerate.Financials
         public List<IFacilitySegment> Facilities { get; } = new List<IFacilitySegment>();
         public decimal Cash { get; private set; }
         public decimal Loans { get; private set; }
-        public decimal ShareCapital { get; }
+        public decimal ShareCapital { get; private set; }
         public decimal RetainedEarnings { get; private set; }
         public decimal TaxRate { get; set; } = 0.19m; // Default 19% corporate tax
         public int CurrentMonthIndex { get; private set; } = 1;
@@ -211,6 +211,17 @@ namespace Conglomerate.Financials
         public List<FinancialTransaction> GetCurrentMonthTransactions()
         {
             return new List<FinancialTransaction>(_currentMonthTransactions);
+        }
+
+        public void RestoreState(decimal cash, decimal shareCapital, decimal retainedEarnings, decimal loans, int currentMonthIndex, decimal taxRate)
+        {
+            Cash = cash;
+            ShareCapital = shareCapital;
+            RetainedEarnings = retainedEarnings;
+            Loans = loans;
+            CurrentMonthIndex = currentMonthIndex;
+            TaxRate = taxRate;
+            _currentMonthTransactions.Clear();
         }
     }
 }

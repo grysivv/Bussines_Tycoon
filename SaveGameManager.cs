@@ -50,7 +50,9 @@ namespace Conglomerate
                 var bData = new BuildingSaveData
                 {
                     FacilityId = building.FacilityId,
-                    Type = building is Farm ? "Farm" : (building is CoalMine ? "CoalMine" : "Unknown"),
+                    Type = building is Farm ? "Farm" : 
+                           (building is CoalMine ? "CoalMine" : 
+                           (building is WarehouseBuilding wh ? (wh.AllowedCategory == ResourceCategory.Food ? "FoodWarehouse" : "MiningWarehouse") : "Unknown")),
                     Name = building.Name,
                     AutoSell = building.AutoSell,
                     AccumulatedDepreciation = building.AccumulatedDepreciation

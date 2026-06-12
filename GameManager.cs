@@ -44,6 +44,9 @@ namespace Conglomerate
                         ActiveCompany.AddTransaction(CurrentDay, CurrentHour, $"Utrzymanie: {building.Name}", -maintenanceCharged, "Utrzymanie");
                     }
 
+                    // Przeniesienie nadmiaru wyprodukowanych surowców do dedykowanych magazynów
+                    TransferResourcesToWarehouses(building, ActiveCompany);
+
                     if (building.AutoSell)
                     {
                         foreach (var key in building.Warehouse.Keys.ToList())
@@ -66,6 +69,45 @@ namespace Conglomerate
 
             // Powiadomienie interfejsu graficznego do odświeżenia zegara i statystyk
             OnTickPerformed?.Invoke();
+        }
+
+        private void TransferResourcesToWarehouses(Building source, Company company)
+        {
+            if (source is WarehouseBuilding) return;
+
+            foreach (var resourceKey in source.Warehouse.Keys.ToList())
+            {
+                int quantity = source.Warehouse[resourceKey];
+                if (quantity <= 0) continue;
+
+                // Find matching warehouses with capacity
+                var category = ResourceRegistry.GetCategory(resourceKey);
+                var warehouses = company.Buildings
+                    .OfType<WarehouseBuilding>()
+                    .Where(w => w.AllowedCategory == category)
+                    .ToList();
+
+                foreach (var wh in warehouses)
+                {
+                    int freeSpace = wh.WarehouseCapacity - wh.GetTotalStock();
+                    if (freeSpace <= 0) continue;
+
+                    int amountToTransfer = Math.Min(quantity, freeSpace);
+                    if (amountToTransfer > 0)
+                    {
+                        // Transfer
+                        source.Warehouse[resourceKey] -= amountToTransfer;
+                        if (!wh.Warehouse.ContainsKey(resourceKey))
+                        {
+                            wh.Warehouse[resourceKey] = 0;
+                        }
+                        wh.Warehouse[resourceKey] += amountToTransfer;
+
+                        quantity -= amountToTransfer;
+                        if (quantity <= 0) break;
+                    }
+                }
+            }
         }
     }
 }

@@ -35,6 +35,7 @@ namespace Conglomerate.Financials.Tests
             TestBalanceSheetEquation();
             TestHistoryAndQuarterlyRoll();
             TestSaveAndLoadSettingsAndMetadata();
+            TestWarehouseResourceTransferAndPersistence();
 
             Console.WriteLine("=== WSZYSTKIE TESTY ZAKOŃCZONE SUKCESEM! ===");
         }
@@ -230,6 +231,81 @@ namespace Conglomerate.Financials.Tests
             Debug.Assert(bData.Y == 3);
 
             // Usuń plik testowy po zakończeniu weryfikacji
+            try
+            {
+                if (System.IO.File.Exists(testFile.FullName))
+                {
+                    System.IO.File.Delete(testFile.FullName);
+                }
+            }
+            catch {}
+
+            Console.WriteLine("OK");
+        }
+
+        private static void TestWarehouseResourceTransferAndPersistence()
+        {
+            Console.Write("Test 5: Magazyny, Automatyczny Transfer i Zapis... ");
+
+            // 1. Setup firmy, mapy i czasoprzestrzeni gry
+            var company = new Company("WarehouseTestCorp", 100000m);
+            var map = new Map(10, 10);
+            
+            var farm = new Farm("Farma Test");
+            var mine = new CoalMine("Kopalnia Test");
+            var foodWh = new WarehouseBuilding("Magazyn Spozywczy", ResourceCategory.Food);
+            var miningWh = new WarehouseBuilding("Magazyn Surowcowy", ResourceCategory.Mining);
+
+            company.BuyBuilding(farm, map, 1, 1, 1, 8);
+            company.BuyBuilding(mine, map, 2, 2, 1, 8);
+            company.BuyBuilding(foodWh, map, 3, 3, 1, 8);
+            company.BuyBuilding(miningWh, map, 4, 4, 1, 8);
+
+            var gameManager = new GameManager(company, map);
+
+            // Ręczne zasypanie zapasów w farmie i kopalni
+            farm.Warehouse["Mleko"] = 15;
+            farm.Warehouse["Mięso"] = 10;
+            mine.Warehouse["Węgiel"] = 30;
+
+            // Przejście zegara na północ (wywołanie NextTick w godzinie 23)
+            gameManager.RestoreState(1, 23);
+            gameManager.NextTick();
+
+            // 2. Weryfikacja automatycznego przenoszenia surowców (uwzględniając dobową produkcję: Mleko +2, Mięso +1, Węgiel +4)
+            // Żywność do magazynu spożywczego (15 + 2 = 17 Mleka, 10 + 1 = 11 Mięsa)
+            Debug.Assert(farm.Warehouse["Mleko"] == 0, $"Farm milk: {farm.Warehouse["Mleko"]}");
+            Debug.Assert(farm.Warehouse["Mięso"] == 0, $"Farm meat: {farm.Warehouse["Mięso"]}");
+            Debug.Assert(foodWh.Warehouse["Mleko"] == 17, $"FoodWh milk: {foodWh.Warehouse["Mleko"]}");
+            Debug.Assert(foodWh.Warehouse["Mięso"] == 11, $"FoodWh meat: {foodWh.Warehouse["Mięso"]}");
+
+            // Węgiel do magazynu kopalnianego (30 + 4 = 34 Węgla)
+            Debug.Assert(mine.Warehouse["Węgiel"] == 0, $"Mine coal: {mine.Warehouse["Węgiel"]}");
+            Debug.Assert(miningWh.Warehouse["Węgiel"] == 34, $"MiningWh coal: {miningWh.Warehouse["Węgiel"]}");
+
+            // 3. Test zapisu i odczytu stanu magazynów
+            string testSaveName = "WarehouseAutoTestSave";
+            SaveGameManager.SaveGame(testSaveName, company, map, gameManager);
+
+            var saveFiles = SaveGameManager.GetSaveFiles();
+            var testFile = saveFiles.FirstOrDefault(f => f.Name.Contains(testSaveName));
+            Debug.Assert(testFile != null);
+
+            var container = SaveGameManager.LoadGame(testFile.FullName);
+            Debug.Assert(container != null);
+            Debug.Assert(container.State.Buildings.Count == 4);
+
+            var loadedFoodWh = container.State.Buildings.FirstOrDefault(b => b.Type == "FoodWarehouse");
+            Debug.Assert(loadedFoodWh != null);
+            Debug.Assert(loadedFoodWh.Name == "Magazyn Spozywczy");
+            Debug.Assert(loadedFoodWh.X == 3);
+            Debug.Assert(loadedFoodWh.Y == 3);
+            
+            var loadedMlekoItem = loadedFoodWh.Warehouse.FirstOrDefault(i => i.Key == "Mleko");
+            Debug.Assert(loadedMlekoItem != null);
+            Debug.Assert(loadedMlekoItem.Value == 17);
+
+            // Porządki po teście
             try
             {
                 if (System.IO.File.Exists(testFile.FullName))

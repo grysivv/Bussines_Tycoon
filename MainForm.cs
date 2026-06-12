@@ -52,10 +52,12 @@ namespace Conglomerate
         private Label lblBottomStatus = null!;
         private Label lblSelectedTileInfo = null!;
 
-        private enum SelectedBlueprint { None, Farm, CoalMine }
+        private enum SelectedBlueprint { None, Farm, CoalMine, FoodWarehouse, MiningWarehouse }
         private SelectedBlueprint _selectedBlueprint = SelectedBlueprint.None;
         private Button btnBuildFarm = null!;
         private Button btnBuildCoalMine = null!;
+        private Button btnBuildFoodWarehouse = null!;
+        private Button btnBuildMiningWarehouse = null!;
         private Button btnCenterCamera = null!;
 
         // Przyciski kontroli prędkości czasu
@@ -448,6 +450,34 @@ namespace Conglomerate
             btnBuildCoalMine.Click += (s, e) => SelectBlueprint(SelectedBlueprint.CoalMine, btnBuildCoalMine);
             pnlRight.Controls.Add(btnBuildCoalMine);
 
+            btnBuildFoodWarehouse = new Button();
+            btnBuildFoodWarehouse.Text = "Magazyn Żywności\n(Koszt: $8k)";
+            btnBuildFoodWarehouse.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBuildFoodWarehouse.Location = new Point(15, 180);
+            btnBuildFoodWarehouse.Size = new Size(160, 50);
+            btnBuildFoodWarehouse.FlatStyle = FlatStyle.Flat;
+            btnBuildFoodWarehouse.FlatAppearance.BorderSize = 1;
+            btnBuildFoodWarehouse.FlatAppearance.BorderColor = Color.FromArgb(50, 150, 250);
+            btnBuildFoodWarehouse.BackColor = Color.FromArgb(35, 35, 35);
+            btnBuildFoodWarehouse.ForeColor = Color.FromArgb(50, 150, 250);
+            btnBuildFoodWarehouse.Cursor = Cursors.Hand;
+            btnBuildFoodWarehouse.Click += (s, e) => SelectBlueprint(SelectedBlueprint.FoodWarehouse, btnBuildFoodWarehouse);
+            pnlRight.Controls.Add(btnBuildFoodWarehouse);
+
+            btnBuildMiningWarehouse = new Button();
+            btnBuildMiningWarehouse.Text = "Magazyn Kopalniany\n(Koszt: $12k)";
+            btnBuildMiningWarehouse.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBuildMiningWarehouse.Location = new Point(15, 240);
+            btnBuildMiningWarehouse.Size = new Size(160, 50);
+            btnBuildMiningWarehouse.FlatStyle = FlatStyle.Flat;
+            btnBuildMiningWarehouse.FlatAppearance.BorderSize = 1;
+            btnBuildMiningWarehouse.FlatAppearance.BorderColor = Color.FromArgb(50, 150, 250);
+            btnBuildMiningWarehouse.BackColor = Color.FromArgb(35, 35, 35);
+            btnBuildMiningWarehouse.ForeColor = Color.FromArgb(50, 150, 250);
+            btnBuildMiningWarehouse.Cursor = Cursors.Hand;
+            btnBuildMiningWarehouse.Click += (s, e) => SelectBlueprint(SelectedBlueprint.MiningWarehouse, btnBuildMiningWarehouse);
+            pnlRight.Controls.Add(btnBuildMiningWarehouse);
+
             // 2.3 PANEL DOLNY (Status)
             pnlBottom = new Panel();
             pnlBottom.Dock = DockStyle.Bottom;
@@ -592,7 +622,9 @@ namespace Conglomerate
 
             if (mapControl.GetBuildMode())
             {
-                string name = _selectedBlueprint == SelectedBlueprint.Farm ? "farmę krów ($10 000)" : "kopalnię węgla ($15 000)";
+                string name = _selectedBlueprint == SelectedBlueprint.Farm ? "farmę krów ($10 000)" : 
+                              (_selectedBlueprint == SelectedBlueprint.CoalMine ? "kopalnię węgla ($15 000)" : 
+                              (_selectedBlueprint == SelectedBlueprint.FoodWarehouse ? "magazyn żywności ($8 000)" : "magazyn kopalniany ($12 000)"));
                 lblBottomStatus.Text = $"TRYB BUDOWANIA AKTYWNY: Kliknij na wolny zielony kafel trawy, aby wybudować {name}.";
             }
             else
@@ -602,6 +634,10 @@ namespace Conglomerate
                 btnBuildFarm.ForeColor = Color.FromArgb(50, 150, 250);
                 btnBuildCoalMine.BackColor = Color.FromArgb(35, 35, 35);
                 btnBuildCoalMine.ForeColor = Color.FromArgb(50, 150, 250);
+                btnBuildFoodWarehouse.BackColor = Color.FromArgb(35, 35, 35);
+                btnBuildFoodWarehouse.ForeColor = Color.FromArgb(50, 150, 250);
+                btnBuildMiningWarehouse.BackColor = Color.FromArgb(35, 35, 35);
+                btnBuildMiningWarehouse.ForeColor = Color.FromArgb(50, 150, 250);
                 lblBottomStatus.Text = "Sterowanie: [Lewy / Prawy myszy] Przesuwanie mapy | [Kółko myszy] Zoom | [Hover] Szczegóły kafla terenu";
             }
         }
@@ -619,6 +655,10 @@ namespace Conglomerate
                 btnBuildFarm.ForeColor = Color.FromArgb(50, 150, 250);
                 btnBuildCoalMine.BackColor = Color.FromArgb(35, 35, 35);
                 btnBuildCoalMine.ForeColor = Color.FromArgb(50, 150, 250);
+                btnBuildFoodWarehouse.BackColor = Color.FromArgb(35, 35, 35);
+                btnBuildFoodWarehouse.ForeColor = Color.FromArgb(50, 150, 250);
+                btnBuildMiningWarehouse.BackColor = Color.FromArgb(35, 35, 35);
+                btnBuildMiningWarehouse.ForeColor = Color.FromArgb(50, 150, 250);
 
                 _selectedBlueprint = blueprint;
                 clickedButton.BackColor = Color.FromArgb(50, 150, 250);
@@ -658,6 +698,16 @@ namespace Conglomerate
                     {
                         buildingName = $"Kopalnia Węgla #{_company.Buildings.Count + 1}";
                         building = new CoalMine(buildingName);
+                    }
+                    else if (_selectedBlueprint == SelectedBlueprint.FoodWarehouse)
+                    {
+                        buildingName = $"Magazyn Żywności #{_company.Buildings.Count + 1}";
+                        building = new WarehouseBuilding(buildingName, ResourceCategory.Food);
+                    }
+                    else if (_selectedBlueprint == SelectedBlueprint.MiningWarehouse)
+                    {
+                        buildingName = $"Magazyn Kopalniany #{_company.Buildings.Count + 1}";
+                        building = new WarehouseBuilding(buildingName, ResourceCategory.Mining);
                     }
                     else
                     {
@@ -1954,6 +2004,14 @@ namespace Conglomerate
                     else if (bData.Type == "CoalMine")
                     {
                         building = new CoalMine(bData.Name);
+                    }
+                    else if (bData.Type == "FoodWarehouse")
+                    {
+                        building = new WarehouseBuilding(bData.Name, ResourceCategory.Food);
+                    }
+                    else if (bData.Type == "MiningWarehouse")
+                    {
+                        building = new WarehouseBuilding(bData.Name, ResourceCategory.Mining);
                     }
                     else
                     {

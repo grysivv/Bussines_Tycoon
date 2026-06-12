@@ -253,6 +253,19 @@ namespace Conglomerate
                             terrainColor = new XnaColor(90, 90, 90); // Podłoże pod kopalnią węgla
                             borderColor = new XnaColor(60, 60, 60);
                         }
+                        else if (tile.Building is WarehouseBuilding wh)
+                        {
+                            if (wh.AllowedCategory == ResourceCategory.Food)
+                            {
+                                terrainColor = new XnaColor(130, 180, 220); // Podłoże pod magazynem żywności
+                                borderColor = new XnaColor(90, 130, 160);
+                            }
+                            else
+                            {
+                                terrainColor = new XnaColor(150, 120, 100); // Podłoże pod magazynem kopalnianym
+                                borderColor = new XnaColor(100, 80, 60);
+                            }
+                        }
                         else
                         {
                             terrainColor = new XnaColor(120, 120, 120); // Domyślne podłoże pod budynkiem
@@ -276,6 +289,10 @@ namespace Conglomerate
                         else if (tile.Building is CoalMine)
                         {
                             DrawCoalMine3D(worldPos.X, worldPos.Y);
+                        }
+                        else if (tile.Building is WarehouseBuilding wh)
+                        {
+                            DrawWarehouse3D(worldPos.X, worldPos.Y, wh);
                         }
                     }
 
@@ -849,6 +866,43 @@ namespace Conglomerate
                 pass.Apply();
                 GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, wheel, 0, 6);
                 GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineStrip, wheelRim, 0, segments);
+            }
+        }
+
+        private void DrawWarehouse3D(float x, float y, WarehouseBuilding wh)
+        {
+            if (GraphicsDevice == null || _basicEffect == null) return;
+
+            // Ustal kolory w zależności od kategorii magazynu
+            XnaColor leftColor, rightColor, topColor;
+            if (wh.AllowedCategory == ResourceCategory.Food)
+            {
+                // Magazyn żywności: jasnoniebieski/chłodniczy design
+                leftColor = new XnaColor(160, 200, 240);
+                rightColor = new XnaColor(180, 220, 250);
+                topColor = new XnaColor(210, 235, 255);
+            }
+            else
+            {
+                // Magazyn kopalniany: rdzawo-pomarańczowy, industrialny design
+                leftColor = new XnaColor(180, 100, 40);
+                rightColor = new XnaColor(210, 120, 50);
+                topColor = new XnaColor(230, 140, 60);
+            }
+
+            // Główny budynek magazynu (duży hangar)
+            Draw3DBox(x, y - TileHeight * 0.05f, 22f, 11f, 18f, leftColor, rightColor, topColor);
+
+            // Dodatkowy element ozdobny na dachu/obok
+            if (wh.AllowedCategory == ResourceCategory.Food)
+            {
+                // Srebrny agregat chłodniczy na dachu hangaru
+                Draw3DBox(x, y - TileHeight * 0.05f - 18f, 6f, 3f, 4f, new XnaColor(200, 200, 200), new XnaColor(220, 220, 220), new XnaColor(240, 240, 240));
+            }
+            else
+            {
+                // Mała, ciemnoszara skrzynia pomocnicza na zewnątrz
+                Draw3DBox(x + TileWidth * 0.22f, y + TileHeight * 0.15f, 6f, 3f, 5f, new XnaColor(80, 80, 80), new XnaColor(100, 100, 100), new XnaColor(120, 120, 120));
             }
         }
 

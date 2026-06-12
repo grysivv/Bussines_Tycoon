@@ -8,6 +8,11 @@ namespace Conglomerate
         [STAThread]
         static void Main(string[] args)
         {
+            // Konfiguracja globalnego przechwytywania i logowania wyjątków
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            Application.ThreadException += (sender, e) => LogException(e.Exception);
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) => LogException(e.ExceptionObject as Exception);
+
             if (args.Length > 0 && args[0] == "--run-tests")
             {
                 Conglomerate.Financials.Tests.FinancialSystemTests.RunTests();
@@ -20,6 +25,37 @@ namespace Conglomerate
 
             // Uruchomienie głównego okna gry (ekran logowania jest wbudowany w MainForm)
             Application.Run(new MainForm());
+        }
+
+        private static void LogException(Exception? ex)
+        {
+            if (ex == null) return;
+
+            try
+            {
+                string docPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                string logDir = System.IO.Path.Combine(docPath, "ConglomerateTycoon", "Logs");
+                if (!System.IO.Directory.Exists(logDir))
+                {
+                    System.IO.Directory.CreateDirectory(logDir);
+                }
+
+                string logFile = System.IO.Path.Combine(logDir, "error_log.txt");
+                string logMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] BŁĄD: {ex.Message}\nTyp wyjątku: {ex.GetType().FullName}\nStack Trace:\n{ex.StackTrace}\n";
+                if (ex.InnerException != null)
+                {
+                    logMessage += $"Wyjątek wewnętrzny: {ex.InnerException.Message}\nStack Trace:\n{ex.InnerException.StackTrace}\n";
+                }
+                logMessage += new string('=', 60) + "\n\n";
+
+                System.IO.File.AppendAllText(logFile, logMessage);
+
+                MessageBox.Show($"Wystąpił nieobsługiwany błąd gry.\n\nLogi błędu zapisano w pliku:\n{logFile}\n\nTreść błędu: {ex.Message}", "Błąd Krytyczny Gry", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception writeEx)
+            {
+                MessageBox.Show($"Wystąpił nieobsługiwany błąd gry: {ex.Message}\n\nNie udało się zapisać pliku logu: {writeEx.Message}", "Błąd Krytyczny Gry", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }

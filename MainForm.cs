@@ -22,6 +22,7 @@ namespace Conglomerate
         private Panel pnlNewGameSettings = null!;
         private Panel pnlLoadGameMenu = null!;
         private Panel pnlSaveGameOverlay = null!;
+        private Panel pnlEscapeMenu = null!;
 
         public enum MenuState
         {
@@ -492,6 +493,7 @@ namespace Conglomerate
                 CenterBuildingDetailsPanel();
                 CenterFinanceReportPanel();
                 CenterSaveGameOverlayPanel();
+                CenterEscapeMenuPanel();
             };
 
             // Rejestracja zdarzeń mapy (jednorazowo)
@@ -502,6 +504,7 @@ namespace Conglomerate
             InitializeNewGameSettingsPanel();
             InitializeLoadGameMenuPanel();
             InitializeSaveGameOverlayPanel();
+            InitializeEscapeMenu();
 
             // Automatyczne pozycjonowanie paneli przy starcie
             pnlStartScreen.SizeChanged += (s, e) =>
@@ -1017,8 +1020,31 @@ namespace Conglomerate
             base.OnKeyDown(e);
             if (e.KeyCode == Keys.Escape)
             {
-                CloseBuildingDetails();
-                CloseFinanceReport();
+                // 1. Jeśli otwarte są panele szczegółowe lub modalne, zamknij je w pierwszej kolejności
+                if (pnlBuildingDetails.Visible || pnlFinanceReport.Visible || pnlSaveGameOverlay.Visible || pnlEscapeMenu.Visible)
+                {
+                    if (pnlEscapeMenu.Visible)
+                    {
+                        ToggleEscapeMenu();
+                        return;
+                    }
+                    
+                    CloseBuildingDetails();
+                    CloseFinanceReport();
+                    pnlSaveGameOverlay.Visible = false;
+                    
+                    if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
+                    {
+                        _gameTimer.Start();
+                    }
+                    return;
+                }
+
+                // 2. Jeśli jesteśmy w samej rozgrywce, wywołaj Escape Menu (Pauza)
+                if (_currentMenuState == MenuState.Playing)
+                {
+                    ToggleEscapeMenu();
+                }
             }
         }
 
@@ -1982,6 +2008,137 @@ namespace Conglomerate
             catch (Exception ex)
             {
                 MessageBox.Show($"Błąd podczas wczytywania gry: {ex.Message}", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void InitializeEscapeMenu()
+        {
+            pnlEscapeMenu = new Panel();
+            pnlEscapeMenu.Size = new Size(250, 260);
+            pnlEscapeMenu.BackColor = Color.FromArgb(30, 30, 30);
+            pnlEscapeMenu.BorderStyle = BorderStyle.FixedSingle;
+            pnlEscapeMenu.Visible = false;
+            pnlGameBoard.Controls.Add(pnlEscapeMenu);
+            pnlEscapeMenu.BringToFront();
+
+            // Obramowanie ozdobne na górze
+            Panel pnlTopLine = new Panel();
+            pnlTopLine.Dock = DockStyle.Top;
+            pnlTopLine.Height = 4;
+            pnlTopLine.BackColor = Color.FromArgb(50, 150, 250);
+            pnlEscapeMenu.Controls.Add(pnlTopLine);
+
+            Label lblTitle = new Label();
+            lblTitle.Text = "PAUZA";
+            lblTitle.Font = new Font("Segoe UI", 12, FontStyle.Bold);
+            lblTitle.ForeColor = Color.FromArgb(50, 150, 250);
+            lblTitle.Location = new Point(20, 15);
+            lblTitle.Size = new Size(210, 25);
+            lblTitle.TextAlign = ContentAlignment.MiddleCenter;
+            pnlEscapeMenu.Controls.Add(lblTitle);
+
+            // Przycisk Kontynuuj
+            Button btnContinue = new Button();
+            btnContinue.Text = "Kontynuuj";
+            btnContinue.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            btnContinue.Location = new Point(25, 55);
+            btnContinue.Size = new Size(200, 35);
+            btnContinue.FlatStyle = FlatStyle.Flat;
+            btnContinue.FlatAppearance.BorderSize = 0;
+            btnContinue.BackColor = Color.FromArgb(50, 150, 250);
+            btnContinue.ForeColor = Color.White;
+            btnContinue.Cursor = Cursors.Hand;
+            btnContinue.Click += (s, e) => ToggleEscapeMenu();
+            pnlEscapeMenu.Controls.Add(btnContinue);
+
+            // Przycisk Opcje (Wyłączony)
+            Button btnOptions = new Button();
+            btnOptions.Text = "Opcje rozgrywki";
+            btnOptions.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            btnOptions.Location = new Point(25, 100);
+            btnOptions.Size = new Size(200, 35);
+            btnOptions.FlatStyle = FlatStyle.Flat;
+            btnOptions.FlatAppearance.BorderSize = 1;
+            btnOptions.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
+            btnOptions.BackColor = Color.FromArgb(25, 25, 25);
+            btnOptions.ForeColor = Color.Gray;
+            btnOptions.Enabled = false;
+            pnlEscapeMenu.Controls.Add(btnOptions);
+
+            // Przycisk Menu Główne
+            Button btnMainMenu = new Button();
+            btnMainMenu.Text = "Menu Główne";
+            btnMainMenu.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            btnMainMenu.Location = new Point(25, 145);
+            btnMainMenu.Size = new Size(200, 35);
+            btnMainMenu.FlatStyle = FlatStyle.Flat;
+            btnMainMenu.FlatAppearance.BorderSize = 1;
+            btnMainMenu.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+            btnMainMenu.ForeColor = Color.LightGray;
+            btnMainMenu.Cursor = Cursors.Hand;
+            btnMainMenu.Click += (s, e) =>
+            {
+                var result = MessageBox.Show("Czy na pewno chcesz wyjść do menu głównego?\nNiezapisany postęp zostanie utracony.", "Powrót do Menu", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (result == DialogResult.Yes)
+                {
+                    pnlEscapeMenu.Visible = false;
+                    ChangeMenuState(MenuState.MainMenu);
+                }
+            };
+            pnlEscapeMenu.Controls.Add(btnMainMenu);
+
+            // Przycisk Wyjście z gry
+            Button btnExit = new Button();
+            btnExit.Text = "Wyjście z Gry";
+            btnExit.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            btnExit.Location = new Point(25, 190);
+            btnExit.Size = new Size(200, 35);
+            btnExit.FlatStyle = FlatStyle.Flat;
+            btnExit.FlatAppearance.BorderSize = 0;
+            btnExit.BackColor = Color.FromArgb(220, 80, 80);
+            btnExit.ForeColor = Color.White;
+            btnExit.Cursor = Cursors.Hand;
+            btnExit.Click += (s, e) =>
+            {
+                var result = MessageBox.Show("Czy na pewno chcesz zamknąć grę?", "Wyjście z gry", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (result == DialogResult.Yes)
+                {
+                    Application.Exit();
+                }
+            };
+            pnlEscapeMenu.Controls.Add(btnExit);
+        }
+
+        private void CenterEscapeMenuPanel()
+        {
+            if (pnlEscapeMenu != null && pnlGameBoard != null)
+            {
+                pnlEscapeMenu.Location = new Point(
+                    (pnlGameBoard.Width - pnlEscapeMenu.Width) / 2,
+                    (pnlGameBoard.Height - pnlEscapeMenu.Height) / 2
+                );
+            }
+        }
+
+        private void ToggleEscapeMenu()
+        {
+            if (pnlEscapeMenu == null) return;
+
+            if (pnlEscapeMenu.Visible)
+            {
+                pnlEscapeMenu.Visible = false;
+                if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
+                {
+                    _gameTimer.Start();
+                }
+            }
+            else
+            {
+                _gameTimer.Stop();
+                CenterEscapeMenuPanel();
+                pnlEscapeMenu.Visible = true;
+                pnlEscapeMenu.BringToFront();
+                pnlEscapeMenu.Focus();
             }
         }
 

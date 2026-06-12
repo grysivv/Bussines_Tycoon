@@ -6,8 +6,14 @@ namespace Conglomerate
     static class Program
     {
         [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "--run-tests")
+            {
+                Conglomerate.Financials.Tests.FinancialSystemTests.RunTests();
+                return;
+            }
+
             // Konfiguracja Windows Forms
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

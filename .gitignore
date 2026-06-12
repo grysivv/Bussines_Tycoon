@@ -1,0 +1,15 @@
+# Build folders
+bin/
+obj/
+
+# Visual Studio / VS Code configurations
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini

@@ -50,6 +50,12 @@ namespace Conglomerate
                         }
                     }
                 }
+
+                // Zamknięcie miesiąca w silniku finansowym co 30 dni
+                if (CurrentDay > 1 && (CurrentDay - 1) % 30 == 0)
+                {
+                    ActiveCompany.Engine.CloseMonth(CurrentDay, CurrentHour);
+                }
             }
 
             // Powiadomienie interfejsu graficznego do odświeżenia zegara i statystyk

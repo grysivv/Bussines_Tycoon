@@ -55,6 +55,17 @@ namespace Conglomerate.Financials
             }
         }
 
+        public void RecordTransactionWithoutCashImpact(int day, int hour, decimal amount, FinancialCategory category, string description, string facilityId = "")
+        {
+            var tx = new FinancialTransaction(day, hour, amount, category, description, facilityId);
+            _currentMonthTransactions.Add(tx);
+        }
+
+        public void ModifyCashDirectly(decimal delta)
+        {
+            Cash += delta;
+        }
+
         public void AdjustLoans(decimal deltaAmount)
         {
             Loans += deltaAmount;

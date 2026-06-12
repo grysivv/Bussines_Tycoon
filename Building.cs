@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Conglomerate.Financials;
 
 namespace Conglomerate
 {
-    public abstract class Building
+    public abstract class Building : IFacilitySegment
     {
+        public string FacilityId { get; } = Guid.NewGuid().ToString();
         public string Name { get; set; }
         public abstract string ActivityType { get; }
         public abstract decimal BuildCost { get; }
@@ -14,6 +16,13 @@ namespace Conglomerate
         public Dictionary<string, int> Warehouse { get; } = new Dictionary<string, int>();
         public abstract Dictionary<string, decimal> ResourcePrices { get; }
         public bool AutoSell { get; set; } = false;
+
+        // IFacilitySegment implementation
+        public decimal PropertyPurchasePrice => BuildCost;
+        public decimal DepreciationRate => 0.05m; // 5% depreciation per year
+        public decimal AccumulatedDepreciation { get; set; } = 0m;
+        public decimal PropertyBookValue => PropertyPurchasePrice - AccumulatedDepreciation;
+        public decimal InventoryValue => Warehouse.Sum(kvp => kvp.Value * (ResourcePrices.ContainsKey(kvp.Key) ? ResourcePrices[kvp.Key] : 0m));
 
         protected Building(string name)
         {

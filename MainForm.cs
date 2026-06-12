@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using Conglomerate.Financials;
 using Point = System.Drawing.Point;
 using XnaPoint = Microsoft.Xna.Framework.Point;
 
@@ -994,66 +995,69 @@ namespace Conglomerate
         {
             if (_company == null || _gameManager == null) return;
 
-            // --- OBLICZENIE PRZEPŁYWÓW (CASH FLOW) ---
-            int curDay = _gameManager.CurrentDay;
-            int curHour = _gameManager.CurrentHour;
+            // Get P&L and Balance Sheet snapshots from the new engine
+            var pnl = _company.Engine.CalculateCurrentPnL();
+            var bs = _company.Engine.CalculateCurrentBalanceSheet();
 
-            // Filtrujemy transakcje z użyciem Ledger:
-            var dailyTrans = _company.Ledger.GetTransactionsForPeriod(curDay, curHour, 24);
-            var monthlyTrans = _company.Ledger.GetTransactionsForPeriod(curDay, curHour, 720);
-            var yearlyTrans = _company.Ledger.GetTransactionsForPeriod(curDay, curHour, 8760);
+            // Format strings for P&L and Balance Sheet details
+            string pnlText = $"Przychody ze sprzedaży:   +{pnl.Revenue:C}\n" +
+                             $"Koszty surowców (COGS):   {pnl.RawMaterials:C}\n" +
+                             $"Logistyka i marketing:    {(pnl.Logistics + pnl.Marketing):C}\n" +
+                             $"Wynagrodzenia i płace:    {pnl.Salaries:C}\n" +
+                             $"---------------------------------------------\n" +
+                             $"EBITDA:                   {pnl.EBITDA:C}\n" +
+                             $"Amortyzacja (niegotówk.): {pnl.Depreciation:C}\n" +
+                             $"EBIT (Zysk operacyjny):   {pnl.EBIT:C}\n" +
+                             $"Podatek dochodowy (CIT):  {pnl.CorporateTax:C}\n";
 
-            // Przepływy pomocnicze
-            decimal dSales = _company.Ledger.GetSumByCategory(dailyTrans, "Sprzedaż");
-            decimal dMaint = _company.Ledger.GetSumByCategory(dailyTrans, "Utrzymanie");
-            decimal dBuild = _company.Ledger.GetSumByCategory(dailyTrans, "Budowa");
-            decimal dNet = dSales + dMaint + dBuild;
+            string netIncomeText = $"ZYSK NETTO:  {pnl.NetIncome:C}";
 
-            decimal mSales = _company.Ledger.GetSumByCategory(monthlyTrans, "Sprzedaż");
-            decimal mMaint = _company.Ledger.GetSumByCategory(monthlyTrans, "Utrzymanie");
-            decimal mBuild = _company.Ledger.GetSumByCategory(monthlyTrans, "Budowa");
-            decimal mNet = mSales + mMaint + mBuild;
+            string bsText = $"AKTYWA (Assets)\n" +
+                            $"  Gotówka:                 {bs.Cash:C}\n" +
+                            $"  Zapasy (magazyn):        {bs.InventoryValue:C}\n" +
+                            $"  Nieruchomości (netto):   {bs.PropertyBookValue:C}\n" +
+                            $"  -------------------------------------------\n" +
+                            $"  SUMA AKTYWÓW:            {bs.TotalAssets:C}\n\n" +
+                            $"PASYWA (Liabilities & Equity)\n" +
+                            $"  Kredyty bankowe:         {bs.Loans:C}\n" +
+                            $"  Kapitał akcyjny:         {bs.ShareCapital:C}\n" +
+                            $"  Zyski zatrzymane:        {bs.RetainedEarnings:C}\n" +
+                            $"  -------------------------------------------\n" +
+                            $"  SUMA PASYWÓW:            {bs.TotalLiabilitiesAndEquity:C}";
 
-            decimal ySales = _company.Ledger.GetSumByCategory(yearlyTrans, "Sprzedaż");
-            decimal yMaint = _company.Ledger.GetSumByCategory(yearlyTrans, "Utrzymanie");
-            decimal yBuild = _company.Ledger.GetSumByCategory(yearlyTrans, "Budowa");
-            decimal yNet = ySales + yMaint + yBuild;
+            string balanceStatusText = $"Bilans zrównoważony: {(bs.IsBalanced ? "TAK" : "NIE")}";
 
-            int activeFarms = _company.Buildings.Count(b => b is Farm);
-            int activeMines = _company.Buildings.Count(b => b is CoalMine);
-            decimal totalMaintCost = _company.Buildings.Sum(b => b.MaintenanceCost);
-
-            // Obliczenie przewidywanego maksymalnego zysku dobowego
-            // Farma: 2 Milk * $50 + 1 Meat * $150 = $250. Cost = $150. Profit = $100.
-            // Kopalnia: 4 Coal * $100 = $400. Cost = $250. Profit = $150.
-            decimal maxDailyRevenue = _company.Buildings.Sum(b => {
-                if (b is Farm) return 250m;
-                if (b is CoalMine) return 400m;
-                return 0m;
-            });
-            decimal maxDailyProfit = maxDailyRevenue - totalMaintCost;
-
-            string rentText = $"Aktywne obiekty:\n" +
-                              $"  - Farmy krów: {activeFarms}\n" +
-                              $"  - Kopalnie węgla: {activeMines}\n\n" +
-                              $"Saldo gotówkowe:\n" +
-                              $"  {_company.Balance:C}\n\n" +
-                              $"Dobowe koszty stałe:\n" +
-                              $"  -{totalMaintCost:C}/doba\n\n" +
-                              $"Max. potencjał zysku:\n" +
-                              $"  +{maxDailyProfit:C}/doba\n\n" +
-                              $"Status korporacji:\n" +
-                              $"  {(maxDailyProfit > 0 ? "Rentowna" : (totalMaintCost == 0 ? "Brak kosztów" : "Deficytowa"))}";
-
-            // Weryfikacja czy panel jest już zainicjalizowany w celu optymalizacji migotania (Fast Update)
-            var lblRentDetailsRef = pnlFinanceReport.Controls.Find("lblRentDetails", true).FirstOrDefault() as Label;
-            if (lblRentDetailsRef != null)
+            // Wyszukiwanie kontrolek dla optymalizacji migotania (Fast Update)
+            var lblPnLDetailsRef = pnlFinanceReport.Controls.Find("lblPnLDetails", true).FirstOrDefault() as Label;
+            if (lblPnLDetailsRef != null)
             {
-                lblRentDetailsRef.Text = rentText;
+                lblPnLDetailsRef.Text = pnlText;
 
-                UpdateRowLabels("Doba", dSales, dMaint, dBuild, dNet);
-                UpdateRowLabels("Miesiac", mSales, mMaint, mBuild, mNet);
-                UpdateRowLabels("Rok", ySales, yMaint, yBuild, yNet);
+                var lblNetIncomeRef = pnlFinanceReport.Controls.Find("lblNetIncome", true).FirstOrDefault() as Label;
+                if (lblNetIncomeRef != null)
+                {
+                    lblNetIncomeRef.Text = netIncomeText;
+                    lblNetIncomeRef.ForeColor = pnl.NetIncome >= 0 ? Color.FromArgb(100, 220, 100) : Color.LightCoral;
+                }
+
+                var lblBSRefFound = pnlFinanceReport.Controls.Find("lblBSRef", true).FirstOrDefault() as Label;
+                if (lblBSRefFound != null)
+                {
+                    lblBSRefFound.Text = bsText;
+                }
+
+                var lblBalanceStatusRef = pnlFinanceReport.Controls.Find("lblBalanceStatus", true).FirstOrDefault() as Label;
+                if (lblBalanceStatusRef != null)
+                {
+                    lblBalanceStatusRef.Text = balanceStatusText;
+                    lblBalanceStatusRef.ForeColor = bs.IsBalanced ? Color.FromArgb(100, 220, 100) : Color.LightCoral;
+                }
+
+                var lblMonthIndexRef = pnlFinanceReport.Controls.Find("lblMonthIndex", true).FirstOrDefault() as Label;
+                if (lblMonthIndexRef != null)
+                {
+                    lblMonthIndexRef.Text = $"Miesiąc gry: {_company.Engine.CurrentMonthIndex} | Dzień: {_gameManager.CurrentDay}";
+                }
 
                 return;
             }
@@ -1086,61 +1090,86 @@ namespace Conglomerate
             lblTitle.Font = new Font("Segoe UI", 14, FontStyle.Bold);
             lblTitle.ForeColor = Color.FromArgb(50, 150, 250);
             lblTitle.Location = new Point(20, 20);
-            lblTitle.Size = new Size(400, 25);
+            lblTitle.Size = new Size(320, 25);
             pnlFinanceReport.Controls.Add(lblTitle);
 
-            // Sekcja lewa: Przepływy
-            Label lblFlowsTitle = new Label();
-            lblFlowsTitle.Text = "PRZEPŁYWY FINANSOWE (CASH FLOW)";
-            lblFlowsTitle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            lblFlowsTitle.ForeColor = Color.White;
-            lblFlowsTitle.Location = new Point(20, 65);
-            lblFlowsTitle.Size = new Size(330, 20);
-            pnlFinanceReport.Controls.Add(lblFlowsTitle);
+            // Podtytuł z informacją o miesiącu
+            Label lblMonthIndex = new Label();
+            lblMonthIndex.Name = "lblMonthIndex";
+            lblMonthIndex.Text = $"Miesiąc gry: {_company.Engine.CurrentMonthIndex} | Dzień: {_gameManager.CurrentDay}";
+            lblMonthIndex.Font = new Font("Segoe UI", 9, FontStyle.Italic);
+            lblMonthIndex.ForeColor = Color.DarkGray;
+            lblMonthIndex.Location = new Point(20, 45);
+            lblMonthIndex.Size = new Size(300, 15);
+            pnlFinanceReport.Controls.Add(lblMonthIndex);
 
-            // Prosta tabela
-            Panel pnlTable = new Panel();
-            pnlTable.Location = new Point(20, 90);
-            pnlTable.Size = new Size(330, 310);
-            pnlTable.BackColor = Color.FromArgb(25, 25, 25);
-            pnlTable.BorderStyle = BorderStyle.FixedSingle;
-            pnlFinanceReport.Controls.Add(pnlTable);
+            // Sekcja lewa: P&L
+            Panel pnlPnL = new Panel();
+            pnlPnL.Location = new Point(20, 75);
+            pnlPnL.Size = new Size(270, 340);
+            pnlPnL.BackColor = Color.FromArgb(25, 25, 25);
+            pnlPnL.BorderStyle = BorderStyle.FixedSingle;
+            pnlFinanceReport.Controls.Add(pnlPnL);
 
-            int y = 10;
-            // Dobowe
-            AddTableRow(pnlTable, "DOBOWE (24h)", dSales, dMaint, dBuild, dNet, y, "Doba");
-            y += 95;
-            // Miesięczne
-            AddTableRow(pnlTable, "MIESIĘCZNE (30d)", mSales, mMaint, mBuild, mNet, y, "Miesiac");
-            y += 95;
-            // Roczne
-            AddTableRow(pnlTable, "ROCZNE (365d)", ySales, yMaint, yBuild, yNet, y, "Rok");
+            Label lblPnLTitle = new Label();
+            lblPnLTitle.Text = "RACHUNEK ZYSKÓW I STRAT (P&L)";
+            lblPnLTitle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblPnLTitle.ForeColor = Color.FromArgb(50, 150, 250);
+            lblPnLTitle.Location = new Point(10, 10);
+            lblPnLTitle.Size = new Size(250, 15);
+            pnlPnL.Controls.Add(lblPnLTitle);
 
-            // Sekcja prawa: Szczegóły rentowności
-            Label lblRentTitle = new Label();
-            lblRentTitle.Text = "RENTOWNOŚĆ I ZASOBY";
-            lblRentTitle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            lblRentTitle.ForeColor = Color.White;
-            lblRentTitle.Location = new Point(370, 65);
-            lblRentTitle.Size = new Size(200, 20);
-            pnlFinanceReport.Controls.Add(lblRentTitle);
+            Label lblPnLDetails = new Label();
+            lblPnLDetails.Name = "lblPnLDetails";
+            lblPnLDetails.Text = pnlText;
+            lblPnLDetails.Font = new Font("Consolas", 8.5f, FontStyle.Regular);
+            lblPnLDetails.ForeColor = Color.LightGray;
+            lblPnLDetails.Location = new Point(10, 35);
+            lblPnLDetails.Size = new Size(250, 240);
+            pnlPnL.Controls.Add(lblPnLDetails);
 
-            Panel pnlRentInfo = new Panel();
-            pnlRentInfo.Location = new Point(370, 90);
-            pnlRentInfo.Size = new Size(210, 310);
-            pnlRentInfo.BackColor = Color.FromArgb(25, 25, 25);
-            pnlRentInfo.BorderStyle = BorderStyle.FixedSingle;
-            pnlRentInfo.Padding = new Padding(10);
-            pnlFinanceReport.Controls.Add(pnlRentInfo);
+            Label lblNetIncome = new Label();
+            lblNetIncome.Name = "lblNetIncome";
+            lblNetIncome.Text = netIncomeText;
+            lblNetIncome.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            lblNetIncome.ForeColor = pnl.NetIncome >= 0 ? Color.FromArgb(100, 220, 100) : Color.LightCoral;
+            lblNetIncome.Location = new Point(10, 295);
+            lblNetIncome.Size = new Size(250, 20);
+            pnlPnL.Controls.Add(lblNetIncome);
 
-            Label lblRentDetails = new Label();
-            lblRentDetails.Name = "lblRentDetails";
-            lblRentDetails.Text = rentText;
-            lblRentDetails.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            lblRentDetails.ForeColor = Color.FromArgb(200, 200, 200);
-            lblRentDetails.Location = new Point(10, 10);
-            lblRentDetails.Size = new Size(190, 290);
-            pnlRentInfo.Controls.Add(lblRentDetails);
+            // Sekcja prawa: Balance Sheet
+            Panel pnlBS = new Panel();
+            pnlBS.Location = new Point(310, 75);
+            pnlBS.Size = new Size(270, 340);
+            pnlBS.BackColor = Color.FromArgb(25, 25, 25);
+            pnlBS.BorderStyle = BorderStyle.FixedSingle;
+            pnlFinanceReport.Controls.Add(pnlBS);
+
+            Label lblBSTitle = new Label();
+            lblBSTitle.Text = "BILANS (BALANCE SHEET)";
+            lblBSTitle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblBSTitle.ForeColor = Color.FromArgb(50, 150, 250);
+            lblBSTitle.Location = new Point(10, 10);
+            lblBSTitle.Size = new Size(250, 15);
+            pnlBS.Controls.Add(lblBSTitle);
+
+            Label lblBSRef = new Label();
+            lblBSRef.Name = "lblBSRef";
+            lblBSRef.Text = bsText;
+            lblBSRef.Font = new Font("Consolas", 8.5f, FontStyle.Regular);
+            lblBSRef.ForeColor = Color.LightGray;
+            lblBSRef.Location = new Point(10, 35);
+            lblBSRef.Size = new Size(250, 240);
+            pnlBS.Controls.Add(lblBSRef);
+
+            Label lblBalanceStatus = new Label();
+            lblBalanceStatus.Name = "lblBalanceStatus";
+            lblBalanceStatus.Text = balanceStatusText;
+            lblBalanceStatus.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblBalanceStatus.ForeColor = bs.IsBalanced ? Color.FromArgb(100, 220, 100) : Color.LightCoral;
+            lblBalanceStatus.Location = new Point(10, 295);
+            lblBalanceStatus.Size = new Size(250, 20);
+            pnlBS.Controls.Add(lblBalanceStatus);
 
             // Stopka ESC
             Label lblFooter = new Label();
@@ -1150,63 +1179,6 @@ namespace Conglomerate
             lblFooter.Location = new Point(20, 445);
             lblFooter.Size = new Size(400, 15);
             pnlFinanceReport.Controls.Add(lblFooter);
-        }
-
-        private void UpdateRowLabels(string suffix, decimal sales, decimal maint, decimal build, decimal net)
-        {
-            var lblDetailsRef = pnlFinanceReport.Controls.Find("lblDetails_" + suffix, true).FirstOrDefault() as Label;
-            if (lblDetailsRef != null)
-            {
-                lblDetailsRef.Text = $"Przychody:  +{sales:C}\n" +
-                                     $"Utrzymanie:  {maint:C}\n" +
-                                     $"Inwestycje:  {build:C}";
-            }
-
-            var lblNetRef = pnlFinanceReport.Controls.Find("lblNet_" + suffix, true).FirstOrDefault() as Label;
-            if (lblNetRef != null)
-            {
-                lblNetRef.Text = $"NETTO:\n{net:C}";
-                lblNetRef.ForeColor = net >= 0 ? Color.FromArgb(100, 220, 100) : Color.LightCoral;
-            }
-        }
-
-        private void AddTableRow(Panel container, string title, decimal sales, decimal maint, decimal build, decimal net, int yPosition, string suffix)
-        {
-            Label lblRowTitle = new Label();
-            lblRowTitle.Text = title;
-            lblRowTitle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            lblRowTitle.ForeColor = Color.FromArgb(50, 150, 250);
-            lblRowTitle.Location = new Point(10, yPosition);
-            lblRowTitle.Size = new Size(200, 15);
-            container.Controls.Add(lblRowTitle);
-
-            Label lblDetails = new Label();
-            lblDetails.Name = "lblDetails_" + suffix;
-            lblDetails.Text = $"Przychody:  +{sales:C}\n" +
-                              $"Utrzymanie:  {maint:C}\n" +
-                              $"Inwestycje:  {build:C}";
-            lblDetails.Font = new Font("Segoe UI", 8, FontStyle.Regular);
-            lblDetails.ForeColor = Color.LightGray;
-            lblDetails.Location = new Point(15, yPosition + 18);
-            lblDetails.Size = new Size(180, 50);
-            container.Controls.Add(lblDetails);
-
-            Label lblNet = new Label();
-            lblNet.Name = "lblNet_" + suffix;
-            lblNet.Text = $"NETTO:\n{net:C}";
-            lblNet.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            lblNet.ForeColor = net >= 0 ? Color.FromArgb(100, 220, 100) : Color.LightCoral;
-            lblNet.Location = new Point(210, yPosition + 18);
-            lblNet.Size = new Size(110, 45);
-            lblNet.TextAlign = ContentAlignment.TopRight;
-            container.Controls.Add(lblNet);
-
-            // Linia separatora
-            Panel pnlSep = new Panel();
-            pnlSep.Location = new Point(10, yPosition + 80);
-            pnlSep.Size = new Size(310, 1);
-            pnlSep.BackColor = Color.FromArgb(50, 50, 50);
-            container.Controls.Add(pnlSep);
         }
 
         protected override void Dispose(bool disposing)

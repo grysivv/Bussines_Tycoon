@@ -42,9 +42,11 @@ namespace Conglomerate
                 Market.OnNewDay(CurrentDay);
 
                 // Ekstraktorzy (Farm, CoalMine itp.) produkują raz na dobę (o północy)
+                // UWAGA: RetailBuilding i FactoryBuilding są pominięte — mają własne pętle poniżej
                 foreach (var building in ActiveCompany.Buildings)
                 {
-                    if (building is FactoryBuilding) continue; // fabryki tickowane co godzinę poniżej
+                    if (building is FactoryBuilding) continue;
+                    if (building is RetailBuilding)  continue; // sklep ma własny tick poniżej
 
                     decimal oldBalance = ActiveCompany.Balance;
                     building.Produce(ActiveCompany);
@@ -80,6 +82,17 @@ namespace Conglomerate
                     }
                 }
 
+                // Opłata dzienna za utrzymanie sklepów detalicznych
+                foreach (var store in ActiveCompany.Buildings.OfType<RetailBuilding>())
+                {
+                    if (ActiveCompany.Balance >= store.MaintenanceCost)
+                    {
+                        ActiveCompany.Balance -= store.MaintenanceCost;
+                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour,
+                            $"Utrzymanie: {store.Name}", -store.MaintenanceCost, "Utrzymanie", store.FacilityId);
+                    }
+                }
+
                 // Zamknięcie miesiąca w silniku finansowym co 30 dni
                 if (CurrentDay > 1 && (CurrentDay - 1) % 30 == 0)
                 {
@@ -97,7 +110,6 @@ namespace Conglomerate
 
                 if (cycleCompleted)
                 {
-                    // Zaksięguj przychód za ukończony cykl (AutoSell lub do magazynu)
                     if (factory.AutoSell && factory.ActiveRecipe != null)
                     {
                         foreach (var output in factory.ActiveRecipe.Outputs)
@@ -109,11 +121,9 @@ namespace Conglomerate
                     }
                     else
                     {
-                        // Przenieś do magazynów jeśli są dostępne
                         TransferResourcesToWarehouses(factory, ActiveCompany);
                     }
 
-                    // Zaksięguj koszt operacyjny cyklu
                     if (factory.ActiveRecipe != null && factory.ActiveRecipe.OperationalCostPerCycle > 0)
                     {
                         ActiveCompany.AddTransaction(CurrentDay, CurrentHour,
@@ -123,6 +133,12 @@ namespace Conglomerate
                 }
             }
 
+            // ── Sklepy detaliczne — tick sprzedaży co każdą godzinę ──
+            foreach (var store in ActiveCompany.Buildings.OfType<RetailBuilding>())
+            {
+                store.TickHourlySales(ActiveCompany, CurrentDay, CurrentHour);
+            }
+
             // Powiadomienie interfejsu graficznego do odświeżenia zegara i statystyk
             OnTickPerformed?.Invoke();
         }
@@ -130,6 +146,7 @@ namespace Conglomerate
         private void TransferResourcesToWarehouses(Building source, Company company)
         {
             if (source is WarehouseBuilding) return;
+            if (source is RetailBuilding)    return; // sklep zarządza własnym magazynem
 
             foreach (var resourceKey in source.Warehouse.Keys.ToList())
             {

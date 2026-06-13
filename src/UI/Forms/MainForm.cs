@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows.Forms;
 using Conglomerate.Financials;
 using Conglomerate.Logistics;
+using Conglomerate.Retail;
 using Point = System.Drawing.Point;
 using XnaPoint = Microsoft.Xna.Framework.Point;
 
@@ -57,13 +58,14 @@ namespace Conglomerate
         private Label lblBottomStatus = null!;
         private Label lblSelectedTileInfo = null!;
 
-        private enum SelectedBlueprint { None, Farm, CoalMine, FoodWarehouse, MiningWarehouse, CheeseFactory }
+        private enum SelectedBlueprint { None, Farm, CoalMine, FoodWarehouse, MiningWarehouse, CheeseFactory, GeneralStore }
         private SelectedBlueprint _selectedBlueprint = SelectedBlueprint.None;
         private Button btnBuildFarm = null!;
         private Button btnBuildCoalMine = null!;
         private Button btnBuildFoodWarehouse = null!;
         private Button btnBuildMiningWarehouse = null!;
         private Button btnBuildCheeseFactory = null!;
+        private Button btnBuildGeneralStore = null!;
 
         // Kontrolki fabryki — przechowujemy referencję do dropdownu przepisu
         private ComboBox? _activeRecipeComboBox = null;
@@ -679,6 +681,30 @@ namespace Conglomerate
             btnBuildCheeseFactory.Click += (s, e) => SelectBlueprint(SelectedBlueprint.CheeseFactory, btnBuildCheeseFactory);
             pnlRight.Controls.Add(btnBuildCheeseFactory);
 
+            // ── HANDEL DETALICZNY ──
+            var lblRetailSection = new Label();
+            lblRetailSection.Text = "──  HANDEL  ──";
+            lblRetailSection.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            lblRetailSection.ForeColor = Color.FromArgb(80, 220, 120);
+            lblRetailSection.Location = new Point(15, 385);
+            lblRetailSection.Size = new Size(160, 16);
+            lblRetailSection.TextAlign = ContentAlignment.MiddleCenter;
+            pnlRight.Controls.Add(lblRetailSection);
+
+            btnBuildGeneralStore = new Button();
+            btnBuildGeneralStore.Text = "🛒 Sklep Ogólny\n(Koszt: $25k)";
+            btnBuildGeneralStore.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBuildGeneralStore.Location = new Point(15, 405);
+            btnBuildGeneralStore.Size = new Size(160, 50);
+            btnBuildGeneralStore.FlatStyle = FlatStyle.Flat;
+            btnBuildGeneralStore.FlatAppearance.BorderSize = 1;
+            btnBuildGeneralStore.FlatAppearance.BorderColor = Color.FromArgb(80, 220, 120);
+            btnBuildGeneralStore.BackColor = Color.FromArgb(35, 35, 35);
+            btnBuildGeneralStore.ForeColor = Color.FromArgb(80, 220, 120);
+            btnBuildGeneralStore.Cursor = Cursors.Hand;
+            btnBuildGeneralStore.Click += (s, e) => SelectBlueprint(SelectedBlueprint.GeneralStore, btnBuildGeneralStore);
+            pnlRight.Controls.Add(btnBuildGeneralStore);
+
             // 2.3 PANEL DOLNY (Status) - ukryty w celu uzyskania nowoczesnego HUDu
             pnlBottom = new Panel();
             pnlBottom.Visible = false;
@@ -847,7 +873,7 @@ namespace Conglomerate
             }
             else
             {
-                // Reset other buttons
+                // Reset all buttons to their default colors
                 btnBuildFarm.BackColor = Color.FromArgb(35, 35, 35);
                 btnBuildFarm.ForeColor = Color.FromArgb(50, 150, 250);
                 btnBuildCoalMine.BackColor = Color.FromArgb(35, 35, 35);
@@ -858,12 +884,18 @@ namespace Conglomerate
                 btnBuildMiningWarehouse.ForeColor = Color.FromArgb(50, 150, 250);
                 btnBuildCheeseFactory.BackColor = Color.FromArgb(35, 35, 35);
                 btnBuildCheeseFactory.ForeColor = Color.FromArgb(240, 180, 50);
+                btnBuildGeneralStore.BackColor = Color.FromArgb(35, 35, 35);
+                btnBuildGeneralStore.ForeColor = Color.FromArgb(80, 220, 120);
 
                 _selectedBlueprint = blueprint;
-                // Podświetl kliknięty przycisk
-                clickedButton.BackColor = blueprint == SelectedBlueprint.CheeseFactory
-                    ? Color.FromArgb(240, 180, 50)
-                    : Color.FromArgb(50, 150, 250);
+                // Podświetl kliknięty przycisk z odpowiednim kolorem akcentu
+                Color accent = blueprint switch
+                {
+                    SelectedBlueprint.CheeseFactory => Color.FromArgb(240, 180, 50),
+                    SelectedBlueprint.GeneralStore  => Color.FromArgb(80, 220, 120),
+                    _                               => Color.FromArgb(50, 150, 250)
+                };
+                clickedButton.BackColor = accent;
                 clickedButton.ForeColor = Color.White;
                 ToggleBuildMode(true);
             }
@@ -915,6 +947,11 @@ namespace Conglomerate
                     {
                         buildingName = $"Mleczarnia #{_company.Buildings.Count + 1}";
                         building = new CheeseFactory(buildingName);
+                    }
+                    else if (_selectedBlueprint == SelectedBlueprint.GeneralStore)
+                    {
+                        buildingName = $"Sklep Ogólny #{_company.Buildings.Count + 1}";
+                        building = new GeneralStore(buildingName);
                     }
                     else
                     {
@@ -1347,6 +1384,15 @@ namespace Conglomerate
             bool isPlayerOwned = _company.Buildings.Contains(_inspectingBuilding);
             string ownerSuffix = isPlayerOwned ? "(Gracz)" : "(Konkurent)";
             lblContextTitle.Text = $"{_inspectingBuilding.Name} {ownerSuffix}";
+
+            // ──────────────────────────────────────────────
+            //  SKLEP DETALICZNY: Specjalny tryb inspektora z półkami
+            // ──────────────────────────────────────────────
+            if (_inspectingBuilding is RetailBuilding store && isPlayerOwned)
+            {
+                UpdateRetailInspector(store);
+                return;
+            }
 
             // ──────────────────────────────────────────────
             //  FABRYKA: Specjalny tryb inspektora z przepisami
@@ -3346,6 +3392,268 @@ namespace Conglomerate
                 Size = new Size(570, 36)
             };
             pnlMarketBuyer.Controls.Add(lblInfo);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  RETAIL INSPECTOR — Specjalny widok inspektora dla sklepów
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Renderuje specjalny widok inspektora dla RetailBuilding.
+        /// Zastępuje standardowy inspektor (extractor/warehouse).
+        /// Wywoływany przy każdym OnTickPerformed gdy inspektor jest widoczny.
+        /// </summary>
+        private void UpdateRetailInspector(RetailBuilding store)
+        {
+            // Usuń stary panel fabryki/retail jeśli istnieje
+            var oldPanel = pnlContextInspector.Controls.Find("pnlRetailSection", false).FirstOrDefault();
+            if (oldPanel != null) pnlContextInspector.Controls.Remove(oldPanel);
+            _activeRecipeComboBox = null;
+
+            // ── Pokaż typ budynku w polu "utilization" ──
+            lblContextUtilization.Text = $"Handel Detaliczny | {store.MaxSlots} sloty";
+            pnlContextUtilProgressFg.Width = pnlContextUtilProgressBg.Width; // Pełny pasek dla sklepu
+            pnlContextUtilProgressFg.BackColor = Color.FromArgb(80, 220, 120);
+
+            // Ukryj standardowy pasek magazynu
+            lblContextInv.Text = $"Magazyn budynku: {store.GetTotalStock()} / {store.WarehouseCapacity} szt.";
+
+            RenderInventoryBars(store);
+
+            // ── Główna sekcja retail ──
+            var pnlRetailSection = new Panel
+            {
+                Name     = "pnlRetailSection",
+                Location = new Point(0, 160),
+                Size     = new Size(375, 380),
+                BackColor = Color.Transparent
+            };
+            pnlContextInspector.Controls.Add(pnlRetailSection);
+
+            int y = 0;
+
+            // Nagłówek sekcji
+            pnlRetailSection.Controls.Add(new Label
+            {
+                Text = "PÓŁKI SPRZEDAŻOWE",
+                Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                ForeColor = Color.FromArgb(80, 220, 120),
+                Location = new Point(10, y), Size = new Size(200, 16)
+            });
+
+            y += 22;
+
+            // ── Sloty sprzedażowe ──
+            foreach (var slot in store.Slots)
+            {
+                BuildRetailSlotRow(pnlRetailSection, store, slot, ref y);
+                y += 4; // spacing między slotami
+            }
+
+            y += 8;
+
+            // ── Separator ──
+            pnlRetailSection.Controls.Add(new Panel
+            {
+                Location = new Point(0, y), Size = new Size(370, 1),
+                BackColor = Color.FromArgb(45, 45, 45)
+            });
+
+            y += 10;
+
+            // ── RAPORT 24h ──
+            pnlRetailSection.Controls.Add(new Label
+            {
+                Text = "RAPORT 24H",
+                Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                ForeColor = Color.DarkGray,
+                Location = new Point(10, y), Size = new Size(200, 16)
+            });
+
+            y += 20;
+
+            pnlRetailSection.Controls.Add(new Label
+            {
+                Text = $"Łączna sprzedaż:  {store.TotalUnitsSoldLast24h} szt.",
+                Font = new Font("Segoe UI", 9),
+                ForeColor = Color.White,
+                Location = new Point(10, y), Size = new Size(350, 18)
+            });
+
+            y += 20;
+
+            pnlRetailSection.Controls.Add(new Label
+            {
+                Text = $"Przychód 24h:       {store.TotalRevenueLast24h:C}",
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                ForeColor = store.TotalRevenueLast24h > 0 ? Color.FromArgb(80, 220, 120) : Color.Gray,
+                Location = new Point(10, y), Size = new Size(350, 18)
+            });
+
+            y += 20;
+
+            // Sprzedaż per slot (jeśli aktywny)
+            foreach (var slot in store.Slots.Where(s => s.IsActive))
+            {
+                decimal baseP = ResourceRegistry.GetPrice(slot.ProductName);
+                pnlRetailSection.Controls.Add(new Label
+                {
+                    Text = $"• {slot.ProductName}: {slot.UnitsSoldLast24h} szt. | {slot.RevenueLast24h:C} | Atrakcyjność: {slot.LastAttractiveness:F2}",
+                    Font = new Font("Segoe UI", 8, FontStyle.Italic),
+                    ForeColor = slot.IsStockout ? Color.FromArgb(240, 80, 80) : Color.LightGray,
+                    Location = new Point(14, y), Size = new Size(355, 16),
+                    AutoEllipsis = true
+                });
+                y += 17;
+            }
+        }
+
+        private void BuildRetailSlotRow(Panel parent, RetailBuilding store, SalesSlot slot, ref int y)
+        {
+            // Nagłówek slotu
+            Color slotColor = slot.IsStockout ? Color.FromArgb(240, 80, 80)
+                            : slot.IsActive    ? Color.FromArgb(80, 220, 120)
+                            : Color.DimGray;
+
+            string slotHeader = slot.IsActive
+                ? $"Slot {slot.SlotIndex + 1}: {slot.ProductName}"
+                : $"Slot {slot.SlotIndex + 1}: [Pusty]";
+
+            if (slot.IsStockout) slotHeader += " ⚠ BRAK TOWARU";
+
+            parent.Controls.Add(new Label
+            {
+                Text = slotHeader,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = slotColor,
+                Location = new Point(10, y), Size = new Size(355, 17)
+            });
+            y += 18;
+
+            // Dropdown wyboru produktu
+            var cmbProduct = new ComboBox
+            {
+                Location = new Point(10, y), Size = new Size(145, 22),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40), ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8)
+            };
+            cmbProduct.Items.Add("— Brak —");
+            // Wszystkie zasoby z rejestru — skalowalne
+            foreach (var res in new[] { "Mleko", "Mięso", "Ser", "Masło" })
+                cmbProduct.Items.Add(res);
+            cmbProduct.SelectedIndex = slot.IsActive
+                ? Math.Max(0, cmbProduct.Items.IndexOf(slot.ProductName))
+                : 0;
+            parent.Controls.Add(cmbProduct);
+
+            // Pasek zapasów
+            var pnlStockBg = new Panel
+            {
+                Location = new Point(165, y + 3), Size = new Size(100, 16),
+                BackColor = Color.FromArgb(50, 50, 50)
+            };
+            parent.Controls.Add(pnlStockBg);
+
+            float fill = slot.ShelfCapacity > 0 ? (float)slot.CurrentStock / slot.ShelfCapacity : 0f;
+            var pnlStockFg = new Panel
+            {
+                Location = new Point(0, 0),
+                Size = new Size((int)(fill * 100), 16),
+                BackColor = slot.IsStockout ? Color.FromArgb(180, 50, 50) : Color.FromArgb(50, 180, 80)
+            };
+            pnlStockBg.Controls.Add(pnlStockFg);
+
+            parent.Controls.Add(new Label
+            {
+                Text = $"{slot.CurrentStock}/{slot.ShelfCapacity}",
+                Font = new Font("Segoe UI", 7.5f),
+                ForeColor = Color.LightGray,
+                Location = new Point(270, y + 3), Size = new Size(90, 16)
+            });
+
+            y += 26;
+
+            // Cena detaliczna — mnożnik i bezpośrednia
+            parent.Controls.Add(new Label
+            {
+                Text = "Cena (×baza):",
+                Font = new Font("Segoe UI", 8), ForeColor = Color.Gray,
+                Location = new Point(10, y + 3), Size = new Size(90, 16)
+            });
+
+            var numMultiplier = new NumericUpDown
+            {
+                Location = new Point(102, y), Size = new Size(60, 22),
+                Minimum = 0.5m, Maximum = 5.0m, Increment = 0.1m,
+                DecimalPlaces = 1,
+                Value = slot.PriceMultiplier,
+                BackColor = Color.FromArgb(40, 40, 40), ForeColor = Color.White,
+                Font = new Font("Segoe UI", 8)
+            };
+            parent.Controls.Add(numMultiplier);
+
+            parent.Controls.Add(new Label
+            {
+                Text = "lub zł/szt.:",
+                Font = new Font("Segoe UI", 8), ForeColor = Color.Gray,
+                Location = new Point(167, y + 3), Size = new Size(72, 16)
+            });
+
+            var numDirect = new NumericUpDown
+            {
+                Location = new Point(242, y), Size = new Size(70, 22),
+                Minimum = 0, Maximum = 10000, DecimalPlaces = 0,
+                Value = slot.DirectRetailPrice,
+                BackColor = Color.FromArgb(40, 40, 40), ForeColor = Color.White,
+                Font = new Font("Segoe UI", 8)
+            };
+            parent.Controls.Add(numDirect);
+
+            // Cena efektywna — podgląd
+            decimal basePrice = ResourceRegistry.GetPrice(slot.ProductName);
+            decimal effectivePreview = slot.DirectRetailPrice > 0 ? slot.DirectRetailPrice : basePrice * slot.PriceMultiplier;
+            var lblEffective = new Label
+            {
+                Text = $"→ {effectivePreview:C}/szt.",
+                Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                ForeColor = Color.FromArgb(240, 180, 50),
+                Location = new Point(10, y + 24), Size = new Size(200, 16)
+            };
+            parent.Controls.Add(lblEffective);
+
+            // Przycisk Zatwierdź
+            var btnApply = new Button
+            {
+                Text = "Zatwierdź",
+                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                Location = new Point(220, y + 22), Size = new Size(75, 22),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(40, 100, 60), ForeColor = Color.White,
+                Cursor = Cursors.Hand
+            };
+            btnApply.FlatAppearance.BorderSize = 0;
+            int slotIdx = slot.SlotIndex; // capture
+            btnApply.Click += (s, e) =>
+            {
+                string selectedProduct = cmbProduct.SelectedIndex > 0 ? cmbProduct.SelectedItem!.ToString()! : "";
+
+                if (string.IsNullOrEmpty(selectedProduct))
+                    store.ClearSlot(slotIdx);
+                else
+                {
+                    store.AssignProduct(slotIdx, selectedProduct, numMultiplier.Value);
+                    store.Slots[slotIdx].DirectRetailPrice = numDirect.Value;
+                }
+
+                // Przelicz podgląd ceny
+                decimal bp = ResourceRegistry.GetPrice(selectedProduct);
+                decimal ep = numDirect.Value > 0 ? numDirect.Value : bp * numMultiplier.Value;
+                lblEffective.Text = $"→ {ep:C}/szt.";
+            };
+            parent.Controls.Add(btnApply);
+
+            y += 48;
         }
     }
 }

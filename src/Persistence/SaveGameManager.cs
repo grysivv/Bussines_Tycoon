@@ -53,6 +53,7 @@ namespace Conglomerate
                     Farm             => "Farm",
                     CoalMine         => "CoalMine",
                     CheeseFactory    => "CheeseFactory",
+                    GeneralStore     => "GeneralStore",
                     WarehouseBuilding wh => wh.AllowedCategory == ResourceCategory.Food
                                             ? "FoodWarehouse"
                                             : wh.AllowedCategory == ResourceCategory.ProcessedFood
@@ -89,6 +90,23 @@ namespace Conglomerate
                 foreach (var kvp in building.Warehouse)
                 {
                     bData.Warehouse.Add(new WarehouseItem(kvp.Key, kvp.Value));
+                }
+
+                // Save retail slots (for GeneralStore and future retail buildings)
+                if (building is RetailBuilding retailBuilding)
+                {
+                    foreach (var slot in retailBuilding.Slots)
+                    {
+                        bData.RetailSlots.Add(new RetailSlotSaveData
+                        {
+                            SlotIndex        = slot.SlotIndex,
+                            ProductName      = slot.ProductName,
+                            CurrentStock     = slot.CurrentStock,
+                            ShelfCapacity    = slot.ShelfCapacity,
+                            PriceMultiplier  = slot.PriceMultiplier,
+                            DirectRetailPrice = slot.DirectRetailPrice
+                        });
+                    }
                 }
 
                 container.State.Buildings.Add(bData);
@@ -153,6 +171,7 @@ namespace Conglomerate
                 "Farm"                   => new Farm(bData.Name),
                 "CoalMine"               => new CoalMine(bData.Name),
                 "CheeseFactory"          => new CheeseFactory(bData.Name),
+                "GeneralStore"           => new GeneralStore(bData.Name),
                 "FoodWarehouse"          => new WarehouseBuilding(bData.Name, ResourceCategory.Food),
                 "ProcessedFoodWarehouse" => new WarehouseBuilding(bData.Name, ResourceCategory.ProcessedFood),
                 "MiningWarehouse"        => new WarehouseBuilding(bData.Name, ResourceCategory.Mining),
@@ -177,6 +196,22 @@ namespace Conglomerate
                 var recipe = factory.AvailableRecipes.Find(r => r.Id == bData.ActiveRecipeId);
                 if (recipe != null)
                     factory.SetRecipe(recipe);
+            }
+
+            // Przywróć sloty detaliczne
+            if (building is RetailBuilding retailBuilding && bData.RetailSlots.Count > 0)
+            {
+                foreach (var slotData in bData.RetailSlots)
+                {
+                    if (!string.IsNullOrEmpty(slotData.ProductName))
+                    {
+                        retailBuilding.AssignProduct(slotData.SlotIndex, slotData.ProductName, slotData.PriceMultiplier);
+                        var slot = retailBuilding.Slots[slotData.SlotIndex];
+                        slot.CurrentStock      = slotData.CurrentStock;
+                        slot.ShelfCapacity     = slotData.ShelfCapacity;
+                        slot.DirectRetailPrice  = slotData.DirectRetailPrice;
+                    }
+                }
             }
 
             return building;

@@ -80,6 +80,7 @@ namespace Conglomerate
         private XnaPoint? _hoveredTile = null;
         private Panel pnlBuildingDetails = null!;
         private Building? _inspectingBuilding = null;
+        private Logistics.SupplyRoute? _editingRoute = null;
         private Dictionary<string, string> _enteredSellQuantities = new Dictionary<string, string>();
         private Panel pnlFinanceReport = null!;
 
@@ -106,8 +107,17 @@ namespace Conglomerate
         private Label lblContextInv = null!;
         private Panel pnlContextInvBars = null!;
         private Button btnCtxCenter = null!;
-        private Button btnCtxLogistics = null!;
         private Button btnCtxMarket = null!;
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.Style |= 0x02000000; // WS_CLIPCHILDREN
+                return cp;
+            }
+        }
 
         public MainForm()
         {
@@ -516,23 +526,6 @@ namespace Conglomerate
             btnCtxCenter.Click += (s, e) => mapControl.CenterCamera();
             pnlContextInspector.Controls.Add(btnCtxCenter);
 
-            // Przycisk Logistyki
-            btnCtxLogistics = new Button();
-            btnCtxLogistics.Text = "🚚 Logistyka";
-            btnCtxLogistics.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
-            btnCtxLogistics.Size = new Size(100, 22);
-            btnCtxLogistics.Location = new Point(155, 90);
-            btnCtxLogistics.FlatStyle = FlatStyle.Flat;
-            btnCtxLogistics.FlatAppearance.BorderSize = 1;
-            btnCtxLogistics.FlatAppearance.BorderColor = Color.FromArgb(240, 140, 20);
-            btnCtxLogistics.BackColor = Color.FromArgb(35, 35, 35);
-            btnCtxLogistics.ForeColor = Color.FromArgb(240, 180, 50);
-            btnCtxLogistics.Cursor = Cursors.Hand;
-            btnCtxLogistics.Click += (s, e) =>
-            {
-                if (_inspectingBuilding != null) OpenLogisticsManager(_inspectingBuilding);
-            };
-            pnlContextInspector.Controls.Add(btnCtxLogistics);
 
             // Przycisk Rynku
             btnCtxMarket = new Button();
@@ -584,11 +577,13 @@ namespace Conglomerate
             Button btnShortcutResearch = CreateShortcutButton("🔬", 80, Color.FromArgb(50, 150, 250), (s, e) => MessageBox.Show("Moduł Badawczo-Rozwojowy (R&D) jest zablokowany w tej wersji demonstracyjnej.\n\nAby odblokować drzewo technologiczne i badania, zakup pełną wersję gry.", "Moduł R&D Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
             Button btnShortcutMarketing = CreateShortcutButton("📢", 145, Color.FromArgb(240, 180, 50), (s, e) => MessageBox.Show("Moduł Marketingu i Zarządzania Marką jest zablokowany w tej wersji demonstracyjnej.\n\nAby prowadzić kampanie reklamowe i budować wizerunek firmy, zakup pełną wersję gry.", "Moduł Marketingu Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
             Button btnShortcutHR = CreateShortcutButton("👥", 210, Color.FromArgb(220, 100, 220), (s, e) => MessageBox.Show("Moduł HR i Zarządzania Kadrą Kierowniczą jest zablokowany w tej wersji demonstracyjnej.\n\nAby zatrudniać dyrektorów (CEO, CFO, COO) i zarządzać płacami, zakup pełną wersję gry.", "Moduł HR Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            Button btnShortcutLogistics = CreateShortcutButton("🚚", 275, Color.FromArgb(240, 180, 50), (s, e) => ToggleLogisticsManagerPanel());
 
             pnlRightShortcutBar.Controls.Add(btnShortcutFinance);
             pnlRightShortcutBar.Controls.Add(btnShortcutResearch);
             pnlRightShortcutBar.Controls.Add(btnShortcutMarketing);
             pnlRightShortcutBar.Controls.Add(btnShortcutHR);
+            pnlRightShortcutBar.Controls.Add(btnShortcutLogistics);
 
             // 2.2 PANEL PRAWY (Budownictwo)
             pnlRight = new Panel();
@@ -1282,34 +1277,46 @@ namespace Conglomerate
                         }
                         else
                         {
-                            MessageBox.Show("Niepoprawna ilość do sprzedaży (za mało w magazynie)!", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            lblBottomStatus.Text = "❌ Błąd: Niepoprawna ilość do sprzedaży (za mało w magazynie)!";
                         }
                     }
                     else
                     {
-                        MessageBox.Show("Wpisz poprawną liczbę dodatnią!", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        lblBottomStatus.Text = "❌ Błąd: Wpisz poprawną liczbę dodatnią!";
                     }
                 };
                 pnlResources.Controls.Add(btnSell);
 
+                CheckBox chkResAutoSell = new CheckBox();
+                chkResAutoSell.Text = "Auto-sprzedaż";
+                chkResAutoSell.Font = new Font("Segoe UI", 7.5f, FontStyle.Regular);
+                chkResAutoSell.ForeColor = Color.FromArgb(100, 220, 100);
+                chkResAutoSell.Location = new Point(222, yOffset + 21);
+                chkResAutoSell.Size = new Size(110, 24);
+                chkResAutoSell.Checked = building.AutoSellResources.Contains(resourceName);
+                chkResAutoSell.Cursor = Cursors.Hand;
+                chkResAutoSell.CheckedChanged += (s, e) =>
+                {
+                    if (chkResAutoSell.Checked)
+                    {
+                        building.AutoSellResources.Add(resourceName);
+                        building.AutoSell = true;
+                        lblBottomStatus.Text = $"Włączono auto-sprzedaż dla '{resourceName}' w {building.Name}.";
+                    }
+                    else
+                    {
+                        building.AutoSellResources.Remove(resourceName);
+                        if (building.AutoSellResources.Count == 0)
+                        {
+                            building.AutoSell = false;
+                        }
+                        lblBottomStatus.Text = $"Wyłączono auto-sprzedaż dla '{resourceName}' w {building.Name}.";
+                    }
+                };
+                pnlResources.Controls.Add(chkResAutoSell);
+
                 yOffset += 55;
             }
-
-            // Opcja Automatycznej Sprzedaży (CheckBox)
-            CheckBox chkAutoSell = new CheckBox();
-            chkAutoSell.Text = "Automatyczna sprzedaż (raz dziennie)";
-            chkAutoSell.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            chkAutoSell.ForeColor = Color.FromArgb(100, 220, 100);
-            chkAutoSell.Location = new Point(20, 250);
-            chkAutoSell.Size = new Size(350, 22);
-            chkAutoSell.Checked = building.AutoSell;
-            chkAutoSell.Cursor = Cursors.Hand;
-            chkAutoSell.CheckedChanged += (s, e) =>
-            {
-                building.AutoSell = chkAutoSell.Checked;
-                lblBottomStatus.Text = $"Automatyczna sprzedaż dla '{building.Name}' została {(building.AutoSell ? "włączona" : "wyłączona")}.";
-            };
-            pnlBuildingDetails.Controls.Add(chkAutoSell);
 
             // Podpis informacyjny na dole
             Label lblEsc = new Label();
@@ -1433,18 +1440,15 @@ namespace Conglomerate
 
                 // Pozycjonuj przyciski i inne elementy dla retail
                 btnCtxCenter.Location = new Point(15, 110);
-                btnCtxCenter.Size = new Size(110, 22);
-                btnCtxLogistics.Location = new Point(130, 110);
-                btnCtxLogistics.Size = new Size(90, 22);
-                btnCtxMarket.Location = new Point(225, 110);
-                btnCtxMarket.Size = new Size(90, 22);
+                btnCtxCenter.Size = new Size(140, 22);
+                btnCtxMarket.Location = new Point(165, 110);
+                btnCtxMarket.Size = new Size(140, 22);
 
                 lblContextInv.Location = new Point(360, 20);
                 pnlContextInvBars.Location = new Point(360, 40);
                 pnlContextInvBars.Size = new Size(220, 95);
 
                 btnCtxCenter.Visible = true;
-                btnCtxLogistics.Visible = true;
                 btnCtxMarket.Visible = true;
 
                 UpdateRetailInspector(store);
@@ -1461,18 +1465,15 @@ namespace Conglomerate
 
                 // Pozycjonuj przyciski i inne elementy dla fabryki
                 btnCtxCenter.Location = new Point(15, 145);
-                btnCtxCenter.Size = new Size(110, 22);
-                btnCtxLogistics.Location = new Point(130, 145);
-                btnCtxLogistics.Size = new Size(90, 22);
-                btnCtxMarket.Location = new Point(225, 145);
-                btnCtxMarket.Size = new Size(90, 22);
+                btnCtxCenter.Size = new Size(140, 22);
+                btnCtxMarket.Location = new Point(165, 145);
+                btnCtxMarket.Size = new Size(140, 22);
 
                 lblContextInv.Location = new Point(330, 20);
                 pnlContextInvBars.Location = new Point(330, 40);
                 pnlContextInvBars.Size = new Size(250, 125);
 
                 btnCtxCenter.Visible = true;
-                btnCtxLogistics.Visible = true;
                 btnCtxMarket.Visible = true;
 
                 UpdateFactoryInspector(factory);
@@ -1496,18 +1497,15 @@ namespace Conglomerate
 
             // Przywróć standardowe pozycje
             btnCtxCenter.Location = new Point(15, 90);
-            btnCtxCenter.Size = new Size(130, 22);
-            btnCtxLogistics.Location = new Point(155, 90);
-            btnCtxLogistics.Size = new Size(100, 22);
-            btnCtxMarket.Location = new Point(265, 90);
-            btnCtxMarket.Size = new Size(85, 22);
+            btnCtxCenter.Size = new Size(160, 22);
+            btnCtxMarket.Location = new Point(185, 90);
+            btnCtxMarket.Size = new Size(160, 22);
 
             lblContextInv.Location = new Point(300, 45);
             pnlContextInvBars.Location = new Point(300, 65);
             pnlContextInvBars.Size = new Size(270, 50);
 
             btnCtxCenter.Visible = true;
-            btnCtxLogistics.Visible = isPlayerOwned;
             btnCtxMarket.Visible = isPlayerOwned;
 
             // 1. Capacity Utilization
@@ -2737,12 +2735,18 @@ namespace Conglomerate
                     _company.Engine.RegisterFacility(building);
 
                     // Place on Map
+                    building.X = bData.X;
+                    building.Y = bData.Y;
                     _map.BuildBuildingOnTile(bData.X, bData.Y, building);
                 }
 
                 // 4. Recreate GameManager & restore day/hour
                 _gameManager = new GameManager(_company, _map);
                 _gameManager.RestoreState(state.CurrentDay, state.CurrentHour);
+                if (state.SupplyRoutes != null)
+                {
+                    _gameManager.Logistics.RestoreRoutes(state.SupplyRoutes);
+                }
 
                 // 5. Re-subscribe events
                 _gameManager.OnTickPerformed += OnTickPerformed;
@@ -2918,7 +2922,7 @@ namespace Conglomerate
         private void InitializeLogisticsManagerPanel()
         {
             pnlLogisticsManager = new Panel();
-            pnlLogisticsManager.Size = new Size(700, 480);
+            pnlLogisticsManager.Size = new Size(850, 580);
             pnlLogisticsManager.BackColor = Color.FromArgb(22, 22, 22);
             pnlLogisticsManager.BorderStyle = BorderStyle.FixedSingle;
             pnlLogisticsManager.Visible = false;
@@ -2947,24 +2951,43 @@ namespace Conglomerate
         }
 
         // ───────────────────────────────────────────────────────────────────
-        //  PANEL ZARZĄDZANIA TRASAMI LOGISTYCZNYMI
+        //  PANEL ZARZĄDZANIA TRASAMI LOGISTYCZNYMI (GLOBALNY)
         // ───────────────────────────────────────────────────────────────────
 
-        private void OpenLogisticsManager(Building targetBuilding)
+        private void ToggleLogisticsManagerPanel()
+        {
+            if (_gameManager == null || _company == null) return;
+
+            if (pnlLogisticsManager.Visible)
+            {
+                pnlLogisticsManager.Visible = false;
+                _editingRoute = null;
+                if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
+                    _gameTimer.Start();
+            }
+            else
+            {
+                OpenLogisticsManagerGlobal();
+            }
+        }
+
+        private void OpenLogisticsManagerGlobal()
         {
             if (_gameManager == null || _company == null) return;
 
             _gameTimer.Stop();
             HideAllOverlays(pnlLogisticsManager);
-            pnlLogisticsManager.Controls.Clear();
-            BuildLogisticsPanel(targetBuilding);
+            _editingRoute = null;
+            BuildLogisticsPanelGlobal();
             CenterPanel(pnlLogisticsManager);
             pnlLogisticsManager.Visible = true;
             pnlLogisticsManager.BringToFront();
         }
 
-        private void BuildLogisticsPanel(Building targetBuilding)
+        private void BuildLogisticsPanelGlobal()
         {
+            pnlLogisticsManager.Controls.Clear();
+
             // Górna linia akcentu
             var topLine = new Panel { Dock = DockStyle.Top, Height = 3, BackColor = Color.FromArgb(240, 140, 20) };
             pnlLogisticsManager.Controls.Add(topLine);
@@ -2972,11 +2995,11 @@ namespace Conglomerate
             // Tytuł
             var lblTitle = new Label
             {
-                Text = $"🚚  LOGISTYKA — {targetBuilding.Name}",
+                Text = "🚚  LOGISTYKA I FLOTA IMPERIUM",
                 Font = new Font("Segoe UI", 12, FontStyle.Bold),
                 ForeColor = Color.FromArgb(240, 180, 50),
                 Location = new Point(15, 15),
-                Size = new Size(560, 24)
+                Size = new Size(500, 24)
             };
             pnlLogisticsManager.Controls.Add(lblTitle);
 
@@ -2986,7 +3009,7 @@ namespace Conglomerate
                 Text = "✕",
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 Size = new Size(30, 28),
-                Location = new Point(660, 10),
+                Location = new Point(810, 10),
                 FlatStyle = FlatStyle.Flat,
                 ForeColor = Color.Gray,
                 BackColor = Color.Transparent,
@@ -2996,321 +3019,749 @@ namespace Conglomerate
             btnClose.Click += (s, e) =>
             {
                 pnlLogisticsManager.Visible = false;
+                _editingRoute = null;
                 if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
                     _gameTimer.Start();
             };
             pnlLogisticsManager.Controls.Add(btnClose);
 
-            // Lista istniejących tras
-            var lblRoutesHeader = new Label
+            int activeTripsCount = _gameManager!.Logistics.ActiveTrips.Count;
+            int totalFleet = _gameManager.Logistics.TotalFleetSize;
+
+            // Nagłówek lewej kolumny
+            var lblLeftHeader = new Label
             {
-                Text = "AKTYWNE TRASY:",
-                Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                Text = $"AKTYWNE TRASY (AKTYWNE DOSTAWY: {activeTripsCount} / {totalFleet})",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 ForeColor = Color.DarkGray,
                 Location = new Point(15, 50),
-                Size = new Size(200, 16)
+                Size = new Size(490, 20)
             };
-            pnlLogisticsManager.Controls.Add(lblRoutesHeader);
+            pnlLogisticsManager.Controls.Add(lblLeftHeader);
 
-            var routes = _gameManager!.Logistics.GetRoutesForTarget(targetBuilding.FacilityId);
-            int routeY = 70;
+            // Kontener listy tras (scrollable)
+            var pnlRoutesList = new Panel
+            {
+                Location = new Point(15, 75),
+                Size = new Size(490, 440),
+                AutoScroll = true,
+                BackColor = Color.FromArgb(16, 16, 16),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            pnlLogisticsManager.Controls.Add(pnlRoutesList);
+
+            var routes = _gameManager.Logistics.Routes;
+            int routeY = 5;
+
+            var buildingMap = _company!.Buildings.ToDictionary(b => b.FacilityId, b => b);
 
             if (routes.Count == 0)
             {
                 var lblEmpty = new Label
                 {
-                    Text = "Brak aktywnych tras. Dodaj pierwszą trasę poniżej.",
+                    Text = "Brak aktywnych tras. Utwórz trasę w panelu po prawej stronie.",
                     Font = new Font("Segoe UI", 9, FontStyle.Italic),
                     ForeColor = Color.FromArgb(100, 100, 100),
-                    Location = new Point(15, routeY),
-                    Size = new Size(660, 20)
+                    Location = new Point(10, 20),
+                    Size = new Size(470, 40),
+                    TextAlign = ContentAlignment.TopCenter
                 };
-                pnlLogisticsManager.Controls.Add(lblEmpty);
-                routeY += 28;
+                pnlRoutesList.Controls.Add(lblEmpty);
             }
             else
             {
                 foreach (var route in routes)
                 {
-                    BuildRouteRow(route, targetBuilding, routeY);
-                    routeY += 38;
+                    // Wiersz trasy
+                    var pnlRow = new Panel
+                    {
+                        Location = new Point(5, routeY),
+                        Size = new Size(460, 65),
+                        BackColor = Color.FromArgb(28, 28, 28)
+                    };
+
+                    // Wyznaczenie nazwy dostawcy i odbiorcy
+                    string sourceName = route.SourceType == RouteSourceType.Market
+                        ? "🏪 Rynek"
+                        : (buildingMap.TryGetValue(route.SourceFacilityId, out var src) ? $"🏭 {src.Name}" : "?");
+                    string destName = buildingMap.TryGetValue(route.TargetFacilityId, out var dst) ? dst.Name : "?";
+
+                    // Wyznaczenie statusu
+                    string statusText = "Oczekiwanie";
+                    Color statusColor = Color.Gray;
+
+                    if (!route.IsEnabled)
+                    {
+                        statusText = "Wstrzymana";
+                        statusColor = Color.DarkGray;
+                    }
+                    else if (route.LastTripResult.Contains("W drodze"))
+                    {
+                        statusText = "Aktywna (W drodze)";
+                        statusColor = Color.FromArgb(100, 220, 100);
+                    }
+                    else if (route.LastTripResult.Contains("Brak środków"))
+                    {
+                        statusText = "Brak środków (Głód)";
+                        statusColor = Color.FromArgb(240, 80, 80);
+                    }
+                    else if (route.LastTripResult.Contains("Oczekiwanie na wolną flotę"))
+                    {
+                        statusText = "Kolejka (Brak floty)";
+                        statusColor = Color.FromArgb(240, 180, 50);
+                    }
+                    else if (route.LastTripResult.Contains("Oczekiwanie na towar") || route.LastTripResult.Contains("Magazyn docelowy pełny"))
+                    {
+                        statusText = "Oczekiwanie na towar (Idle)";
+                        statusColor = Color.FromArgb(200, 180, 50);
+                    }
+                    else if (route.LastTripResult.StartsWith("✅"))
+                    {
+                        statusText = "Aktywna (Zgodna z budżetem)";
+                        statusColor = Color.FromArgb(100, 220, 100);
+                    }
+                    else
+                    {
+                        statusText = route.LastTripResult;
+                        statusColor = Color.LightGray;
+                    }
+
+                    var lblRouteTitle = new Label
+                    {
+                        Text = $"{sourceName}  ➔  {destName}",
+                        Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                        ForeColor = Color.White,
+                        Location = new Point(8, 6),
+                        Size = new Size(320, 18),
+                        AutoEllipsis = true
+                    };
+                    pnlRow.Controls.Add(lblRouteTitle);
+
+                    string vehicleLabel = route.VehicleTypeName == "Van" ? "Van" : "Truck";
+                    string loadRuleText = route.LoadRule switch
+                    {
+                        LoadThresholdRule.FullOnly => "Tylko pełny",
+                        LoadThresholdRule.MinCargo50 => "Min 50%",
+                        _ => $"Timer ({route.IntervalHours}h)"
+                    };
+
+                    var lblRouteDetails = new Label
+                    {
+                        Text = $"{route.ResourceName} ×{route.AmountPerTrip} | {vehicleLabel} ({loadRuleText}) | Priorytet: {route.Priority}",
+                        Font = new Font("Segoe UI", 8f),
+                        ForeColor = Color.LightGray,
+                        Location = new Point(8, 24),
+                        Size = new Size(320, 16)
+                    };
+                    pnlRow.Controls.Add(lblRouteDetails);
+
+                    var lblStatus = new Label
+                    {
+                        Text = $"● {statusText}",
+                        Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                        ForeColor = statusColor,
+                        Location = new Point(8, 42),
+                        Size = new Size(320, 16)
+                    };
+                    pnlRow.Controls.Add(lblStatus);
+
+                    // Przyciski akcji na wierszu
+                    var btnEdit = new Button
+                    {
+                        Text = "✏",
+                        Font = new Font("Segoe UI", 8.5f),
+                        Size = new Size(24, 24),
+                        Location = new Point(365, 20),
+                        FlatStyle = FlatStyle.Flat,
+                        ForeColor = Color.FromArgb(50, 150, 250),
+                        BackColor = Color.FromArgb(40, 40, 40),
+                        Cursor = Cursors.Hand
+                    };
+                    btnEdit.FlatAppearance.BorderSize = 0;
+                    btnEdit.Click += (s, e) =>
+                    {
+                        _editingRoute = route;
+                        BuildLogisticsPanelGlobal();
+                    };
+                    pnlRow.Controls.Add(btnEdit);
+
+                    var btnToggle = new Button
+                    {
+                        Text = route.IsEnabled ? "⏸" : "▶",
+                        Font = new Font("Segoe UI", 9),
+                        Size = new Size(24, 24),
+                        Location = new Point(395, 20),
+                        FlatStyle = FlatStyle.Flat,
+                        ForeColor = route.IsEnabled ? Color.FromArgb(100, 220, 100) : Color.Gray,
+                        BackColor = Color.FromArgb(40, 40, 40),
+                        Cursor = Cursors.Hand
+                    };
+                    btnToggle.FlatAppearance.BorderSize = 0;
+                    btnToggle.Click += (s, e) =>
+                    {
+                        route.IsEnabled = !route.IsEnabled;
+                        BuildLogisticsPanelGlobal();
+                    };
+                    pnlRow.Controls.Add(btnToggle);
+
+                    var btnRemove = new Button
+                    {
+                        Text = "✕",
+                        Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                        Size = new Size(24, 24),
+                        Location = new Point(425, 20),
+                        FlatStyle = FlatStyle.Flat,
+                        ForeColor = Color.FromArgb(240, 80, 80),
+                        BackColor = Color.FromArgb(40, 40, 40),
+                        Cursor = Cursors.Hand
+                    };
+                    btnRemove.FlatAppearance.BorderSize = 0;
+                    string routeId = route.Id;
+                    btnRemove.Click += (s, e) =>
+                    {
+                        var confirm = MessageBox.Show("Czy na pewno chcesz usunąć tę trasę?", "Usuwanie trasy", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        if (confirm == DialogResult.Yes)
+                        {
+                            _gameManager.Logistics.RemoveRoute(routeId);
+                            if (_editingRoute?.Id == routeId) _editingRoute = null;
+                            BuildLogisticsPanelGlobal();
+                        }
+                    };
+                    pnlRow.Controls.Add(btnRemove);
+
+                    pnlRoutesList.Controls.Add(pnlRow);
+                    routeY += 70;
                 }
             }
 
-            // Separator
-            var sep = new Panel { Location = new Point(0, routeY + 5), Size = new Size(700, 1), BackColor = Color.FromArgb(45, 45, 45) };
-            pnlLogisticsManager.Controls.Add(sep);
-            routeY += 18;
-
-            // ── FORMULARZ DODAWANIA NOWEJ TRASY ──
-            var lblNewRoute = new Label
+            // Przycisk "Dodaj nową trasę" na dole lewej kolumny
+            var btnAddNewRoute = new Button
             {
-                Text = "DODAJ NOWĄ TRASĘ:",
-                Font = new Font("Segoe UI", 8, FontStyle.Bold),
-                ForeColor = Color.FromArgb(50, 150, 250),
-                Location = new Point(15, routeY),
-                Size = new Size(200, 16)
-            };
-            pnlLogisticsManager.Controls.Add(lblNewRoute);
-            routeY += 22;
-
-            // Wybór źródła
-            var lblSource = new Label { Text = "Źródło:", Font = new Font("Segoe UI", 8.5f), ForeColor = Color.LightGray, Location = new Point(15, routeY + 4), Size = new Size(60, 18) };
-            pnlLogisticsManager.Controls.Add(lblSource);
-
-            var cmbSourceType = new ComboBox
-            {
-                Location = new Point(80, routeY),
-                Size = new Size(130, 23),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = Color.FromArgb(40, 40, 40),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
-            };
-            cmbSourceType.Items.Add("Wolny Rynek");
-            cmbSourceType.Items.Add("Budynek");
-            cmbSourceType.SelectedIndex = 0;
-            pnlLogisticsManager.Controls.Add(cmbSourceType);
-
-            var cmbSourceBuilding = new ComboBox
-            {
-                Location = new Point(220, routeY),
-                Size = new Size(220, 23),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = Color.FromArgb(40, 40, 40),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Visible = false
-            };
-            // Wypełnij budynkami źródłowymi (wszystkie oprócz celu)
-            foreach (var b in _company!.Buildings)
-            {
-                if (b.FacilityId != targetBuilding.FacilityId)
-                    cmbSourceBuilding.Items.Add(b);
-            }
-            cmbSourceBuilding.DisplayMember = "Name";
-            if (cmbSourceBuilding.Items.Count > 0) cmbSourceBuilding.SelectedIndex = 0;
-            pnlLogisticsManager.Controls.Add(cmbSourceBuilding);
-
-            cmbSourceType.SelectedIndexChanged += (s, e) =>
-            {
-                cmbSourceBuilding.Visible = cmbSourceType.SelectedIndex == 1;
-            };
-
-            routeY += 32;
-
-            // Surowiec
-            var lblRes = new Label { Text = "Surowiec:", Font = new Font("Segoe UI", 8.5f), ForeColor = Color.LightGray, Location = new Point(15, routeY + 4), Size = new Size(70, 18) };
-            pnlLogisticsManager.Controls.Add(lblRes);
-
-            var cmbResource = new ComboBox
-            {
-                Location = new Point(90, routeY),
-                Size = new Size(160, 23),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = Color.FromArgb(40, 40, 40),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
-            };
-            // Surowce wejściowe fabryki lub wszystkie jeśli nie fabryka
-            if (targetBuilding is FactoryBuilding fb && fb.ActiveRecipe != null)
-            {
-                foreach (var inp in fb.ActiveRecipe.Inputs.Keys) cmbResource.Items.Add(inp);
-            }
-            else
-            {
-                foreach (var res in _gameManager!.Market.Listings.Keys) cmbResource.Items.Add(res);
-            }
-            if (cmbResource.Items.Count > 0) cmbResource.SelectedIndex = 0;
-            pnlLogisticsManager.Controls.Add(cmbResource);
-
-            // Ilość na trip
-            var lblAmt = new Label { Text = "Ilość/trip:", Font = new Font("Segoe UI", 8.5f), ForeColor = Color.LightGray, Location = new Point(270, routeY + 4), Size = new Size(70, 18) };
-            pnlLogisticsManager.Controls.Add(lblAmt);
-
-            var numAmount = new NumericUpDown
-            {
-                Location = new Point(345, routeY),
-                Size = new Size(70, 23),
-                Minimum = 1, Maximum = 500, Value = 10,
-                BackColor = Color.FromArgb(40, 40, 40),
-                ForeColor = Color.White
-            };
-            pnlLogisticsManager.Controls.Add(numAmount);
-
-            // Interwał
-            var lblInterval = new Label { Text = "Co (h):", Font = new Font("Segoe UI", 8.5f), ForeColor = Color.LightGray, Location = new Point(430, routeY + 4), Size = new Size(55, 18) };
-            pnlLogisticsManager.Controls.Add(lblInterval);
-
-            var numInterval = new NumericUpDown
-            {
-                Location = new Point(490, routeY),
-                Size = new Size(65, 23),
-                Minimum = 1, Maximum = 168, Value = 24,
-                BackColor = Color.FromArgb(40, 40, 40),
-                ForeColor = Color.White
-            };
-            pnlLogisticsManager.Controls.Add(numInterval);
-
-            routeY += 32;
-
-            // Koszt transportu
-            var lblTransCost = new Label { Text = "Koszt transp. (zł/szt.):", Font = new Font("Segoe UI", 8.5f), ForeColor = Color.LightGray, Location = new Point(15, routeY + 4), Size = new Size(160, 18) };
-            pnlLogisticsManager.Controls.Add(lblTransCost);
-
-            var numTransCost = new NumericUpDown
-            {
-                Location = new Point(180, routeY),
-                Size = new Size(80, 23),
-                Minimum = 0, Maximum = 500, Value = 10,
-                DecimalPlaces = 0,
-                BackColor = Color.FromArgb(40, 40, 40),
-                ForeColor = Color.White
-            };
-            pnlLogisticsManager.Controls.Add(numTransCost);
-
-            routeY += 40;
-
-            // Przycisk Dodaj Trasę
-            var btnAdd = new Button
-            {
-                Text = "➕  DODAJ TRASĘ",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                Location = new Point(15, routeY),
+                Text = "➕  DODAJ NOWĄ TRASĘ",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Location = new Point(15, 528),
                 Size = new Size(200, 36),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(50, 150, 250),
                 ForeColor = Color.White,
                 Cursor = Cursors.Hand
             };
-            btnAdd.FlatAppearance.BorderSize = 0;
-            btnAdd.Click += (s, e) =>
+            btnAddNewRoute.FlatAppearance.BorderSize = 0;
+            btnAddNewRoute.Click += (s, e) =>
             {
-                if (cmbResource.SelectedItem == null) return;
-
-                var route = new SupplyRoute
-                {
-                    TargetFacilityId    = targetBuilding.FacilityId,
-                    ResourceName        = cmbResource.SelectedItem.ToString()!,
-                    AmountPerTrip       = (int)numAmount.Value,
-                    IntervalHours       = (int)numInterval.Value,
-                    TransportCostPerUnit = (decimal)numTransCost.Value,
-                    IsEnabled           = true
-                };
-
-                if (cmbSourceType.SelectedIndex == 1 && cmbSourceBuilding.SelectedItem is Building srcBuilding)
-                {
-                    route.SourceType       = RouteSourceType.Building;
-                    route.SourceFacilityId = srcBuilding.FacilityId;
-                    route.SourceDisplayName = srcBuilding.Name;
-                }
-                else
-                {
-                    route.SourceType = RouteSourceType.Market;
-                    route.SourceDisplayName = "Wolny Rynek";
-                }
-
-                _gameManager!.Logistics.AddRoute(route);
-
-                // Odbuduj panel po dodaniu
-                OpenLogisticsManager(targetBuilding);
+                _editingRoute = null;
+                BuildLogisticsPanelGlobal();
             };
-            pnlLogisticsManager.Controls.Add(btnAdd);
+            pnlLogisticsManager.Controls.Add(btnAddNewRoute);
 
-            // Przycisk Otwórz Rynek
-            var btnOpenMarket = new Button
+            // ──────────────────────────────────────────────
+            //  PRAWA KOLUMNA: EDYTOR TRASY
+            // ──────────────────────────────────────────────
+            var lblRightHeader = new Label
             {
-                Text = "📈  OTWÓRZ RYNEK",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                Location = new Point(230, routeY),
-                Size = new Size(200, 36),
+                Text = _editingRoute == null ? "KREATOR NOWEJ TRASY" : "EDYCJA TRASY (USTAWIENIA)",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = _editingRoute == null ? Color.FromArgb(50, 150, 250) : Color.FromArgb(240, 180, 50),
+                Location = new Point(520, 50),
+                Size = new Size(310, 20)
+            };
+            pnlLogisticsManager.Controls.Add(lblRightHeader);
+
+            var pnlEditor = new Panel
+            {
+                Location = new Point(520, 75),
+                Size = new Size(310, 489),
+                BackColor = Color.FromArgb(22, 22, 22)
+            };
+            pnlLogisticsManager.Controls.Add(pnlEditor);
+
+            // Kontrolki edytora
+            int editY = 5;
+
+            // 1. Dostawca (Source)
+            var lblSource = new Label { Text = "Dostawca (Źródło):", Font = new Font("Segoe UI", 8f), ForeColor = Color.DarkGray, Location = new Point(0, editY), Size = new Size(300, 16) };
+            pnlEditor.Controls.Add(lblSource);
+            editY += 18;
+
+            var cmbSource = new ComboBox
+            {
+                Location = new Point(0, editY),
+                Size = new Size(295, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            cmbSource.Items.Add("🏪 Wolny Rynek");
+            foreach (var b in _company.Buildings)
+            {
+                cmbSource.Items.Add(b);
+            }
+            cmbSource.DisplayMember = "Name";
+            pnlEditor.Controls.Add(cmbSource);
+            editY += 30;
+
+            // 2. Odbiorca (Destination)
+            var lblDest = new Label { Text = "Odbiorca (Cel):", Font = new Font("Segoe UI", 8f), ForeColor = Color.DarkGray, Location = new Point(0, editY), Size = new Size(300, 16) };
+            pnlEditor.Controls.Add(lblDest);
+            editY += 18;
+
+            var cmbDest = new ComboBox
+            {
+                Location = new Point(0, editY),
+                Size = new Size(295, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            foreach (var b in _company.Buildings)
+            {
+                cmbDest.Items.Add(b);
+            }
+            cmbDest.DisplayMember = "Name";
+            pnlEditor.Controls.Add(cmbDest);
+            editY += 30;
+
+            // 3. Towar (Resource)
+            var lblResource = new Label { Text = "Towar:", Font = new Font("Segoe UI", 8f), ForeColor = Color.DarkGray, Location = new Point(0, editY), Size = new Size(300, 16) };
+            pnlEditor.Controls.Add(lblResource);
+            editY += 18;
+
+            var cmbResource = new ComboBox
+            {
+                Location = new Point(0, editY),
+                Size = new Size(295, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            pnlEditor.Controls.Add(cmbResource);
+            editY += 30;
+
+            // Helper to populate resources based on destination
+            Action updateResources = () =>
+            {
+                cmbResource.Items.Clear();
+                if (cmbDest.SelectedItem is Building destBuilding)
+                {
+                    if (destBuilding is FactoryBuilding fb && fb.ActiveRecipe != null)
+                    {
+                        foreach (var inputRes in fb.ActiveRecipe.Inputs.Keys)
+                        {
+                            cmbResource.Items.Add(inputRes);
+                        }
+                    }
+                    else
+                    {
+                        // Warehouse or Retail - list all possible listings
+                        foreach (var resKey in _gameManager.Market.Listings.Keys)
+                        {
+                            cmbResource.Items.Add(resKey);
+                        }
+                    }
+                }
+                if (cmbResource.Items.Count > 0)
+                {
+                    cmbResource.SelectedIndex = 0;
+                }
+            };
+
+            cmbDest.SelectedIndexChanged += (s, e) => updateResources();
+
+            // 4. Środek transportu (Vehicle Type)
+            var lblVehicle = new Label { Text = "Środek transportu:", Font = new Font("Segoe UI", 8f), ForeColor = Color.DarkGray, Location = new Point(0, editY), Size = new Size(300, 16) };
+            pnlEditor.Controls.Add(lblVehicle);
+            editY += 18;
+
+            var cmbVehicle = new ComboBox
+            {
+                Location = new Point(0, editY),
+                Size = new Size(295, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            foreach (var vt in VehicleRegistry.VehicleTypes)
+            {
+                cmbVehicle.Items.Add(vt.Name);
+            }
+            if (cmbVehicle.Items.Count > 0) cmbVehicle.SelectedIndex = 0;
+            pnlEditor.Controls.Add(cmbVehicle);
+            editY += 30;
+
+            // 5. Reguła załadunku (Load Threshold Rule)
+            var lblLoadRule = new Label { Text = "Reguła załadunku:", Font = new Font("Segoe UI", 8f), ForeColor = Color.DarkGray, Location = new Point(0, editY), Size = new Size(300, 16) };
+            pnlEditor.Controls.Add(lblLoadRule);
+            editY += 18;
+
+            var cmbLoadRule = new ComboBox
+            {
+                Location = new Point(0, editY),
+                Size = new Size(295, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            cmbLoadRule.Items.Add("Wysyłaj co określony czas (Timer)");
+            cmbLoadRule.Items.Add("Tylko pełny załadunek (100%)");
+            cmbLoadRule.Items.Add("Min. załadunek 50%");
+            cmbLoadRule.SelectedIndex = 0;
+            pnlEditor.Controls.Add(cmbLoadRule);
+            editY += 30;
+
+            // 6. Parametry (Timer & Ilość) - side by side
+            var lblInterval = new Label { Text = "Co (godzin):", Font = new Font("Segoe UI", 8f), ForeColor = Color.DarkGray, Location = new Point(0, editY), Size = new Size(140, 16) };
+            pnlEditor.Controls.Add(lblInterval);
+
+            var lblAmount = new Label { Text = "Ilość/kurs:", Font = new Font("Segoe UI", 8f), ForeColor = Color.DarkGray, Location = new Point(155, editY), Size = new Size(140, 16) };
+            pnlEditor.Controls.Add(lblAmount);
+            editY += 18;
+
+            var numInterval = new NumericUpDown
+            {
+                Location = new Point(0, editY),
+                Size = new Size(140, 23),
+                Minimum = 1, Maximum = 168, Value = 24,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White
+            };
+            pnlEditor.Controls.Add(numInterval);
+
+            var numAmount = new NumericUpDown
+            {
+                Location = new Point(155, editY),
+                Size = new Size(140, 23),
+                Minimum = 1, Maximum = 60, Value = 10,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White
+            };
+            pnlEditor.Controls.Add(numAmount);
+            editY += 30;
+
+            // 7. Parametry (Priorytet i automatyczny koszt) - side by side
+            var lblPriority = new Label { Text = "Priorytet trasy:", Font = new Font("Segoe UI", 8f), ForeColor = Color.DarkGray, Location = new Point(0, editY), Size = new Size(140, 16) };
+            pnlEditor.Controls.Add(lblPriority);
+
+            var lblCalculatedUnitCost = new Label { Text = "Koszt jedn. (auto):", Font = new Font("Segoe UI", 7.5f), ForeColor = Color.LightGray, Location = new Point(155, editY), Size = new Size(140, 32) };
+            pnlEditor.Controls.Add(lblCalculatedUnitCost);
+            editY += 18;
+
+            var cmbPriority = new ComboBox
+            {
+                Location = new Point(0, editY),
+                Size = new Size(140, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            cmbPriority.Items.Add("Niski");
+            cmbPriority.Items.Add("Średni");
+            cmbPriority.Items.Add("Wysoki");
+            cmbPriority.SelectedIndex = 1;
+            pnlEditor.Controls.Add(cmbPriority);
+            editY += 30;
+
+            // 8. Podgląd OPEX
+            var pnlOpex = new Panel
+            {
+                Location = new Point(0, editY),
+                Size = new Size(295, 65),
+                BackColor = Color.FromArgb(28, 28, 28)
+            };
+            pnlEditor.Controls.Add(pnlOpex);
+
+            var lblOpexBase = new Label
+            {
+                Text = "Koszt pojazdu (OPEX): 40.00 zł",
+                Font = new Font("Segoe UI", 7.5f),
+                ForeColor = Color.LightGray,
+                Location = new Point(8, 6),
+                Size = new Size(280, 16)
+            };
+            pnlOpex.Controls.Add(lblOpexBase);
+
+            var lblOpexTotal = new Label
+            {
+                Text = "Szacowany koszt kursu: 140.00 zł",
+                Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(240, 180, 50),
+                Location = new Point(8, 26),
+                Size = new Size(280, 16)
+            };
+            pnlOpex.Controls.Add(lblOpexTotal);
+
+            var lblOpexWarning = new Label
+            {
+                Text = "* Kupując na rynku doliczana jest cena rynkowa",
+                Font = new Font("Segoe UI", 7f, FontStyle.Italic),
+                ForeColor = Color.DarkGray,
+                Location = new Point(8, 44),
+                Size = new Size(280, 14)
+            };
+            pnlOpex.Controls.Add(lblOpexWarning);
+            editY += 75;
+
+            // Helper to get distance & unit cost
+            Func<(double Distance, decimal UnitCost)> getRouteCostDetails = () =>
+            {
+                if (cmbDest.SelectedItem == null) return (0.0, 0.0m);
+                var destBuilding = (Building)cmbDest.SelectedItem;
+
+                double distance = 6.0;
+                if (cmbSource.SelectedIndex > 0 && cmbSource.SelectedItem is Building srcBuilding)
+                {
+                    distance = Math.Sqrt(Math.Pow(destBuilding.X - srcBuilding.X, 2) + Math.Pow(destBuilding.Y - srcBuilding.Y, 2));
+                }
+                
+                decimal uCost = Math.Max(0.5m, Math.Round((decimal)distance * 0.3m, 1));
+                return (distance, uCost);
+            };
+
+            // Funkcja aktualizacji parametrów pojazdu i kosztów
+            Action updateOpexPreview = () =>
+            {
+                if (cmbVehicle.SelectedItem == null) return;
+                string vName = cmbVehicle.SelectedItem.ToString()!;
+                var config = VehicleRegistry.Get(vName);
+                
+                // Dostosuj maksymalną ilość ładunku do pojemności pojazdu
+                numAmount.Maximum = config.Capacity;
+                if (numAmount.Value > config.Capacity) numAmount.Value = config.Capacity;
+
+                var (dist, unitCost) = getRouteCostDetails();
+                decimal baseCost = config.BaseCostPerTrip;
+                decimal totalCost = baseCost + (numAmount.Value * unitCost);
+
+                lblCalculatedUnitCost.Text = $"Koszt jedn. (auto):\n{unitCost:F1} zł/szt. (Dyst: {dist:F1})";
+                lblOpexBase.Text = $"Koszt pojazdu (OPEX): {baseCost:F2} zł [Pojemność: {config.Capacity}]";
+                lblOpexTotal.Text = $"Szacowany koszt kursu: {totalCost:F2} zł";
+            };
+
+            cmbVehicle.SelectedIndexChanged += (s, e) => updateOpexPreview();
+            numAmount.UpDownAlign = LeftRightAlignment.Right; // Standard alignment
+            numAmount.ValueChanged += (s, e) => updateOpexPreview();
+            cmbSource.SelectedIndexChanged += (s, e) => updateOpexPreview();
+
+            // Ustaw enable/disable dla parametrów na podstawie reguły załadunku
+            cmbLoadRule.SelectedIndexChanged += (s, e) =>
+            {
+                bool isTimer = cmbLoadRule.SelectedIndex == 0;
+                numInterval.Enabled = isTimer;
+                if (cmbVehicle.SelectedItem != null)
+                {
+                    var config = VehicleRegistry.Get(cmbVehicle.SelectedItem.ToString()!);
+                    if (cmbLoadRule.SelectedIndex == 1) // FullOnly
+                    {
+                        numAmount.Value = config.Capacity;
+                        numAmount.Enabled = false;
+                    }
+                    else
+                    {
+                        numAmount.Enabled = true;
+                    }
+                }
+                updateOpexPreview();
+            };
+
+            // Przycisk Zapisu / Utworzenia
+            var btnSave = new Button
+            {
+                Text = _editingRoute == null ? "➕  DODAJ TRASĘ" : "💾  ZAPISZ ZMIANY",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Location = new Point(0, editY),
+                Size = new Size(295, 36),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(240, 140, 20),
+                BackColor = _editingRoute == null ? Color.FromArgb(50, 150, 250) : Color.FromArgb(240, 180, 50),
                 ForeColor = Color.White,
                 Cursor = Cursors.Hand
             };
-            btnOpenMarket.FlatAppearance.BorderSize = 0;
-            btnOpenMarket.Click += (s, e) =>
+            btnSave.FlatAppearance.BorderSize = 0;
+            btnSave.Click += (s, e) =>
             {
-                pnlLogisticsManager.Visible = false;
-                OpenMarketBuyer(targetBuilding);
+                if (cmbDest.SelectedItem == null || cmbResource.SelectedItem == null || cmbVehicle.SelectedItem == null)
+                {
+                    MessageBox.Show("Upewnij się, że wszystkie pola zostały wypełnione poprawnie.", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var targetBuilding = (Building)cmbDest.SelectedItem;
+                
+                string sourceId = string.Empty;
+                string sourceDisplayName = string.Empty;
+                RouteSourceType sourceType = RouteSourceType.Market;
+
+                if (cmbSource.SelectedIndex > 0 && cmbSource.SelectedItem is Building srcBuilding)
+                {
+                    if (srcBuilding.FacilityId == targetBuilding.FacilityId)
+                    {
+                        MessageBox.Show("Dostawca i odbiorca nie mogą być tym samym budynkiem.", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    sourceType = RouteSourceType.Building;
+                    sourceId = srcBuilding.FacilityId;
+                    sourceDisplayName = srcBuilding.Name;
+                }
+                else
+                {
+                    sourceType = RouteSourceType.Market;
+                    sourceDisplayName = "Wolny Rynek";
+                }
+
+                var loadRule = cmbLoadRule.SelectedIndex switch
+                {
+                    1 => LoadThresholdRule.FullOnly,
+                    2 => LoadThresholdRule.MinCargo50,
+                    _ => LoadThresholdRule.TimerOnly
+                };
+
+                var priority = cmbPriority.SelectedIndex switch
+                {
+                    0 => RoutePriority.Low,
+                    2 => RoutePriority.High,
+                    _ => RoutePriority.Medium
+                };
+
+                // Automatyczne wyliczenie kosztu transportu
+                var (_, transportCost) = getRouteCostDetails();
+
+                if (_editingRoute == null)
+                {
+                    // Tworzenie nowej trasy
+                    var newRoute = new SupplyRoute
+                    {
+                        SourceType = sourceType,
+                        SourceFacilityId = sourceId,
+                        TargetFacilityId = targetBuilding.FacilityId,
+                        ResourceName = cmbResource.SelectedItem.ToString()!,
+                        AmountPerTrip = (int)numAmount.Value,
+                        IntervalHours = (int)numInterval.Value,
+                        TransportCostPerUnit = transportCost,
+                        VehicleTypeName = cmbVehicle.SelectedItem.ToString()!,
+                        LoadRule = loadRule,
+                        Priority = priority,
+                        IsEnabled = true
+                    };
+                    _gameManager.Logistics.AddRoute(newRoute);
+                    MessageBox.Show("Trasa logistyczna została dodana pomyślnie.", "Sukces", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    // Edycja istniejącej trasy
+                    _editingRoute.SourceType = sourceType;
+                    _editingRoute.SourceFacilityId = sourceId;
+                    _editingRoute.TargetFacilityId = targetBuilding.FacilityId;
+                    _editingRoute.ResourceName = cmbResource.SelectedItem.ToString()!;
+                    _editingRoute.AmountPerTrip = (int)numAmount.Value;
+                    _editingRoute.IntervalHours = (int)numInterval.Value;
+                    _editingRoute.TransportCostPerUnit = transportCost;
+                    _editingRoute.VehicleTypeName = cmbVehicle.SelectedItem.ToString()!;
+                    _editingRoute.LoadRule = loadRule;
+                    _editingRoute.Priority = priority;
+                    _editingRoute.HoursSinceLastTrip = 0; // zresetuj timer
+                    _editingRoute.LastTripResult = "Zaktualizowano";
+                    MessageBox.Show("Zmiany w trasie zostały zapisane.", "Sukces", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+
+                _editingRoute = null;
+                BuildLogisticsPanelGlobal();
             };
-            pnlLogisticsManager.Controls.Add(btnOpenMarket);
-        }
+            pnlEditor.Controls.Add(btnSave);
 
-        private void BuildRouteRow(SupplyRoute route, Building target, int y)
-        {
-            var buildingMap = _company!.Buildings.ToDictionary(b => b.FacilityId, b => b);
-
-            string sourceName = route.SourceType == RouteSourceType.Market
-                ? "🏪 Rynek"
-                : (buildingMap.TryGetValue(route.SourceFacilityId, out var src) ? $"🏭 {src.Name}" : "?");
-
-            Color statusColor = route.LastTripResult.StartsWith("✅") ? Color.FromArgb(100, 220, 100)
-                              : route.LastTripResult.StartsWith("❌") ? Color.FromArgb(240, 80, 80)
-                              : Color.FromArgb(200, 180, 50);
-
-            // Wiersz trasy
-            var pnlRow = new Panel
+            // Wypełnij formularz wartościami, jeśli edytujemy trasę
+            var routeToEdit = _editingRoute;
+            if (routeToEdit != null)
             {
-                Location = new Point(10, y),
-                Size = new Size(675, 34),
-                BackColor = Color.FromArgb(30, 30, 30)
-            };
+                // Dopasuj dostawcę
+                if (routeToEdit.SourceType == RouteSourceType.Market)
+                {
+                    cmbSource.SelectedIndex = 0;
+                }
+                else
+                {
+                    for (int i = 1; i < cmbSource.Items.Count; i++)
+                    {
+                        if (cmbSource.Items[i] is Building b && b.FacilityId == routeToEdit.SourceFacilityId)
+                        {
+                            cmbSource.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                }
 
-            var lblRoute = new Label
-            {
-                Text = $"{sourceName}  →  {route.ResourceName}  ×{route.AmountPerTrip}  co {route.IntervalHours}h   | {route.LastTripResult}",
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = statusColor,
-                Location = new Point(8, 8),
-                Size = new Size(560, 18),
-                AutoEllipsis = true
-            };
-            pnlRow.Controls.Add(lblRoute);
+                // Dopasuj odbiorcę
+                for (int i = 0; i < cmbDest.Items.Count; i++)
+                {
+                    if (cmbDest.Items[i] is Building b && b.FacilityId == routeToEdit.TargetFacilityId)
+                    {
+                        cmbDest.SelectedIndex = i;
+                        break;
+                    }
+                }
 
-            var btnRemove = new Button
-            {
-                Text = "✕",
-                Font = new Font("Segoe UI", 8, FontStyle.Bold),
-                Size = new Size(24, 24),
-                Location = new Point(645, 5),
-                FlatStyle = FlatStyle.Flat,
-                ForeColor = Color.Gray,
-                BackColor = Color.Transparent,
-                Cursor = Cursors.Hand
-            };
-            btnRemove.FlatAppearance.BorderSize = 0;
-            string routeId = route.Id;
-            btnRemove.Click += (s, e) =>
-            {
-                _gameManager!.Logistics.RemoveRoute(routeId);
-                OpenLogisticsManager(target);
-            };
-            pnlRow.Controls.Add(btnRemove);
+                // Pobierz towary
+                updateResources();
 
-            // Toggle enable/disable
-            var btnToggle = new Button
-            {
-                Text = route.IsEnabled ? "⏸" : "▶",
-                Font = new Font("Segoe UI", 9),
-                Size = new Size(28, 24),
-                Location = new Point(613, 5),
-                FlatStyle = FlatStyle.Flat,
-                ForeColor = route.IsEnabled ? Color.FromArgb(100, 220, 100) : Color.Gray,
-                BackColor = Color.Transparent,
-                Cursor = Cursors.Hand
-            };
-            btnToggle.FlatAppearance.BorderSize = 0;
-            bool isEnabled = route.IsEnabled;
-            btnToggle.Click += (s, e) =>
-            {
-                route.IsEnabled = !route.IsEnabled;
-                OpenLogisticsManager(target);
-            };
-            pnlRow.Controls.Add(btnToggle);
+                // Dopasuj towar
+                for (int i = 0; i < cmbResource.Items.Count; i++)
+                {
+                    var item = cmbResource.Items[i];
+                    if (item != null && item.ToString() == routeToEdit.ResourceName)
+                    {
+                        cmbResource.SelectedIndex = i;
+                        break;
+                    }
+                }
 
-            pnlLogisticsManager.Controls.Add(pnlRow);
+                // Dopasuj pojazd
+                for (int i = 0; i < cmbVehicle.Items.Count; i++)
+                {
+                    var item = cmbVehicle.Items[i];
+                    if (item != null && item.ToString() == routeToEdit.VehicleTypeName)
+                    {
+                        cmbVehicle.SelectedIndex = i;
+                        break;
+                    }
+                }
+
+                // Dopasuj regułę załadunku
+                cmbLoadRule.SelectedIndex = routeToEdit.LoadRule switch
+                {
+                    LoadThresholdRule.FullOnly => 1,
+                    LoadThresholdRule.MinCargo50 => 2,
+                    _ => 0
+                };
+
+                // Dopasuj parametry
+                numInterval.Value = routeToEdit.IntervalHours;
+                
+                // Ustaw odpowiednią max pojemność zanim przypiszemy wartość
+                var vConfig = VehicleRegistry.Get(routeToEdit.VehicleTypeName);
+                numAmount.Maximum = vConfig.Capacity;
+                numAmount.Value = Math.Min(routeToEdit.AmountPerTrip, vConfig.Capacity);
+
+                // Dopasuj priorytet
+                cmbPriority.SelectedIndex = routeToEdit.Priority switch
+                {
+                    RoutePriority.Low => 0,
+                    RoutePriority.High => 2,
+                    _ => 1
+                };
+
+                updateOpexPreview();
+            }
+            else
+            {
+                // Domyślne wartości dla kreatora nowej trasy
+                if (cmbSource.Items.Count > 0) cmbSource.SelectedIndex = 0;
+                if (cmbDest.Items.Count > 0) cmbDest.SelectedIndex = 0;
+                updateResources();
+                updateOpexPreview();
+            }
         }
 
         // ───────────────────────────────────────────────────────────────────
@@ -3513,15 +3964,6 @@ namespace Conglomerate
         /// </summary>
         private void UpdateRetailInspector(RetailBuilding store)
         {
-            // Usuń stary panel fabryki/retail jeśli istnieje
-            var oldPanel = pnlContextInspector.Controls.Find("pnlRetailSection", false).FirstOrDefault();
-            if (oldPanel != null)
-            {
-                pnlContextInspector.Controls.Remove(oldPanel);
-                oldPanel.Dispose();
-            }
-            _activeRecipeComboBox = null;
-
             // ── Pokaż typ budynku w polu "utilization" ──
             lblContextUtilization.Text = $"Handel Detaliczny | {store.MaxSlots} sloty";
             pnlContextUtilProgressFg.Width = pnlContextUtilProgressBg.Width; // Pełny pasek dla sklepu
@@ -3533,90 +3975,220 @@ namespace Conglomerate
             RenderInventoryBars(store);
 
             // ── Główna sekcja retail ──
-            var pnlRetailSection = new Panel
+            var oldPanel = pnlContextInspector.Controls.Find("pnlRetailSection", false).FirstOrDefault() as Panel;
+            bool needsRebuild = oldPanel == null || oldPanel.Tag != store;
+
+            if (needsRebuild)
             {
-                Name     = "pnlRetailSection",
-                Location = new Point(0, 160),
-                Size     = new Size(375, 380),
-                BackColor = Color.Transparent
-            };
-            pnlContextInspector.Controls.Add(pnlRetailSection);
+                if (oldPanel != null)
+                {
+                    pnlContextInspector.Controls.Remove(oldPanel);
+                    oldPanel.Dispose();
+                }
+                _activeRecipeComboBox = null;
 
-            int y = 0;
+                var pnlRetailSection = new Panel
+                {
+                    Name     = "pnlRetailSection",
+                    Location = new Point(0, 160),
+                    Size     = new Size(375, 380),
+                    BackColor = Color.Transparent,
+                    Tag = store
+                };
+                pnlContextInspector.Controls.Add(pnlRetailSection);
 
-            // Nagłówek sekcji
-            pnlRetailSection.Controls.Add(new Label
-            {
-                Text = "PÓŁKI SPRZEDAŻOWE",
-                Font = new Font("Segoe UI", 8, FontStyle.Bold),
-                ForeColor = Color.FromArgb(80, 220, 120),
-                Location = new Point(10, y), Size = new Size(200, 16)
-            });
+                int y = 0;
 
-            y += 22;
+                // Nagłówek sekcji
+                pnlRetailSection.Controls.Add(new Label
+                {
+                    Text = "PÓŁKI SPRZEDAŻOWE",
+                    Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(80, 220, 120),
+                    Location = new Point(10, y), Size = new Size(200, 16)
+                });
 
-            // ── Sloty sprzedażowe ──
-            foreach (var slot in store.Slots)
-            {
-                BuildRetailSlotRow(pnlRetailSection, store, slot, ref y);
-                y += 4; // spacing między slotami
+                y += 22;
+
+                // ── Sloty sprzedażowe ──
+                foreach (var slot in store.Slots)
+                {
+                    BuildRetailSlotRow(pnlRetailSection, store, slot, ref y);
+                    y += 4; // spacing między slotami
+                }
+
+                y += 8;
+
+                // ── Separator ──
+                pnlRetailSection.Controls.Add(new Panel
+                {
+                    Location = new Point(0, y), Size = new Size(370, 1),
+                    BackColor = Color.FromArgb(45, 45, 45)
+                });
+
+                y += 10;
+
+                // ── RAPORT 24h ──
+                pnlRetailSection.Controls.Add(new Label
+                {
+                    Text = "RAPORT 24H",
+                    Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                    ForeColor = Color.DarkGray,
+                    Location = new Point(10, y), Size = new Size(200, 16)
+                });
+
+                y += 20;
+
+                var lblTotalUnitsSold = new Label
+                {
+                    Name = "lblTotalUnitsSold",
+                    Text = $"Łączna sprzedaż:  {store.TotalUnitsSoldLast24h} szt.",
+                    Font = new Font("Segoe UI", 9),
+                    ForeColor = Color.White,
+                    Location = new Point(10, y), Size = new Size(350, 18)
+                };
+                pnlRetailSection.Controls.Add(lblTotalUnitsSold);
+
+                y += 20;
+
+                var lblTotalRevenue = new Label
+                {
+                    Name = "lblTotalRevenue",
+                    Text = $"Przychód 24h:       {store.TotalRevenueLast24h:C}",
+                    Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                    ForeColor = store.TotalRevenueLast24h > 0 ? Color.FromArgb(80, 220, 120) : Color.Gray,
+                    Location = new Point(10, y), Size = new Size(350, 18)
+                };
+                pnlRetailSection.Controls.Add(lblTotalRevenue);
+
+                y += 20;
+
+                var pnlReportDetail = new Panel
+                {
+                    Name = "pnlReportDetail",
+                    Location = new Point(0, y),
+                    Size = new Size(375, 120),
+                    BackColor = Color.Transparent
+                };
+                pnlRetailSection.Controls.Add(pnlReportDetail);
+
+                UpdateReportDetail(pnlReportDetail, store);
             }
-
-            y += 8;
-
-            // ── Separator ──
-            pnlRetailSection.Controls.Add(new Panel
+            else
             {
-                Location = new Point(0, y), Size = new Size(370, 1),
-                BackColor = Color.FromArgb(45, 45, 45)
-            });
+                if (oldPanel == null) return;
+                // Aktualizacja w miejscu bez usuwania panelu głównego
+                for (int i = 0; i < store.Slots.Count; i++)
+                {
+                    UpdateRetailSlotRow(oldPanel, store, store.Slots[i], i);
+                }
 
-            y += 10;
+                var lblTotalUnitsSold = oldPanel.Controls.Find("lblTotalUnitsSold", false).FirstOrDefault() as Label;
+                if (lblTotalUnitsSold != null)
+                {
+                    lblTotalUnitsSold.Text = $"Łączna sprzedaż:  {store.TotalUnitsSoldLast24h} szt.";
+                }
 
-            // ── RAPORT 24h ──
-            pnlRetailSection.Controls.Add(new Label
-            {
-                Text = "RAPORT 24H",
-                Font = new Font("Segoe UI", 8, FontStyle.Bold),
-                ForeColor = Color.DarkGray,
-                Location = new Point(10, y), Size = new Size(200, 16)
-            });
+                var lblTotalRevenue = oldPanel.Controls.Find("lblTotalRevenue", false).FirstOrDefault() as Label;
+                if (lblTotalRevenue != null)
+                {
+                    lblTotalRevenue.Text = $"Przychód 24h:       {store.TotalRevenueLast24h:C}";
+                    lblTotalRevenue.ForeColor = store.TotalRevenueLast24h > 0 ? Color.FromArgb(80, 220, 120) : Color.Gray;
+                }
 
-            y += 20;
+                var pnlReportDetail = oldPanel.Controls.Find("pnlReportDetail", false).FirstOrDefault() as Panel;
+                if (pnlReportDetail != null)
+                {
+                    UpdateReportDetail(pnlReportDetail, store);
+                }
+            }
+        }
 
-            pnlRetailSection.Controls.Add(new Label
-            {
-                Text = $"Łączna sprzedaż:  {store.TotalUnitsSoldLast24h} szt.",
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.White,
-                Location = new Point(10, y), Size = new Size(350, 18)
-            });
-
-            y += 20;
-
-            pnlRetailSection.Controls.Add(new Label
-            {
-                Text = $"Przychód 24h:       {store.TotalRevenueLast24h:C}",
-                Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                ForeColor = store.TotalRevenueLast24h > 0 ? Color.FromArgb(80, 220, 120) : Color.Gray,
-                Location = new Point(10, y), Size = new Size(350, 18)
-            });
-
-            y += 20;
-
-            // Sprzedaż per slot (jeśli aktywny)
+        private void UpdateReportDetail(Panel pnlReportDetail, RetailBuilding store)
+        {
+            pnlReportDetail.Controls.Clear();
+            int subY = 0;
             foreach (var slot in store.Slots.Where(s => s.IsActive))
             {
-                decimal baseP = ResourceRegistry.GetPrice(slot.ProductName);
-                pnlRetailSection.Controls.Add(new Label
+                pnlReportDetail.Controls.Add(new Label
                 {
                     Text = $"• {slot.ProductName}: {slot.UnitsSoldLast24h} szt. | {slot.RevenueLast24h:C} | Atrakcyjność: {slot.LastAttractiveness:F2}",
                     Font = new Font("Segoe UI", 8, FontStyle.Italic),
                     ForeColor = slot.IsStockout ? Color.FromArgb(240, 80, 80) : Color.LightGray,
-                    Location = new Point(14, y), Size = new Size(355, 16),
+                    Location = new Point(14, subY), Size = new Size(355, 16),
                     AutoEllipsis = true
                 });
-                y += 17;
+                subY += 17;
+            }
+        }
+
+        private void UpdateRetailSlotRow(Panel parent, RetailBuilding store, SalesSlot slot, int slotIdx)
+        {
+            Color slotColor = slot.IsStockout ? Color.FromArgb(240, 80, 80)
+                            : slot.IsActive    ? Color.FromArgb(80, 220, 120)
+                            : Color.DimGray;
+
+            string slotHeader = slot.IsActive
+                ? $"Slot {slot.SlotIndex + 1}: {slot.ProductName}"
+                : $"Slot {slot.SlotIndex + 1}: [Pusty]";
+
+            if (slot.IsStockout) slotHeader += " ⚠ BRAK TOWARU";
+
+            var lblSlotHeader = parent.Controls.Find($"lblSlotHeader_{slotIdx}", true).FirstOrDefault() as Label;
+            if (lblSlotHeader != null)
+            {
+                lblSlotHeader.Text = slotHeader;
+                lblSlotHeader.ForeColor = slotColor;
+            }
+
+            var cmbProduct = parent.Controls.Find($"cmbProduct_{slotIdx}", true).FirstOrDefault() as ComboBox;
+            if (cmbProduct != null && !cmbProduct.Focused)
+            {
+                int expectedIdx = slot.IsActive ? Math.Max(0, cmbProduct.Items.IndexOf(slot.ProductName)) : 0;
+                if (cmbProduct.SelectedIndex != expectedIdx)
+                {
+                    cmbProduct.SelectedIndex = expectedIdx;
+                }
+            }
+
+            var numMultiplier = parent.Controls.Find($"numMultiplier_{slotIdx}", true).FirstOrDefault() as NumericUpDown;
+            if (numMultiplier != null && !numMultiplier.Focused)
+            {
+                if (numMultiplier.Value != slot.PriceMultiplier)
+                {
+                    numMultiplier.Value = slot.PriceMultiplier;
+                }
+            }
+
+            var numDirect = parent.Controls.Find($"numDirect_{slotIdx}", true).FirstOrDefault() as NumericUpDown;
+            if (numDirect != null && !numDirect.Focused)
+            {
+                if (numDirect.Value != slot.DirectRetailPrice)
+                {
+                    numDirect.Value = slot.DirectRetailPrice;
+                }
+            }
+
+            var pnlStockFg = parent.Controls.Find($"pnlStockFg_{slotIdx}", true).FirstOrDefault() as Panel;
+            if (pnlStockFg != null)
+            {
+                float fill = slot.ShelfCapacity > 0 ? (float)slot.CurrentStock / slot.ShelfCapacity : 0f;
+                pnlStockFg.Width = (int)(fill * 100);
+                pnlStockFg.BackColor = slot.IsStockout ? Color.FromArgb(180, 50, 50) : Color.FromArgb(50, 180, 80);
+            }
+
+            var lblStockText = parent.Controls.Find($"lblStockText_{slotIdx}", true).FirstOrDefault() as Label;
+            if (lblStockText != null)
+            {
+                lblStockText.Text = $"{slot.CurrentStock}/{slot.ShelfCapacity}";
+            }
+
+            var lblEffective = parent.Controls.Find($"lblEffective_{slotIdx}", true).FirstOrDefault() as Label;
+            if (lblEffective != null)
+            {
+                decimal basePrice = ResourceRegistry.GetPrice(slot.ProductName);
+                decimal effectivePreview = slot.DirectRetailPrice > 0 ? slot.DirectRetailPrice : basePrice * slot.PriceMultiplier;
+                lblEffective.Text = $"→ {effectivePreview:C}/szt.";
             }
         }
 
@@ -3633,25 +4205,29 @@ namespace Conglomerate
 
             if (slot.IsStockout) slotHeader += " ⚠ BRAK TOWARU";
 
-            parent.Controls.Add(new Label
+            int slotIdx = slot.SlotIndex;
+
+            var lblHeader = new Label
             {
+                Name = $"lblSlotHeader_{slotIdx}",
                 Text = slotHeader,
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 ForeColor = slotColor,
                 Location = new Point(10, y), Size = new Size(355, 17)
-            });
+            };
+            parent.Controls.Add(lblHeader);
             y += 18;
 
             // Dropdown wyboru produktu
             var cmbProduct = new ComboBox
             {
+                Name = $"cmbProduct_{slotIdx}",
                 Location = new Point(10, y), Size = new Size(145, 22),
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 BackColor = Color.FromArgb(40, 40, 40), ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8)
             };
             cmbProduct.Items.Add("— Brak —");
-            // Wszystkie zasoby z rejestru — skalowalne
             foreach (var res in new[] { "Mleko", "Mięso", "Ser", "Masło" })
                 cmbProduct.Items.Add(res);
             cmbProduct.SelectedIndex = slot.IsActive
@@ -3662,6 +4238,7 @@ namespace Conglomerate
             // Pasek zapasów
             var pnlStockBg = new Panel
             {
+                Name = $"pnlStockBg_{slotIdx}",
                 Location = new Point(165, y + 3), Size = new Size(100, 16),
                 BackColor = Color.FromArgb(50, 50, 50)
             };
@@ -3670,19 +4247,22 @@ namespace Conglomerate
             float fill = slot.ShelfCapacity > 0 ? (float)slot.CurrentStock / slot.ShelfCapacity : 0f;
             var pnlStockFg = new Panel
             {
+                Name = $"pnlStockFg_{slotIdx}",
                 Location = new Point(0, 0),
                 Size = new Size((int)(fill * 100), 16),
                 BackColor = slot.IsStockout ? Color.FromArgb(180, 50, 50) : Color.FromArgb(50, 180, 80)
             };
             pnlStockBg.Controls.Add(pnlStockFg);
 
-            parent.Controls.Add(new Label
+            var lblStockText = new Label
             {
+                Name = $"lblStockText_{slotIdx}",
                 Text = $"{slot.CurrentStock}/{slot.ShelfCapacity}",
                 Font = new Font("Segoe UI", 7.5f),
                 ForeColor = Color.LightGray,
                 Location = new Point(270, y + 3), Size = new Size(90, 16)
-            });
+            };
+            parent.Controls.Add(lblStockText);
 
             y += 26;
 
@@ -3696,6 +4276,7 @@ namespace Conglomerate
 
             var numMultiplier = new NumericUpDown
             {
+                Name = $"numMultiplier_{slotIdx}",
                 Location = new Point(102, y), Size = new Size(60, 22),
                 Minimum = 0.5m, Maximum = 5.0m, Increment = 0.1m,
                 DecimalPlaces = 1,
@@ -3714,6 +4295,7 @@ namespace Conglomerate
 
             var numDirect = new NumericUpDown
             {
+                Name = $"numDirect_{slotIdx}",
                 Location = new Point(242, y), Size = new Size(70, 22),
                 Minimum = 0, Maximum = 10000, DecimalPlaces = 0,
                 Value = slot.DirectRetailPrice,
@@ -3727,6 +4309,7 @@ namespace Conglomerate
             decimal effectivePreview = slot.DirectRetailPrice > 0 ? slot.DirectRetailPrice : basePrice * slot.PriceMultiplier;
             var lblEffective = new Label
             {
+                Name = $"lblEffective_{slotIdx}",
                 Text = $"→ {effectivePreview:C}/szt.",
                 Font = new Font("Segoe UI", 8, FontStyle.Bold),
                 ForeColor = Color.FromArgb(240, 180, 50),
@@ -3745,7 +4328,6 @@ namespace Conglomerate
                 Cursor = Cursors.Hand
             };
             btnApply.FlatAppearance.BorderSize = 0;
-            int slotIdx = slot.SlotIndex; // capture
             btnApply.Click += (s, e) =>
             {
                 string selectedProduct = cmbProduct.SelectedIndex > 0 ? cmbProduct.SelectedItem!.ToString()! : "";

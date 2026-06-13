@@ -7,6 +7,8 @@ namespace Conglomerate
 {
     public abstract class Building : IFacilitySegment
     {
+        public int X { get; set; } = 0;
+        public int Y { get; set; } = 0;
         public string FacilityId { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; }
         public abstract string ActivityType { get; }
@@ -16,6 +18,7 @@ namespace Conglomerate
         public Dictionary<string, int> Warehouse { get; } = new Dictionary<string, int>();
         public abstract Dictionary<string, decimal> ResourcePrices { get; }
         public bool AutoSell { get; set; } = false;
+        public HashSet<string> AutoSellResources { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // IFacilitySegment implementation
         public decimal PropertyPurchasePrice => BuildCost;

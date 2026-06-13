@@ -33,10 +33,10 @@ namespace Conglomerate
             if (category == "Sprzedaż")           cat = FinancialCategory.Revenue;
             else if (category == "Sprzedaż detaliczna") cat = FinancialCategory.Revenue;
             else if (category == "Utrzymanie")    cat = FinancialCategory.Salaries;
-            else if (category == "Budowa")         cat = FinancialCategory.RawMaterials;
+            else if (category == "Budowa")         cat = FinancialCategory.Capex;
             else if (category == "Zakup surowców") cat = FinancialCategory.RawMaterials;
             else if (category == "Koszty produkcji") cat = FinancialCategory.RawMaterials;
-            else if (category == "Transport")      cat = FinancialCategory.RawMaterials;
+            else if (category == "Transport")      cat = FinancialCategory.Logistics;
 
             Engine.RecordTransactionWithoutCashImpact(day, hour, amount, cat, description, facilityId);
         }
@@ -47,11 +47,13 @@ namespace Conglomerate
             {
                 if (map.BuildBuildingOnTile(x, y, building))
                 {
+                    building.X = x;
+                    building.Y = y;
                     Engine.BuyFacility(building);
                     Buildings.Add(building);
                     
                     Ledger.Record(day, hour, $"Zakup: {building.Name}", -building.BuildCost, "Budowa");
-                    Engine.RecordTransactionWithoutCashImpact(day, hour, -building.BuildCost, FinancialCategory.RawMaterials, $"Zakup: {building.Name}", building.FacilityId);
+                    Engine.RecordTransactionWithoutCashImpact(day, hour, -building.BuildCost, FinancialCategory.Capex, $"Zakup: {building.Name}", building.FacilityId);
                     
                     return true;
                 }

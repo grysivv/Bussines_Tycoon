@@ -65,6 +65,15 @@ namespace Conglomerate.Logistics
         /// <summary>Czy trasa jest aktywna.</summary>
         public bool IsEnabled { get; set; } = true;
 
+        /// <summary>Typ pojazdu obsługującego trasę (np. "Van", "Truck").</summary>
+        public string VehicleTypeName { get; set; } = "Van";
+
+        /// <summary>Zasada wyzwalania i ładowania pojazdu.</summary>
+        public LoadThresholdRule LoadRule { get; set; } = LoadThresholdRule.TimerOnly;
+
+        /// <summary>Priorytet przypisania pojazdów w przypadku braku wolnej floty.</summary>
+        public RoutePriority Priority { get; set; } = RoutePriority.Medium;
+
         // ──────────────────────────────────────────────
         //  Stan runtime (nie serializowany)
         // ──────────────────────────────────────────────

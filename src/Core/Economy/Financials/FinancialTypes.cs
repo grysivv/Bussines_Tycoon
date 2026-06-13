@@ -11,7 +11,8 @@ namespace Conglomerate.Financials
         Salaries,       // Employees payroll
         Depreciation,   // Property depreciation (non-cash)
         CorporateTax,   // Corporation income tax
-        Interest        // Bank loans debt service (interest only)
+        Interest,       // Bank loans debt service (interest only)
+        Capex           // Capital expenditures (non-P&L)
     }
 
     public struct FinancialTransaction

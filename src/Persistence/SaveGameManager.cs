@@ -68,6 +68,7 @@ namespace Conglomerate
                     Type                     = type,
                     Name                     = building.Name,
                     AutoSell                 = building.AutoSell,
+                    AutoSellResources        = building.AutoSellResources.ToList(),
                     AccumulatedDepreciation  = building.AccumulatedDepreciation,
                     // Zapisz aktywny przepis fabryki
                     ActiveRecipeId           = (building is FactoryBuilding fb) ? fb.ActiveRecipe?.Id : null
@@ -183,6 +184,15 @@ namespace Conglomerate
             building.FacilityId             = bData.FacilityId;
             building.AutoSell               = bData.AutoSell;
             building.AccumulatedDepreciation = bData.AccumulatedDepreciation;
+
+            building.AutoSellResources.Clear();
+            if (bData.AutoSellResources != null)
+            {
+                foreach (var res in bData.AutoSellResources)
+                {
+                    building.AutoSellResources.Add(res);
+                }
+            }
 
             // Przywróć stan magazynu
             foreach (var item in bData.Warehouse)

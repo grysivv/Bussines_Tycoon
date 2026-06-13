@@ -37,6 +37,7 @@ namespace Conglomerate
         public int X { get; set; }
         public int Y { get; set; }
         public bool AutoSell { get; set; }
+        public List<string> AutoSellResources { get; set; } = new List<string>();
         public decimal AccumulatedDepreciation { get; set; }
         /// <summary>ID aktywnego przepisu dla FactoryBuilding (null = Idle).</summary>
         public string? ActiveRecipeId { get; set; } = null;

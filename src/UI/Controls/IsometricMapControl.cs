@@ -102,7 +102,7 @@ namespace Conglomerate
         {
             float xFloat = (worldPos.X / (TileWidth / 2f) + worldPos.Y / (TileHeight / 2f)) / 2f;
             float yFloat = (worldPos.Y / (TileHeight / 2f) - worldPos.X / (TileWidth / 2f)) / 2f;
-            return new XnaPoint((int)Math.Floor(xFloat), (int)Math.Floor(yFloat));
+            return new XnaPoint((int)Math.Floor(xFloat + 0.5f), (int)Math.Floor(yFloat + 0.5f));
         }
 
         public XnaPoint ScreenToTile(Point screenPt)

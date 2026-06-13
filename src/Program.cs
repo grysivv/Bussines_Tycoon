@@ -31,6 +31,7 @@ namespace Conglomerate
         {
             if (ex == null) return;
 
+            string logFile = "Nieznana ścieżka logu";
             try
             {
                 string docPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
@@ -40,7 +41,7 @@ namespace Conglomerate
                     System.IO.Directory.CreateDirectory(logDir);
                 }
 
-                string logFile = System.IO.Path.Combine(logDir, "error_log.txt");
+                logFile = System.IO.Path.Combine(logDir, "error_log.txt");
                 string logMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] BŁĄD: {ex.Message}\nTyp wyjątku: {ex.GetType().FullName}\nStack Trace:\n{ex.StackTrace}\n";
                 if (ex.InnerException != null)
                 {
@@ -50,11 +51,17 @@ namespace Conglomerate
 
                 System.IO.File.AppendAllText(logFile, logMessage);
 
-                MessageBox.Show($"Wystąpił nieobsługiwany błąd gry.\n\nLogi błędu zapisano w pliku:\n{logFile}\n\nTreść błędu: {ex.Message}", "Błąd Krytyczny Gry", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                using (var errForm = new ErrorDetailsForm(ex, logFile))
+                {
+                    errForm.ShowDialog();
+                }
             }
             catch (Exception writeEx)
             {
-                MessageBox.Show($"Wystąpił nieobsługiwany błąd gry: {ex.Message}\n\nNie udało się zapisać pliku logu: {writeEx.Message}", "Błąd Krytyczny Gry", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                using (var errForm = new ErrorDetailsForm(ex, $"[Błąd zapisu pliku logu: {writeEx.Message}]"))
+                {
+                    errForm.ShowDialog();
+                }
             }
         }
     }

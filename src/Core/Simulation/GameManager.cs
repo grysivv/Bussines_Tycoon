@@ -60,9 +60,9 @@ namespace Conglomerate
                     // Przeniesienie nadmiaru surowców do dedykowanych magazynów
                     TransferResourcesToWarehouses(building, ActiveCompany);
 
-                    if (building.AutoSell)
+                    foreach (var key in building.Warehouse.Keys.ToList())
                     {
-                        foreach (var key in building.Warehouse.Keys.ToList())
+                        if (building.AutoSellResources.Contains(key) || (building.AutoSell && building.AutoSellResources.Count == 0))
                         {
                             int qty = building.Warehouse[key];
                             if (qty > 0)
@@ -110,13 +110,16 @@ namespace Conglomerate
 
                 if (cycleCompleted)
                 {
-                    if (factory.AutoSell && factory.ActiveRecipe != null)
+                    if (factory.ActiveRecipe != null)
                     {
                         foreach (var output in factory.ActiveRecipe.Outputs)
                         {
-                            int qty = factory.Warehouse.ContainsKey(output.Key) ? factory.Warehouse[output.Key] : 0;
-                            if (qty > 0)
-                                factory.SellResource(output.Key, qty, ActiveCompany, CurrentDay, CurrentHour);
+                            if (factory.AutoSellResources.Contains(output.Key) || (factory.AutoSell && factory.AutoSellResources.Count == 0))
+                            {
+                                int qty = factory.Warehouse.ContainsKey(output.Key) ? factory.Warehouse[output.Key] : 0;
+                                if (qty > 0)
+                                    factory.SellResource(output.Key, qty, ActiveCompany, CurrentDay, CurrentHour);
+                            }
                         }
                     }
                     else

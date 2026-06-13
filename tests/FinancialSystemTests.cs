@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using Conglomerate.Logistics;
 
 namespace Conglomerate.Financials.Tests
 {
@@ -37,7 +38,8 @@ namespace Conglomerate.Financials.Tests
             TestSaveAndLoadSettingsAndMetadata();
             TestWarehouseResourceTransferAndPersistence();
             TestFacilityPnLTracking();
-
+            TestLogisticsAndOPEX();
+ 
             Console.WriteLine("=== WSZYSTKIE TESTY ZAKOŃCZONE SUKCESEM! ===");
         }
 
@@ -350,6 +352,80 @@ namespace Conglomerate.Financials.Tests
             decimal expectedPnLAfterMaintenance = expectedPnLAfterSale - maintenance;
             decimal finalPnL = company.Engine.CalculateFacilityMonthlyPnL(facId);
             Debug.Assert(finalPnL == expectedPnLAfterMaintenance, $"PnL po utrzymaniu: oczekiwano {expectedPnLAfterMaintenance}, otrzymano {finalPnL}");
+
+            Console.WriteLine("OK");
+        }
+
+        private static void TestLogisticsAndOPEX()
+        {
+            Console.Write("Test 7: Automatyczna Logistyka, Flota i OPEX... ");
+
+            var company = new Company("LogisticsTestCorp", 50000m);
+            var map = new Map(10, 10);
+            var gameManager = new GameManager(company, map);
+
+            // Stworzenie budynków
+            var farm = new Farm("Farma Dostawca");
+            company.BuyBuilding(farm, map, 1, 1, 1, 8); // Farma na (1,1)
+
+            var warehouse = new WarehouseBuilding("Magazyn Odbiorca", ResourceCategory.Food);
+            company.BuyBuilding(warehouse, map, 3, 3, 2, 2); // Magazyn na (3,3)
+
+            // Umieszczenie towarów w farmie
+            farm.Warehouse["Mleko"] = 50;
+
+            // Utworzenie trasy z farmy do magazynu
+            var route = new SupplyRoute
+            {
+                SourceType = RouteSourceType.Building,
+                SourceFacilityId = farm.FacilityId,
+                SourceDisplayName = farm.Name,
+                TargetFacilityId = warehouse.FacilityId,
+                ResourceName = "Mleko",
+                AmountPerTrip = 10,
+                IntervalHours = 6,
+                TransportCostPerUnit = 2m, // Dodatkowy koszt jednostkowy
+                VehicleTypeName = "Van", // Ma pojemność 15 i koszt bazowy 40 zł
+                LoadRule = LoadThresholdRule.TimerOnly,
+                Priority = RoutePriority.High,
+                IsEnabled = true
+            };
+
+            gameManager.Logistics.AddRoute(route);
+
+            // Początkowy stan
+            Debug.Assert(gameManager.Logistics.ActiveTrips.Count == 0, "Brak aktywnych podróży na starcie");
+            Debug.Assert(warehouse.Warehouse.ContainsKey("Mleko") == false || warehouse.Warehouse["Mleko"] == 0, "Brak towaru u odbiorcy");
+
+            // Symulacja 6 godzin
+            for (int h = 0; h < 6; h++)
+            {
+                gameManager.NextTick();
+            }
+
+            // Po 6 godzinach trasa powinna się wyzwolić
+            // Van ma czas podróży 2h, koszt bazowy 40 zł.
+            // Sprawdzenie czy trip jest aktywny
+            Debug.Assert(gameManager.Logistics.ActiveTrips.Count == 1, "Jedna aktywna podróż po 6 godzinach");
+            var trip = gameManager.Logistics.ActiveTrips[0];
+            Debug.Assert(trip.CargoAmount == 10, "Załadowano 10 sztuk");
+            Debug.Assert(trip.RemainingHours == 2, "Czas podróży to 2 godziny");
+
+            // Sprawdzenie pobrania kosztu OPEX (40 zł)
+            var lastTransaction = company.Ledger.GetAllTransactions().LastOrDefault(t => t.Category == "Transport");
+            Debug.Assert(lastTransaction != null, "Powinna istnieć transakcja transportowa");
+            Debug.Assert(lastTransaction.Amount == -40m, "Koszt transportu (OPEX) wynosi 40 zł");
+
+            // Towar powinien zniknąć ze źródła
+            Debug.Assert(farm.Warehouse["Mleko"] == 40, "W farmie powinno zostać 40 sztuk mleka");
+
+            // Symulacja kolejnych 2 godzin dostawy
+            gameManager.NextTick();
+            gameManager.NextTick();
+
+            // Podróż powinna być zakończona i dostarczona
+            Debug.Assert(gameManager.Logistics.ActiveTrips.Count == 0, "Podróż zakończona");
+            Debug.Assert(warehouse.Warehouse["Mleko"] == 10, "Towar dostarczony do magazynu");
 
             Console.WriteLine("OK");
         }

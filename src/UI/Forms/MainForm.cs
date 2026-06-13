@@ -105,6 +105,9 @@ namespace Conglomerate
         private Panel pnlContextUtilProgressFg = null!;
         private Label lblContextInv = null!;
         private Panel pnlContextInvBars = null!;
+        private Button btnCtxCenter = null!;
+        private Button btnCtxLogistics = null!;
+        private Button btnCtxMarket = null!;
 
         public MainForm()
         {
@@ -320,6 +323,7 @@ namespace Conglomerate
                 if (_company != null)
                 {
                     _gameTimer.Stop();
+                    HideAllOverlays(pnlSaveGameOverlay);
                     var txtSave = pnlSaveGameOverlay.Controls.Find("txtSaveName", true).FirstOrDefault() as TextBox;
                     if (txtSave != null)
                     {
@@ -498,7 +502,7 @@ namespace Conglomerate
             pnlContextUtilProgressBg.Controls.Add(pnlContextUtilProgressFg);
 
             // Przycisk do wycentrowania widoku wewnątrz inspektora (bardzo przydatny)
-            Button btnCtxCenter = new Button();
+            btnCtxCenter = new Button();
             btnCtxCenter.Text = "Pozycjonuj Kamerę";
             btnCtxCenter.Font = new Font("Segoe UI", 7.5f, FontStyle.Regular);
             btnCtxCenter.Size = new Size(130, 22);
@@ -513,7 +517,7 @@ namespace Conglomerate
             pnlContextInspector.Controls.Add(btnCtxCenter);
 
             // Przycisk Logistyki
-            Button btnCtxLogistics = new Button();
+            btnCtxLogistics = new Button();
             btnCtxLogistics.Text = "🚚 Logistyka";
             btnCtxLogistics.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
             btnCtxLogistics.Size = new Size(100, 22);
@@ -531,7 +535,7 @@ namespace Conglomerate
             pnlContextInspector.Controls.Add(btnCtxLogistics);
 
             // Przycisk Rynku
-            Button btnCtxMarket = new Button();
+            btnCtxMarket = new Button();
             btnCtxMarket.Text = "📈 Rynek";
             btnCtxMarket.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
             btnCtxMarket.Size = new Size(85, 22);
@@ -1140,6 +1144,8 @@ namespace Conglomerate
                 return;
             }
 
+            HideAllOverlays(pnlBuildingDetails);
+
             if (_inspectingBuilding != building)
             {
                 _enteredSellQuantities.Clear();
@@ -1330,6 +1336,34 @@ namespace Conglomerate
             }
         }
 
+        private void HideAllOverlays(Panel? exceptPanel = null)
+        {
+            if (pnlBuildingDetails != null && pnlBuildingDetails != exceptPanel && pnlBuildingDetails.Visible)
+            {
+                pnlBuildingDetails.Visible = false;
+            }
+            if (pnlFinanceReport != null && pnlFinanceReport != exceptPanel && pnlFinanceReport.Visible)
+            {
+                pnlFinanceReport.Visible = false;
+            }
+            if (pnlLogisticsManager != null && pnlLogisticsManager != exceptPanel && pnlLogisticsManager.Visible)
+            {
+                pnlLogisticsManager.Visible = false;
+            }
+            if (pnlMarketBuyer != null && pnlMarketBuyer != exceptPanel && pnlMarketBuyer.Visible)
+            {
+                pnlMarketBuyer.Visible = false;
+            }
+            if (pnlEscapeMenu != null && pnlEscapeMenu != exceptPanel && pnlEscapeMenu.Visible)
+            {
+                pnlEscapeMenu.Visible = false;
+            }
+            if (pnlSaveGameOverlay != null && pnlSaveGameOverlay != exceptPanel && pnlSaveGameOverlay.Visible)
+            {
+                pnlSaveGameOverlay.Visible = false;
+            }
+        }
+
         private void CenterBuildingDetailsPanel()
         {
             if (pnlBuildingDetails != null && pnlGameBoard != null)
@@ -1394,6 +1428,25 @@ namespace Conglomerate
             // ──────────────────────────────────────────────
             if (_inspectingBuilding is RetailBuilding store && isPlayerOwned)
             {
+                pnlContextInspector.Height = 550;
+                CenterContextInspectorPanel();
+
+                // Pozycjonuj przyciski i inne elementy dla retail
+                btnCtxCenter.Location = new Point(15, 110);
+                btnCtxCenter.Size = new Size(110, 22);
+                btnCtxLogistics.Location = new Point(130, 110);
+                btnCtxLogistics.Size = new Size(90, 22);
+                btnCtxMarket.Location = new Point(225, 110);
+                btnCtxMarket.Size = new Size(90, 22);
+
+                lblContextInv.Location = new Point(360, 20);
+                pnlContextInvBars.Location = new Point(360, 40);
+                pnlContextInvBars.Size = new Size(220, 95);
+
+                btnCtxCenter.Visible = true;
+                btnCtxLogistics.Visible = true;
+                btnCtxMarket.Visible = true;
+
                 UpdateRetailInspector(store);
                 return;
             }
@@ -1403,6 +1456,25 @@ namespace Conglomerate
             // ──────────────────────────────────────────────
             if (_inspectingBuilding is FactoryBuilding factory && isPlayerOwned)
             {
+                pnlContextInspector.Height = 185;
+                CenterContextInspectorPanel();
+
+                // Pozycjonuj przyciski i inne elementy dla fabryki
+                btnCtxCenter.Location = new Point(15, 145);
+                btnCtxCenter.Size = new Size(110, 22);
+                btnCtxLogistics.Location = new Point(130, 145);
+                btnCtxLogistics.Size = new Size(90, 22);
+                btnCtxMarket.Location = new Point(225, 145);
+                btnCtxMarket.Size = new Size(90, 22);
+
+                lblContextInv.Location = new Point(330, 20);
+                pnlContextInvBars.Location = new Point(330, 40);
+                pnlContextInvBars.Size = new Size(250, 125);
+
+                btnCtxCenter.Visible = true;
+                btnCtxLogistics.Visible = true;
+                btnCtxMarket.Visible = true;
+
                 UpdateFactoryInspector(factory);
                 return;
             }
@@ -1410,6 +1482,8 @@ namespace Conglomerate
             // ──────────────────────────────────────────────
             //  STANDARDOWY Inspektor (Extractory, Magazyny)
             // ──────────────────────────────────────────────
+            pnlContextInspector.Height = 130;
+            CenterContextInspectorPanel();
 
             // Usuń kontrolki fabryki jeśli były wcześniej
             var existingFactoryPanel = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
@@ -1419,6 +1493,22 @@ namespace Conglomerate
                 existingFactoryPanel.Dispose();
             }
             _activeRecipeComboBox = null;
+
+            // Przywróć standardowe pozycje
+            btnCtxCenter.Location = new Point(15, 90);
+            btnCtxCenter.Size = new Size(130, 22);
+            btnCtxLogistics.Location = new Point(155, 90);
+            btnCtxLogistics.Size = new Size(100, 22);
+            btnCtxMarket.Location = new Point(265, 90);
+            btnCtxMarket.Size = new Size(85, 22);
+
+            lblContextInv.Location = new Point(300, 45);
+            pnlContextInvBars.Location = new Point(300, 65);
+            pnlContextInvBars.Size = new Size(270, 50);
+
+            btnCtxCenter.Visible = true;
+            btnCtxLogistics.Visible = isPlayerOwned;
+            btnCtxMarket.Visible = isPlayerOwned;
 
             // 1. Capacity Utilization
             int utilization = 100;
@@ -1523,22 +1613,22 @@ namespace Conglomerate
 
                 Panel pnlFactorySection = new Panel();
                 pnlFactorySection.Name = "pnlFactorySection";
-                pnlFactorySection.Location = new Point(15, 90);
-                pnlFactorySection.Size = new Size(570, 32);
+                pnlFactorySection.Location = new Point(15, 92);
+                pnlFactorySection.Size = new Size(310, 48);
                 pnlFactorySection.BackColor = Color.Transparent;
 
                 Label lblRecipeLabel = new Label();
                 lblRecipeLabel.Text = "Przepis:";
                 lblRecipeLabel.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
                 lblRecipeLabel.ForeColor = Color.DarkGray;
-                lblRecipeLabel.Location = new Point(0, 7);
-                lblRecipeLabel.Size = new Size(60, 18);
+                lblRecipeLabel.Location = new Point(0, 5);
+                lblRecipeLabel.Size = new Size(55, 18);
                 pnlFactorySection.Controls.Add(lblRecipeLabel);
 
                 ComboBox cmbRecipe = new ComboBox();
                 cmbRecipe.Name = "cmbRecipe";
-                cmbRecipe.Location = new Point(65, 3);
-                cmbRecipe.Size = new Size(220, 23);
+                cmbRecipe.Location = new Point(60, 2);
+                cmbRecipe.Size = new Size(240, 23);
                 cmbRecipe.DropDownStyle = ComboBoxStyle.DropDownList;
                 cmbRecipe.BackColor = Color.FromArgb(40, 40, 40);
                 cmbRecipe.ForeColor = Color.White;
@@ -1577,8 +1667,8 @@ namespace Conglomerate
                 lblRecipeDesc.Name = "lblRecipeDesc";
                 lblRecipeDesc.Font = new Font("Segoe UI", 8, FontStyle.Italic);
                 lblRecipeDesc.ForeColor = Color.Gray;
-                lblRecipeDesc.Location = new Point(295, 8);
-                lblRecipeDesc.Size = new Size(270, 16);
+                lblRecipeDesc.Location = new Point(60, 28);
+                lblRecipeDesc.Size = new Size(240, 16);
                 pnlFactorySection.Controls.Add(lblRecipeDesc);
 
                 pnlContextInspector.Controls.Add(pnlFactorySection);
@@ -1677,7 +1767,7 @@ namespace Conglomerate
             if (e.KeyCode == Keys.Escape)
             {
                 // 1. Jeśli otwarte są panele szczegółowe lub modalne, zamknij je w pierwszej kolejności
-                if (pnlBuildingDetails.Visible || pnlFinanceReport.Visible || pnlSaveGameOverlay.Visible || pnlEscapeMenu.Visible || pnlContextInspector.Visible)
+                if (pnlBuildingDetails.Visible || pnlFinanceReport.Visible || pnlSaveGameOverlay.Visible || pnlEscapeMenu.Visible || pnlContextInspector.Visible || pnlLogisticsManager.Visible || pnlMarketBuyer.Visible)
                 {
                     if (pnlEscapeMenu.Visible)
                     {
@@ -1688,6 +1778,8 @@ namespace Conglomerate
                     CloseBuildingDetails();
                     CloseFinanceReport();
                     CloseContextInspector();
+                    pnlLogisticsManager.Visible = false;
+                    pnlMarketBuyer.Visible = false;
                     pnlSaveGameOverlay.Visible = false;
                     
                     if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
@@ -1720,6 +1812,7 @@ namespace Conglomerate
 
         private void OpenFinanceReport()
         {
+            HideAllOverlays(pnlFinanceReport);
             CenterFinanceReportPanel();
             pnlFinanceReport.Visible = true;
             pnlFinanceReport.BringToFront();
@@ -2800,6 +2893,7 @@ namespace Conglomerate
             else
             {
                 _gameTimer.Stop();
+                HideAllOverlays(pnlEscapeMenu);
                 CenterEscapeMenuPanel();
                 pnlEscapeMenu.Visible = true;
                 pnlEscapeMenu.BringToFront();
@@ -2861,6 +2955,7 @@ namespace Conglomerate
             if (_gameManager == null || _company == null) return;
 
             _gameTimer.Stop();
+            HideAllOverlays(pnlLogisticsManager);
             pnlLogisticsManager.Controls.Clear();
             BuildLogisticsPanel(targetBuilding);
             CenterPanel(pnlLogisticsManager);
@@ -3226,6 +3321,7 @@ namespace Conglomerate
         {
             if (_gameManager == null || _company == null) return;
             _gameTimer.Stop();
+            HideAllOverlays(pnlMarketBuyer);
 
             pnlMarketBuyer.Controls.Clear();
             BuildMarketPanel(targetBuilding);

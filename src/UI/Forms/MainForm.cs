@@ -93,6 +93,8 @@ namespace Conglomerate
 
         private Panel pnlRightShortcutBar = null!;
 
+        private ToolTip _toolTip = new ToolTip();
+
         private Panel pnlNewsTicker = null!;
         private Label lblNewsMarquee = null!;
         private System.Windows.Forms.Timer _newsTickerTimer = null!;
@@ -262,18 +264,22 @@ namespace Conglomerate
             btnSpeedPause = CreateSpeedButton("||", 0, (s, e) => SetGameSpeed(0, btnSpeedPause));
             btnSpeedPause.Size = new Size(35, 30);
             btnSpeedPause.Location = new Point(0, 0);
+            _toolTip.SetToolTip(btnSpeedPause, "Zatrzymaj czas (Pauza)");
 
             btnSpeed1x = CreateSpeedButton("1x", 0, (s, e) => SetGameSpeed(1000, btnSpeed1x));
             btnSpeed1x.Size = new Size(35, 30);
             btnSpeed1x.Location = new Point(40, 0);
+            _toolTip.SetToolTip(btnSpeed1x, "Standardowa prędkość");
 
             btnSpeed2x = CreateSpeedButton("2x", 0, (s, e) => SetGameSpeed(500, btnSpeed2x));
             btnSpeed2x.Size = new Size(35, 30);
             btnSpeed2x.Location = new Point(80, 0);
+            _toolTip.SetToolTip(btnSpeed2x, "Podwójna prędkość");
 
             btnSpeed5x = CreateSpeedButton("5x", 0, (s, e) => SetGameSpeed(200, btnSpeed5x));
             btnSpeed5x.Size = new Size(35, 30);
             btnSpeed5x.Location = new Point(120, 0);
+            _toolTip.SetToolTip(btnSpeed5x, "Szybka prędkość (5x)");
 
             pnlSpeedControls.Controls.Add(btnSpeedPause);
             pnlSpeedControls.Controls.Add(btnSpeed1x);
@@ -574,10 +580,19 @@ namespace Conglomerate
 
             // Stack przycisków skrótów
             Button btnShortcutFinance = CreateShortcutButton("$", 15, Color.FromArgb(100, 220, 100), (s, e) => ToggleFinanceReport());
+            _toolTip.SetToolTip(btnShortcutFinance, "Raport Finansowy");
+
             Button btnShortcutResearch = CreateShortcutButton("🔬", 80, Color.FromArgb(50, 150, 250), (s, e) => MessageBox.Show("Moduł Badawczo-Rozwojowy (R&D) jest zablokowany w tej wersji demonstracyjnej.\n\nAby odblokować drzewo technologiczne i badania, zakup pełną wersję gry.", "Moduł R&D Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            _toolTip.SetToolTip(btnShortcutResearch, "Badania i Rozwój (R&D)");
+
             Button btnShortcutMarketing = CreateShortcutButton("📢", 145, Color.FromArgb(240, 180, 50), (s, e) => MessageBox.Show("Moduł Marketingu i Zarządzania Marką jest zablokowany w tej wersji demonstracyjnej.\n\nAby prowadzić kampanie reklamowe i budować wizerunek firmy, zakup pełną wersję gry.", "Moduł Marketingu Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            _toolTip.SetToolTip(btnShortcutMarketing, "Marketing i Marka");
+
             Button btnShortcutHR = CreateShortcutButton("👥", 210, Color.FromArgb(220, 100, 220), (s, e) => MessageBox.Show("Moduł HR i Zarządzania Kadrą Kierowniczą jest zablokowany w tej wersji demonstracyjnej.\n\nAby zatrudniać dyrektorów (CEO, CFO, COO) i zarządzać płacami, zakup pełną wersję gry.", "Moduł HR Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            _toolTip.SetToolTip(btnShortcutHR, "Zasoby Ludzkie (HR)");
+
             Button btnShortcutLogistics = CreateShortcutButton("🚚", 275, Color.FromArgb(240, 180, 50), (s, e) => ToggleLogisticsManagerPanel());
+            _toolTip.SetToolTip(btnShortcutLogistics, "Logistyka i Flota");
 
             pnlRightShortcutBar.Controls.Add(btnShortcutFinance);
             pnlRightShortcutBar.Controls.Add(btnShortcutResearch);

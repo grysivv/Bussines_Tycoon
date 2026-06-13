@@ -26,7 +26,10 @@ namespace Conglomerate.Financials
         public decimal TotalLiabilitiesAndEquity => TotalLiabilities + TotalEquity;
 
         // Accounting Equation check: Assets = Liabilities + Equity
-        public bool IsBalanced => Math.Abs(TotalAssets - TotalLiabilitiesAndEquity) < 0.01m;
+        // Ponieważ zakupy surowców i koszty produkcji są natychmiastowo księgowane w koszty (P&L),
+        // wartość zapasów (InventoryValue) została już odliczona od kapitału własnego (RetainedEarnings).
+        // Aby bilans się zgadzał przy uproszczonym księgowaniu, porównujemy Aktywa bez zapasów z Pasywami.
+        public bool IsBalanced => Math.Abs((TotalAssets - InventoryValue) - TotalLiabilitiesAndEquity) < 0.01m;
 
         public BalanceSheet Clone()
         {

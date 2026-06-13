@@ -1358,7 +1358,11 @@ namespace Conglomerate
             if (_inspectingBuilding != building)
             {
                 var oldSection = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
-                if (oldSection != null) pnlContextInspector.Controls.Remove(oldSection);
+                if (oldSection != null)
+                {
+                    pnlContextInspector.Controls.Remove(oldSection);
+                    oldSection.Dispose();
+                }
                 _activeRecipeComboBox = null;
             }
 
@@ -1409,7 +1413,11 @@ namespace Conglomerate
 
             // Usuń kontrolki fabryki jeśli były wcześniej
             var existingFactoryPanel = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
-            if (existingFactoryPanel != null) pnlContextInspector.Controls.Remove(existingFactoryPanel);
+            if (existingFactoryPanel != null)
+            {
+                pnlContextInspector.Controls.Remove(existingFactoryPanel);
+                existingFactoryPanel.Dispose();
+            }
             _activeRecipeComboBox = null;
 
             // 1. Capacity Utilization
@@ -1507,7 +1515,11 @@ namespace Conglomerate
 
             if (needsRebuild)
             {
-                if (oldSection != null) pnlContextInspector.Controls.Remove(oldSection);
+                if (oldSection != null)
+                {
+                    pnlContextInspector.Controls.Remove(oldSection);
+                    oldSection.Dispose();
+                }
 
                 Panel pnlFactorySection = new Panel();
                 pnlFactorySection.Name = "pnlFactorySection";
@@ -3407,7 +3419,11 @@ namespace Conglomerate
         {
             // Usuń stary panel fabryki/retail jeśli istnieje
             var oldPanel = pnlContextInspector.Controls.Find("pnlRetailSection", false).FirstOrDefault();
-            if (oldPanel != null) pnlContextInspector.Controls.Remove(oldPanel);
+            if (oldPanel != null)
+            {
+                pnlContextInspector.Controls.Remove(oldPanel);
+                oldPanel.Dispose();
+            }
             _activeRecipeComboBox = null;
 
             // ── Pokaż typ budynku w polu "utilization" ──

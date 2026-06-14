@@ -3193,6 +3193,7 @@ namespace Conglomerate
                         Cursor = Cursors.Hand
                     };
                     btnEdit.FlatAppearance.BorderSize = 0;
+                    _toolTip.SetToolTip(btnEdit, "Edytuj trasę");
                     btnEdit.Click += (s, e) =>
                     {
                         _editingRoute = route;
@@ -3212,6 +3213,7 @@ namespace Conglomerate
                         Cursor = Cursors.Hand
                     };
                     btnToggle.FlatAppearance.BorderSize = 0;
+                    _toolTip.SetToolTip(btnToggle, route.IsEnabled ? "Wstrzymaj trasę" : "Wznów trasę");
                     btnToggle.Click += (s, e) =>
                     {
                         route.IsEnabled = !route.IsEnabled;
@@ -3231,6 +3233,7 @@ namespace Conglomerate
                         Cursor = Cursors.Hand
                     };
                     btnRemove.FlatAppearance.BorderSize = 0;
+                    _toolTip.SetToolTip(btnRemove, "Usuń trasę");
                     string routeId = route.Id;
                     btnRemove.Click += (s, e) =>
                     {

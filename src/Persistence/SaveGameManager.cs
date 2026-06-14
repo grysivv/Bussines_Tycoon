@@ -162,6 +162,62 @@ namespace Conglomerate
             return JsonSerializer.Deserialize<GameSaveContainer>(json)!;
         }
 
+        public static void RestoreGameState(GameStateData state, out Company company, out Map map, out GameManager gameManager)
+        {
+            company = RestoreCompanyState(state);
+            map = RestoreMapState(state);
+            RestoreBuildingsState(state, company, map);
+            gameManager = RestoreGameManagerAndRoutesState(state, company, map);
+        }
+
+        private static Company RestoreCompanyState(GameStateData state)
+        {
+            var company = new Company(state.CompanyName, state.Cash);
+            company.Engine.RestoreState(
+                state.Cash,
+                state.ShareCapital,
+                state.RetainedEarnings,
+                state.Loans,
+                state.CurrentMonthIndex,
+                state.TaxRate
+            );
+            return company;
+        }
+
+        private static Map RestoreMapState(GameStateData state)
+        {
+            return new Map(10, 10);
+        }
+
+        private static void RestoreBuildingsState(GameStateData state, Company company, Map map)
+        {
+            foreach (var bData in state.Buildings)
+            {
+                Building? building = RestoreBuilding(bData);
+                if (building == null) continue;
+
+                // Register in Company and Engine
+                company.Buildings.Add(building);
+                company.Engine.RegisterFacility(building);
+
+                // Place on Map
+                building.X = bData.X;
+                building.Y = bData.Y;
+                map.BuildBuildingOnTile(bData.X, bData.Y, building);
+            }
+        }
+
+        private static GameManager RestoreGameManagerAndRoutesState(GameStateData state, Company company, Map map)
+        {
+            var gameManager = new GameManager(company, map);
+            gameManager.RestoreState(state.CurrentDay, state.CurrentHour);
+            if (state.SupplyRoutes != null)
+            {
+                gameManager.Logistics.RestoreRoutes(state.SupplyRoutes);
+            }
+            return gameManager;
+        }
+
         /// <summary>
         /// Przywraca budynki z danych zapisu, uwzględniając nowe typy (CheeseFactory itp.).
         /// </summary>

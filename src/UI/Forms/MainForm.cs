@@ -2692,76 +2692,7 @@ namespace Conglomerate
                 // Stop timer
                 _gameTimer.Stop();
 
-                // 1. Recreate Company & restore FinancialEngine state
-                _company = new Company(state.CompanyName, state.Cash);
-                _company.Engine.RestoreState(
-                    state.Cash, 
-                    state.ShareCapital, 
-                    state.RetainedEarnings, 
-                    state.Loans, 
-                    state.CurrentMonthIndex, 
-                    state.TaxRate
-                );
-
-                // 2. Recreate Map
-                _map = new Map(10, 10);
-
-                // 3. Recreate Buildings
-                foreach (var bData in state.Buildings)
-                {
-                    Building building;
-                    if (bData.Type == "Farm")
-                    {
-                        building = new Farm(bData.Name);
-                    }
-                    else if (bData.Type == "CoalMine")
-                    {
-                        building = new CoalMine(bData.Name);
-                    }
-                    else if (bData.Type == "FoodWarehouse")
-                    {
-                        building = new WarehouseBuilding(bData.Name, ResourceCategory.Food);
-                    }
-                    else if (bData.Type == "MiningWarehouse")
-                    {
-                        building = new WarehouseBuilding(bData.Name, ResourceCategory.Mining);
-                    }
-                    else
-                    {
-                        continue;
-                    }
-
-                    // Restore properties
-                    building.FacilityId = bData.FacilityId;
-                    building.AutoSell = bData.AutoSell;
-                    building.AccumulatedDepreciation = bData.AccumulatedDepreciation;
-
-                    // Restore warehouse
-                    foreach (var item in bData.Warehouse)
-                    {
-                        if (building.Warehouse.ContainsKey(item.Key))
-                        {
-                            building.Warehouse[item.Key] = item.Value;
-                        }
-                    }
-
-                    // Register in Company and Engine
-                    _company.Buildings.Add(building);
-                    _company.Engine.RegisterFacility(building);
-
-                    // Place on Map
-                    building.X = bData.X;
-                    building.Y = bData.Y;
-                    _map.BuildBuildingOnTile(bData.X, bData.Y, building);
-                }
-
-                // 4. Recreate GameManager & restore day/hour
-                _gameManager = new GameManager(_company, _map);
-                _gameManager.RestoreState(state.CurrentDay, state.CurrentHour);
-                if (state.SupplyRoutes != null)
-                {
-                    _gameManager.Logistics.RestoreRoutes(state.SupplyRoutes);
-                }
+                SaveGameManager.RestoreGameState(state, out _company, out _map, out _gameManager);
 
                 // 5. Re-subscribe events
                 _gameManager.OnTickPerformed += OnTickPerformed;

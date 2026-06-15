@@ -468,6 +468,8 @@ namespace Conglomerate
             // Przycisk zamknięcia [X]
             Button btnCtxClose = new Button();
             btnCtxClose.Text = "X";
+            btnCtxClose.AccessibleName = "Zamknij";
+            _toolTip.SetToolTip(btnCtxClose, "Zamknij szczegóły");
             btnCtxClose.Font = new Font("Segoe UI", 8, FontStyle.Bold);
             btnCtxClose.Size = new Size(20, 20);
             btnCtxClose.Location = new Point(570, 8);
@@ -1174,6 +1176,8 @@ namespace Conglomerate
             // Przycisk zamknięcia [X]
             Button btnClose = new Button();
             btnClose.Text = "X";
+            btnClose.AccessibleName = "Zamknij";
+            _toolTip.SetToolTip(btnClose, "Zamknij okno");
             btnClose.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             btnClose.Size = new Size(25, 25);
             btnClose.Location = new Point(pnlBuildingDetails.Width - 35, 10);
@@ -1935,6 +1939,8 @@ namespace Conglomerate
             // Przycisk zamknięcia [X]
             Button btnClose = new Button();
             btnClose.Text = "X";
+            btnClose.AccessibleName = "Zamknij";
+            _toolTip.SetToolTip(btnClose, "Zamknij raport");
             btnClose.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             btnClose.Size = new Size(25, 25);
             btnClose.Location = new Point(pnlFinanceReport.Width - 35, 10);
@@ -3022,6 +3028,7 @@ namespace Conglomerate
             var btnClose = new Button
             {
                 Text = "✕",
+                AccessibleName = "Zamknij",
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 Size = new Size(30, 28),
                 Location = new Point(810, 10),
@@ -3030,6 +3037,7 @@ namespace Conglomerate
                 BackColor = Color.Transparent,
                 Cursor = Cursors.Hand
             };
+            _toolTip.SetToolTip(btnClose, "Zamknij panel logistyki");
             btnClose.FlatAppearance.BorderSize = 0;
             btnClose.Click += (s, e) =>
             {
@@ -3184,6 +3192,7 @@ namespace Conglomerate
                     var btnEdit = new Button
                     {
                         Text = "✏",
+                        AccessibleName = "Edytuj trasę",
                         Font = new Font("Segoe UI", 8.5f),
                         Size = new Size(24, 24),
                         Location = new Point(365, 20),
@@ -3192,6 +3201,7 @@ namespace Conglomerate
                         BackColor = Color.FromArgb(40, 40, 40),
                         Cursor = Cursors.Hand
                     };
+                    _toolTip.SetToolTip(btnEdit, "Edytuj trasę");
                     btnEdit.FlatAppearance.BorderSize = 0;
                     btnEdit.Click += (s, e) =>
                     {
@@ -3203,6 +3213,7 @@ namespace Conglomerate
                     var btnToggle = new Button
                     {
                         Text = route.IsEnabled ? "⏸" : "▶",
+                        AccessibleName = route.IsEnabled ? "Wstrzymaj trasę" : "Wznów trasę",
                         Font = new Font("Segoe UI", 9),
                         Size = new Size(24, 24),
                         Location = new Point(395, 20),
@@ -3211,6 +3222,7 @@ namespace Conglomerate
                         BackColor = Color.FromArgb(40, 40, 40),
                         Cursor = Cursors.Hand
                     };
+                    _toolTip.SetToolTip(btnToggle, route.IsEnabled ? "Wstrzymaj trasę" : "Wznów trasę");
                     btnToggle.FlatAppearance.BorderSize = 0;
                     btnToggle.Click += (s, e) =>
                     {
@@ -3222,6 +3234,7 @@ namespace Conglomerate
                     var btnRemove = new Button
                     {
                         Text = "✕",
+                        AccessibleName = "Usuń trasę",
                         Font = new Font("Segoe UI", 8, FontStyle.Bold),
                         Size = new Size(24, 24),
                         Location = new Point(425, 20),
@@ -3230,6 +3243,7 @@ namespace Conglomerate
                         BackColor = Color.FromArgb(40, 40, 40),
                         Cursor = Cursors.Hand
                     };
+                    _toolTip.SetToolTip(btnRemove, "Usuń trasę");
                     btnRemove.FlatAppearance.BorderSize = 0;
                     string routeId = route.Id;
                     btnRemove.Click += (s, e) =>
@@ -3825,10 +3839,11 @@ namespace Conglomerate
             // Przycisk zamknięcia
             var btnClose = new Button
             {
-                Text = "✕", Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Text = "✕", AccessibleName = "Zamknij", Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 Size = new Size(30, 28), Location = new Point(562, 10),
                 FlatStyle = FlatStyle.Flat, ForeColor = Color.Gray, BackColor = Color.Transparent, Cursor = Cursors.Hand
             };
+            _toolTip.SetToolTip(btnClose, "Zamknij rynek");
             btnClose.FlatAppearance.BorderSize = 0;
             btnClose.Click += (s, e) =>
             {

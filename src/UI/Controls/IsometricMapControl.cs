@@ -245,13 +245,13 @@ namespace Conglomerate
                     {
                         if (tile.Building is Farm)
                         {
-                            terrainColor = new XnaColor(190, 150, 100); // Podłoże pod farmą
-                            borderColor = new XnaColor(120, 90, 60);
+                            terrainColor = new XnaColor(76, 180, 76); // Soczysta zieleń trawy
+                            borderColor = new XnaColor(40, 110, 40);
                         }
                         else if (tile.Building is CoalMine)
                         {
-                            terrainColor = new XnaColor(90, 90, 90); // Podłoże pod kopalnią węgla
-                            borderColor = new XnaColor(60, 60, 60);
+                            terrainColor = new XnaColor(45, 45, 45); // Antracyt / ciemnoszary
+                            borderColor = new XnaColor(25, 25, 25);
                         }
                         else if (tile.Building is WarehouseBuilding wh)
                         {
@@ -367,17 +367,11 @@ namespace Conglomerate
         {
             if (GraphicsDevice == null || _basicEffect == null) return;
 
-            // 1. Zagroda (Płot drewniany i stóg siana)
-            DrawFenceAndHayBale(x, y);
+            // 1. Zagroda (Pastwisko z krowami)
+            DrawFenceAndCows(x, y);
 
             // 2. Główna stodoła (czerwony budynek dwuspadowy z białymi drzwiami X)
             DrawRedBarn(x, y);
-
-            // 3. Silos zbożowy (srebrna metalowa wieża)
-            DrawSilo(x, y);
-
-            // 4. Wiatrak farmerski (z obracającymi się łopatami)
-            DrawWindmill(x, y);
         }
 
         private void Draw3DBox(float x, float y, float w, float h, float height, XnaColor leftColor, XnaColor rightColor, XnaColor topColor)
@@ -448,42 +442,109 @@ namespace Conglomerate
             }
         }
 
-        private void DrawFenceAndHayBale(float x, float y)
+        private void DrawFenceAndCows(float x, float y)
         {
             if (GraphicsDevice == null || _basicEffect == null) return;
 
-            // Drewniany płotek zagrody wokół przedniej części farmy
-            XnaColor fenceColor = new XnaColor(100, 65, 35);
-            VertexPositionColor[] fence = new VertexPositionColor[4];
-            fence[0] = new VertexPositionColor(new Vector3(x - TileWidth * 0.32f, y + TileHeight * 0.15f, 0), fenceColor);
-            fence[1] = new VertexPositionColor(new Vector3(x - TileWidth * 0.1f, y + TileHeight * 0.36f, 0), fenceColor);
-            fence[2] = new VertexPositionColor(new Vector3(x + TileWidth * 0.32f, y + TileHeight * 0.15f, 0), fenceColor);
-            fence[3] = new VertexPositionColor(new Vector3(x + TileWidth * 0.1f, y - TileHeight * 0.05f, 0), fenceColor);
+            // Pastwisko (obszar ogrodzony) zajmujące część kafelka z przodu i z lewej
+            float pfX = x - TileWidth * 0.15f;
+            float pfY = y + TileHeight * 0.15f;
+
+            // Drewniany płotek - pionowe słupki i poziome żerdzie
+            XnaColor postColor = new XnaColor(120, 80, 50); // Drewno
+            XnaColor railColor = new XnaColor(140, 95, 60);
+
+            // Punkty narożne ogrodzenia (w rzucie izometrycznym)
+            Vector3[] fenceCorners = new Vector3[]
+            {
+                new Vector3(x - TileWidth * 0.4f, y + TileHeight * 0.1f, 0), // Lewy
+                new Vector3(x - TileWidth * 0.1f, y + TileHeight * 0.4f, 0), // Dolny
+                new Vector3(x + TileWidth * 0.2f, y + TileHeight * 0.2f, 0)  // Prawy
+            };
+
+            // Rysowanie poziomych żerdzi (dwie żerdzie na każdym boku)
+            for (int i = 0; i < fenceCorners.Length - 1; i++)
+            {
+                Vector3 p1 = fenceCorners[i];
+                Vector3 p2 = fenceCorners[i+1];
+
+                VertexPositionColor[] rails = new VertexPositionColor[4];
+                // Dolna żerdź
+                rails[0] = new VertexPositionColor(p1 + new Vector3(0, -2f, 0), railColor);
+                rails[1] = new VertexPositionColor(p2 + new Vector3(0, -2f, 0), railColor);
+                // Górna żerdź
+                rails[2] = new VertexPositionColor(p1 + new Vector3(0, -5f, 0), railColor);
+                rails[3] = new VertexPositionColor(p2 + new Vector3(0, -5f, 0), railColor);
+
+                foreach (var pass in _basicEffect.CurrentTechnique.Passes)
+                {
+                    pass.Apply();
+                    GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, rails, 0, 2);
+                }
+            }
+
+            // Rysowanie pionowych słupków na narożnikach i w połowie
+            for (int i = 0; i < fenceCorners.Length; i++)
+            {
+                DrawFencePost(fenceCorners[i], postColor);
+                if (i < fenceCorners.Length - 1)
+                {
+                    Vector3 mid = Vector3.Lerp(fenceCorners[i], fenceCorners[i+1], 0.5f);
+                    DrawFencePost(mid, postColor);
+                }
+            }
+
+            // Krowy na pastwisku (proste biało-czarne bloczki)
+            DrawCow(x - TileWidth * 0.25f, y + TileHeight * 0.2f);
+            DrawCow(x - TileWidth * 0.1f, y + TileHeight * 0.3f);
+            DrawCow(x + TileWidth * 0.05f, y + TileHeight * 0.25f);
+        }
+
+        private void DrawFencePost(Vector3 basePos, XnaColor color)
+        {
+            if (GraphicsDevice == null || _basicEffect == null) return;
+
+            VertexPositionColor[] post = new VertexPositionColor[2];
+            post[0] = new VertexPositionColor(basePos, color);
+            post[1] = new VertexPositionColor(basePos + new Vector3(0, -7f, 0), color);
 
             foreach (var pass in _basicEffect.CurrentTechnique.Passes)
             {
                 pass.Apply();
-                GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineStrip, fence, 0, 3);
+                GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, post, 0, 1);
             }
+        }
 
-            // Mała beleczka siana (żółty prostopadłościan)
-            float hx = x - TileWidth * 0.06f;
-            float hy = y + TileHeight * 0.2f;
-            Draw3DBox(hx, hy, 7f, 3.5f, 4.5f, new XnaColor(225, 190, 50), new XnaColor(190, 160, 40), new XnaColor(240, 210, 70));
+        private void DrawCow(float cx, float cy)
+        {
+            // Ciało krowy (białe)
+            Draw3DBox(cx, cy, 3f, 1.5f, 2.5f, XnaColor.White, new XnaColor(220, 220, 220), XnaColor.White);
+
+            // Czarne łaty (uproszczone jako małe prostokąty na górze)
+            Draw3DBox(cx - 0.5f, cy, 1f, 1f, 2.6f, XnaColor.Black, XnaColor.Black, XnaColor.Black);
+            Draw3DBox(cx + 0.5f, cy - 0.2f, 1f, 0.5f, 2.6f, XnaColor.Black, XnaColor.Black, XnaColor.Black);
+
+            // Głowa krowy (czarno-biała)
+            Draw3DBox(cx + 1f, cy + 0.5f, 1.5f, 1f, 3.5f, XnaColor.Black, XnaColor.White, XnaColor.Black);
         }
 
         private void DrawRedBarn(float x, float y)
         {
             if (GraphicsDevice == null || _basicEffect == null) return;
 
-            float bw = TileWidth * 0.42f; // Szerokość stodoły
-            float bh = TileHeight * 0.42f; // Głębokość stodoły
-            float bHeight = 16f;           // Wysokość ścian stodoły
-            float bx = x + 3f;             // Przesunięcie stodoły na kafelku
-            float by = y + 5f;
+            float bw = TileWidth * 0.45f; // Szerokość stodoły (podłużny budynek)
+            float bh = TileHeight * 0.35f; // Głębokość stodoły
+            float bHeight = 18f;           // Wysokość ścian stodoły
+            float bx = x + TileWidth * 0.15f; // Przesunięcie stodoły do tyłu/prawo
+            float by = y - TileHeight * 0.15f;
+
+            // Klasyczna czerwień Barn Red z białymi krawędziami
+            XnaColor barnRedLeft = new XnaColor(160, 40, 40);
+            XnaColor barnRedRight = new XnaColor(190, 50, 50);
+            XnaColor barnRedTop = new XnaColor(190, 50, 50); // Ukryte pod dachem
 
             // Ściany stodoły
-            Draw3DBox(bx, by, bw, bh, bHeight, new XnaColor(135, 45, 45), new XnaColor(180, 55, 55), new XnaColor(180, 55, 55));
+            Draw3DBox(bx, by, bw, bh, bHeight, barnRedLeft, barnRedRight, barnRedTop);
 
             // Wierzchołki góry ścian stodoły (podstawa dachu)
             Vector3 tBottom = new Vector3(bx, by + bh / 2f - bHeight, 0);
@@ -491,41 +552,56 @@ namespace Conglomerate
             Vector3 tRight = new Vector3(bx + bw / 2f, by - bHeight, 0);
             Vector3 tTop = new Vector3(bx, by - bh / 2f - bHeight, 0);
 
-            // Grzbiet dachu dwuspadowego
-            float roofHeight = 7f;
+            // Grzbiet dachu dwuspadowego (gradient od jasnego do ciemnego)
+            float roofHeight = 10f;
             Vector3 peakFront = tBottom - new Vector3(0, roofHeight, 0);
             Vector3 peakBack = tTop - new Vector3(0, roofHeight, 0);
 
-            XnaColor roofLeftColor = new XnaColor(165, 70, 50);
-            XnaColor roofRightColor = new XnaColor(210, 90, 70);
-            XnaColor gableColor = new XnaColor(180, 55, 55);
+            // Kolory dachu (gradienty: jasna kalenica, ciemny okap)
+            XnaColor roofRidgeLeft = new XnaColor(180, 160, 140);  // Jasny przy grzbiecie
+            XnaColor roofEavesLeft = new XnaColor(120, 100, 80);   // Ciemniejszy przy okapie
+
+            XnaColor roofRidgeRight = new XnaColor(210, 190, 170); // Jasny przy grzbiecie (oświetlony)
+            XnaColor roofEavesRight = new XnaColor(150, 130, 110); // Ciemniejszy przy okapie
+
+            XnaColor gableColor = barnRedLeft;
 
             VertexPositionColor[] roofVerts = new VertexPositionColor[18];
 
             // Połać lewa (tLeft -> peakFront -> peakBack)
-            roofVerts[0] = new VertexPositionColor(tLeft, roofLeftColor);
-            roofVerts[1] = new VertexPositionColor(peakFront, roofLeftColor);
-            roofVerts[2] = new VertexPositionColor(peakBack, roofLeftColor);
+            roofVerts[0] = new VertexPositionColor(tLeft, roofEavesLeft);
+            roofVerts[1] = new VertexPositionColor(peakFront, roofRidgeLeft);
+            roofVerts[2] = new VertexPositionColor(peakBack, roofRidgeLeft);
+
+            roofVerts[3] = new VertexPositionColor(tLeft, roofEavesLeft);
+            roofVerts[4] = new VertexPositionColor(peakBack, roofRidgeLeft);
+            roofVerts[5] = new VertexPositionColor(Vector3.Lerp(tLeft, tTop, 1f), roofEavesLeft); // tTop dla lewej połaci? Nie, tLeft-tTop to okap
+            // Korekta dla trójkątów: (tLeft, peakFront, peakBack) i (tLeft, peakBack, tTop - czekaj, tTop to tylny wierzchołek)
+            // Połać lewa to czworokąt: tLeft, tTop (dolna krawędź), peakFront, peakBack (górna krawędź)
+            // Trójkąt 1: tLeft, peakFront, tTop? Nie. tLeft, peakFront, peakBack.
+            // Trójkąt 2: tLeft, peakBack, tTop.
+            roofVerts[3] = new VertexPositionColor(tLeft, roofEavesLeft);
+            roofVerts[4] = new VertexPositionColor(peakBack, roofRidgeLeft);
+            roofVerts[5] = new VertexPositionColor(tTop, roofEavesLeft);
+
 
             // Połać prawa (tRight -> peakBack -> peakFront)
-            roofVerts[3] = new VertexPositionColor(tRight, roofRightColor);
-            roofVerts[4] = new VertexPositionColor(peakBack, roofRightColor);
-            roofVerts[5] = new VertexPositionColor(peakFront, roofRightColor);
+            // Czworokąt: tBottom, tRight, peakFront, peakBack
+            roofVerts[6] = new VertexPositionColor(tBottom, roofEavesRight);
+            roofVerts[7] = new VertexPositionColor(tRight, roofEavesRight);
+            roofVerts[8] = new VertexPositionColor(peakFront, roofRidgeRight);
 
-            // Szczyt przedni (trójkąt nad przednią ścianą)
-            roofVerts[6] = new VertexPositionColor(tLeft, gableColor);
-            roofVerts[7] = new VertexPositionColor(tBottom, gableColor);
-            roofVerts[8] = new VertexPositionColor(peakFront, gableColor);
+            roofVerts[9] = new VertexPositionColor(tRight, roofEavesRight);
+            roofVerts[10] = new VertexPositionColor(peakBack, roofRidgeRight);
+            roofVerts[11] = new VertexPositionColor(peakFront, roofRidgeRight);
 
-            roofVerts[9] = new VertexPositionColor(tBottom, gableColor);
-            roofVerts[10] = new VertexPositionColor(tRight, gableColor);
-            roofVerts[11] = new VertexPositionColor(peakFront, gableColor);
 
-            // Szczyt tylny
+            // Szczyt przedni (trójkąt nad przednią lewą ścianą: tLeft, tBottom, peakFront)
             roofVerts[12] = new VertexPositionColor(tLeft, gableColor);
-            roofVerts[13] = new VertexPositionColor(tTop, gableColor);
-            roofVerts[14] = new VertexPositionColor(peakBack, gableColor);
+            roofVerts[13] = new VertexPositionColor(tBottom, gableColor);
+            roofVerts[14] = new VertexPositionColor(peakFront, gableColor);
 
+            // Szczyt tylny (trójkąt nad tylną prawą ścianą: tTop, tRight, peakBack)
             roofVerts[15] = new VertexPositionColor(tTop, gableColor);
             roofVerts[16] = new VertexPositionColor(tRight, gableColor);
             roofVerts[17] = new VertexPositionColor(peakBack, gableColor);
@@ -536,37 +612,19 @@ namespace Conglomerate
                 GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleList, roofVerts, 0, 6);
             }
 
-            // Krawędzie dachu stodoły
-            XnaColor roofOutlineColor = new XnaColor(40, 20, 20, 150);
-            VertexPositionColor[] roofOutline = new VertexPositionColor[10];
-            roofOutline[0] = new VertexPositionColor(tLeft, roofOutlineColor);
-            roofOutline[1] = new VertexPositionColor(peakFront, roofOutlineColor);
-            roofOutline[2] = new VertexPositionColor(tBottom, roofOutlineColor);
-            roofOutline[3] = new VertexPositionColor(peakFront, roofOutlineColor);
-            roofOutline[4] = new VertexPositionColor(tRight, roofOutlineColor);
-            roofOutline[5] = new VertexPositionColor(peakBack, roofOutlineColor);
-            roofOutline[6] = new VertexPositionColor(tTop, roofOutlineColor);
-            roofOutline[7] = new VertexPositionColor(peakBack, roofOutlineColor);
-            roofOutline[8] = new VertexPositionColor(tLeft, roofOutlineColor);
-            roofOutline[9] = new VertexPositionColor(peakFront, roofOutlineColor);
-
-            foreach (var pass in _basicEffect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, roofOutline, 0, 5);
-            }
-
-            // Białe wrota stodoły z charakterystycznym krzyżakiem X (ściana przednia-prawa)
+            // Białe wrota stodoły z charakterystycznym krzyżakiem X (ściana przednia-lewa, tLeft do tBottom)
+            Vector3 bLeftGround = new Vector3(bx - bw / 2f, by, 0);
             Vector3 bBottomGround = new Vector3(bx, by + bh / 2f, 0);
-            Vector3 bRightGround = new Vector3(bx + bw / 2f, by, 0);
 
-            Vector3 dBL = Vector3.Lerp(bBottomGround, bRightGround, 0.35f);
-            Vector3 dBR = Vector3.Lerp(bBottomGround, bRightGround, 0.65f);
-            Vector3 dTL = dBL - new Vector3(0, 8f, 0);
-            Vector3 dTR = dBR - new Vector3(0, 8f, 0);
+            // Wylicz pozycje drzwi na lewej ścianie (widocznej od frontu)
+            Vector3 dBL = Vector3.Lerp(bLeftGround, bBottomGround, 0.35f);
+            Vector3 dBR = Vector3.Lerp(bLeftGround, bBottomGround, 0.65f);
+            Vector3 dTL = dBL - new Vector3(0, 10f, 0);
+            Vector3 dTR = dBR - new Vector3(0, 10f, 0);
 
             XnaColor doorColor = XnaColor.White;
             VertexPositionColor[] door = new VertexPositionColor[8];
+            // Zewnętrzne krawędzie białych wrót
             door[0] = new VertexPositionColor(dBL, doorColor);
             door[1] = new VertexPositionColor(dTL, doorColor);
 
@@ -590,177 +648,23 @@ namespace Conglomerate
                 GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, door, 0, 4);
                 GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, doorDiag, 0, 1);
             }
-        }
 
-        private void DrawSilo(float x, float y)
-        {
-            if (GraphicsDevice == null || _basicEffect == null) return;
+            // Białe wykończenia (trims) na rogach
+            VertexPositionColor[] trims = new VertexPositionColor[6];
+            trims[0] = new VertexPositionColor(bBottomGround, doorColor);
+            trims[1] = new VertexPositionColor(tBottom, doorColor);
 
-            float sx = x - TileWidth * 0.22f; // Silos po lewej-tylnej stronie
-            float sy = y - TileHeight * 0.15f;
-            float sw = 9f;
-            float sh = 4.5f;
-            float siloHeight = 26f;
+            trims[2] = new VertexPositionColor(bLeftGround, doorColor);
+            trims[3] = new VertexPositionColor(tLeft, doorColor);
 
-            // Srebrne, cieniowane ściany silosu
-            Draw3DBox(sx, sy, sw, sh, siloHeight, new XnaColor(120, 120, 125), new XnaColor(170, 170, 175), new XnaColor(190, 190, 195));
-
-            // Wierzchołki góry silosu (podstawa stożka)
-            Vector3 tBottom = new Vector3(sx, sy + sh / 2f - siloHeight, 0);
-            Vector3 tLeft = new Vector3(sx - sw / 2f, sy - siloHeight, 0);
-            Vector3 tRight = new Vector3(sx + sw / 2f, sy - siloHeight, 0);
-            Vector3 tTop = new Vector3(sx, sy - sh / 2f - siloHeight, 0);
-
-            // Szczyt stożkowego dachu silosu
-            Vector3 peak = new Vector3(sx, sy - siloHeight - 5.5f, 0);
-
-            XnaColor roofFront = new XnaColor(95, 105, 125);
-            XnaColor roofLeft = new XnaColor(75, 85, 105);
-            XnaColor roofBack = new XnaColor(60, 70, 90);
-            XnaColor roofRight = new XnaColor(85, 95, 115);
-
-            VertexPositionColor[] roof = new VertexPositionColor[12];
-
-            // Trójkąt przedni
-            roof[0] = new VertexPositionColor(tBottom, roofFront);
-            roof[1] = new VertexPositionColor(tRight, roofFront);
-            roof[2] = new VertexPositionColor(peak, roofFront);
-
-            // Trójkąt lewy
-            roof[3] = new VertexPositionColor(tLeft, roofLeft);
-            roof[4] = new VertexPositionColor(tBottom, roofLeft);
-            roof[5] = new VertexPositionColor(peak, roofLeft);
-
-            // Trójkąt tylny
-            roof[6] = new VertexPositionColor(tTop, roofBack);
-            roof[7] = new VertexPositionColor(tLeft, roofBack);
-            roof[8] = new VertexPositionColor(peak, roofBack);
-
-            // Trójkąt prawy
-            roof[9] = new VertexPositionColor(tRight, roofRight);
-            roof[10] = new VertexPositionColor(tTop, roofRight);
-            roof[11] = new VertexPositionColor(peak, roofRight);
+            Vector3 bRightGround = new Vector3(bx + bw / 2f, by, 0);
+            trims[4] = new VertexPositionColor(bRightGround, doorColor);
+            trims[5] = new VertexPositionColor(tRight, doorColor);
 
             foreach (var pass in _basicEffect.CurrentTechnique.Passes)
             {
                 pass.Apply();
-                GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleList, roof, 0, 4);
-            }
-        }
-
-        private void DrawWindmill(float x, float y)
-        {
-            if (GraphicsDevice == null || _basicEffect == null) return;
-
-            float wx = x + TileWidth * 0.22f; // Wiatrak po prawej-tylnej stronie
-            float wy = y - TileHeight * 0.15f;
-            float wHeight = 36f;              // Wysokość wieży wiatraka
-
-            // Podstawa wieży na ziemi (4 punkty)
-            Vector3 groundFront = new Vector3(wx, wy + 3f, 0);
-            Vector3 groundLeft = new Vector3(wx - 4.5f, wy, 0);
-            Vector3 groundRight = new Vector3(wx + 4.5f, wy, 0);
-            Vector3 groundBack = new Vector3(wx, wy - 3f, 0);
-
-            // Szczyt wieży (punkt pojedynczy)
-            Vector3 wTop = new Vector3(wx, wy - wHeight, 0);
-
-            XnaColor towerColor = new XnaColor(150, 150, 150);
-            VertexPositionColor[] tower = new VertexPositionColor[8];
-
-            // 4 główne nogi kratownicy
-            tower[0] = new VertexPositionColor(groundFront, towerColor);
-            tower[1] = new VertexPositionColor(wTop, towerColor);
-
-            tower[2] = new VertexPositionColor(groundLeft, towerColor);
-            tower[3] = new VertexPositionColor(wTop, towerColor);
-
-            tower[4] = new VertexPositionColor(groundRight, towerColor);
-            tower[5] = new VertexPositionColor(wTop, towerColor);
-
-            tower[6] = new VertexPositionColor(groundBack, towerColor);
-            tower[7] = new VertexPositionColor(wTop, towerColor);
-
-            // Poziome poprzeczki stabilizujące w połowie wysokości
-            Vector3 midFront = Vector3.Lerp(groundFront, wTop, 0.5f);
-            Vector3 midLeft = Vector3.Lerp(groundLeft, wTop, 0.5f);
-            Vector3 midRight = Vector3.Lerp(groundRight, wTop, 0.5f);
-            Vector3 midBack = Vector3.Lerp(groundBack, wTop, 0.5f);
-
-            VertexPositionColor[] braces = new VertexPositionColor[8];
-            braces[0] = new VertexPositionColor(midFront, towerColor);
-            braces[1] = new VertexPositionColor(midLeft, towerColor);
-
-            braces[2] = new VertexPositionColor(midLeft, towerColor);
-            braces[3] = new VertexPositionColor(midBack, towerColor);
-
-            braces[4] = new VertexPositionColor(midBack, towerColor);
-            braces[5] = new VertexPositionColor(midRight, towerColor);
-
-            braces[6] = new VertexPositionColor(midRight, towerColor);
-            braces[7] = new VertexPositionColor(midFront, towerColor);
-
-            foreach (var pass in _basicEffect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, tower, 0, 4);
-                GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, braces, 0, 4);
-            }
-
-            // Statecznik ogonowy (kierunkowy)
-            Vector3 tailEnd = wTop + new Vector3(-7f, -2f, 0);
-            VertexPositionColor[] tail = new VertexPositionColor[2];
-            tail[0] = new VertexPositionColor(wTop, new XnaColor(110, 110, 110));
-            tail[1] = new VertexPositionColor(tailEnd, new XnaColor(110, 110, 110));
-
-            // Trójkątna czerwona lotka ogona
-            VertexPositionColor[] vane = new VertexPositionColor[3];
-            XnaColor vaneColor = new XnaColor(215, 80, 60);
-            vane[0] = new VertexPositionColor(tailEnd, vaneColor);
-            vane[1] = new VertexPositionColor(tailEnd + new Vector3(-2.5f, -3.5f, 0), vaneColor);
-            vane[2] = new VertexPositionColor(tailEnd + new Vector3(-2.5f, 2f, 0), vaneColor);
-
-            foreach (var pass in _basicEffect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, tail, 0, 1);
-                GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleList, vane, 0, 1);
-            }
-
-            // Dynamicznie obracające się łopaty wiatraka (4 łopaty)
-            float radius = 9f;
-            float rotationSpeed = 2.4f;
-            float angle = _waveTimer * rotationSpeed;
-
-            XnaColor bladeColor = new XnaColor(225, 225, 225);
-            VertexPositionColor[] blades = new VertexPositionColor[8];
-
-            for (int i = 0; i < 4; i++)
-            {
-                float rads = angle + (i * (float)Math.PI / 2f);
-                float tx = wTop.X + radius * (float)Math.Cos(rads);
-                float ty = wTop.Y + radius * (float)Math.Sin(rads);
-
-                blades[i * 2] = new VertexPositionColor(wTop, bladeColor);
-                blades[i * 2 + 1] = new VertexPositionColor(new Vector3(tx, ty, 0), bladeColor);
-            }
-
-            foreach (var pass in _basicEffect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, blades, 0, 4);
-            }
-
-            // Czerwony kołpak śmigła (centralna kropka)
-            VertexPositionColor[] spinner = new VertexPositionColor[3];
-            spinner[0] = new VertexPositionColor(wTop + new Vector3(0, -1.2f, 0), XnaColor.Red);
-            spinner[1] = new VertexPositionColor(wTop + new Vector3(1.2f, 0.8f, 0), XnaColor.Red);
-            spinner[2] = new VertexPositionColor(wTop + new Vector3(-1.2f, 0.8f, 0), XnaColor.Red);
-
-            foreach (var pass in _basicEffect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleList, spinner, 0, 1);
+                GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, trims, 0, 3);
             }
         }
 
@@ -768,33 +672,45 @@ namespace Conglomerate
         {
             if (GraphicsDevice == null || _basicEffect == null) return;
 
-            // 1. Hałda węgla (Coal Pile) - czarny/ciemnoszary prostopadłościan
-            float cx = x + TileWidth * 0.18f;
-            float cy = y + TileHeight * 0.18f;
-            Draw3DBox(cx, cy, 10f, 5f, 6f, new XnaColor(25, 25, 25), new XnaColor(35, 35, 35), new XnaColor(45, 45, 45));
+            // Główny budynek szybu (masywna wieża na planie kwadratu)
+            float bw = TileWidth * 0.35f;
+            float bh = TileHeight * 0.35f;
+            float bHeight = 24f;
 
-            // 2. Maszynownia (Engine Shed) - niski ciemnoszary budynek z boku
-            float ex = x - TileWidth * 0.18f;
-            float ey = y - TileHeight * 0.15f;
-            Draw3DBox(ex, ey, 14f, 7f, 10f, new XnaColor(50, 50, 55), new XnaColor(70, 70, 75), new XnaColor(80, 80, 85));
+            // Cieniowane ściany (lewa ciemniejsza, prawa jaśniejsza)
+            XnaColor buildingLeft = new XnaColor(40, 40, 45);   // Głęboki cień
+            XnaColor buildingRight = new XnaColor(70, 70, 75);  // Doświetlona
+            XnaColor buildingTop = new XnaColor(90, 90, 95);    // Najjaśniejsza
 
-            // 3. Szyb wydobywczy / wieża (Mining Tower) - czteronogowa stalowa kratownica
+            Draw3DBox(x, y, bw, bh, bHeight, buildingLeft, buildingRight, buildingTop);
+
+            // Rampa logistyczna z przodu (z żółto-czarnymi pasami)
+            float rampW = TileWidth * 0.2f;
+            float rampH = TileHeight * 0.15f;
+            float rampHeight = 6f;
+            float rampX = x + TileWidth * 0.15f;
+            float rampY = y + TileHeight * 0.15f;
+
+            Draw3DBox(rampX, rampY, rampW, rampH, rampHeight, new XnaColor(50, 50, 50), new XnaColor(80, 80, 80), new XnaColor(100, 100, 100));
+
+            // Żółto-czarne pasy ostrzegawcze na rampie (krawędź przednia-prawa)
+            DrawWarningStripes(rampX, rampY, rampW, rampH, rampHeight);
+
+            // Wieża wyciągowa (stalowa kratownica na dachu)
             float tx = x;
-            float ty = y - TileHeight * 0.05f;
-            float towerHeight = 30f;
+            float ty = y - bHeight;
+            float towerHeight = 22f;
 
-            Vector3 groundFront = new Vector3(tx, ty + 4f, 0);
-            Vector3 groundLeft = new Vector3(tx - 6f, ty, 0);
-            Vector3 groundRight = new Vector3(tx + 6f, ty, 0);
-            Vector3 groundBack = new Vector3(tx, ty - 4f, 0);
+            Vector3 groundFront = new Vector3(tx, ty + bh / 4f, 0);
+            Vector3 groundLeft = new Vector3(tx - bw / 4f, ty, 0);
+            Vector3 groundRight = new Vector3(tx + bw / 4f, ty, 0);
+            Vector3 groundBack = new Vector3(tx, ty - bh / 4f, 0);
 
-            // Szczyt wieży
             Vector3 wTop = new Vector3(tx, ty - towerHeight, 0);
 
-            XnaColor steelColor = new XnaColor(120, 125, 130);
+            XnaColor steelColor = new XnaColor(110, 115, 120);
             VertexPositionColor[] tower = new VertexPositionColor[16];
 
-            // 4 nogi wieży
             tower[0] = new VertexPositionColor(groundFront, steelColor);
             tower[1] = new VertexPositionColor(wTop, steelColor);
 
@@ -831,13 +747,12 @@ namespace Conglomerate
                 GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, tower, 0, 8);
             }
 
-            // 4. Obracające się koło linowe na szczycie wieży
-            float radius = 5f;
-            float rotationSpeed = 3f;
+            // Obracające się koło linowe na szczycie
+            float radius = 6f;
+            float rotationSpeed = 4f;
             float angle = _waveTimer * rotationSpeed;
 
-            // Szprychy koła
-            XnaColor wheelColor = new XnaColor(200, 205, 210);
+            XnaColor wheelColor = new XnaColor(180, 180, 180);
             VertexPositionColor[] wheel = new VertexPositionColor[12];
 
             for (int i = 0; i < 6; i++)
@@ -850,8 +765,7 @@ namespace Conglomerate
                 wheel[i * 2 + 1] = new VertexPositionColor(new Vector3(px, py, 0), wheelColor);
             }
 
-            // Obręcz koła
-            int segments = 8;
+            int segments = 12;
             VertexPositionColor[] wheelRim = new VertexPositionColor[segments + 1];
             for (int i = 0; i <= segments; i++)
             {
@@ -866,6 +780,42 @@ namespace Conglomerate
                 pass.Apply();
                 GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, wheel, 0, 6);
                 GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineStrip, wheelRim, 0, segments);
+            }
+        }
+
+        private void DrawWarningStripes(float x, float y, float w, float h, float height)
+        {
+            if (GraphicsDevice == null || _basicEffect == null) return;
+
+            // Krawędź przednia-prawa rampy (od dolnego-prawego rogu podstawy do przedniego rogu)
+            // Zbudujemy uproszczoną ścieżkę z pasków
+            Vector3 bBottom = new Vector3(x, y + h / 2f - height, 0);
+            Vector3 bRight = new Vector3(x + w / 2f, y - height, 0);
+
+            int stripeCount = 6;
+            XnaColor yellow = new XnaColor(220, 180, 0);
+            XnaColor black = new XnaColor(10, 10, 10);
+
+            VertexPositionColor[] stripes = new VertexPositionColor[stripeCount * 2];
+
+            for (int i = 0; i < stripeCount; i++)
+            {
+                float t1 = (float)i / stripeCount;
+                float t2 = (float)(i + 0.5f) / stripeCount;
+
+                Vector3 p1 = Vector3.Lerp(bBottom, bRight, t1);
+                Vector3 p2 = Vector3.Lerp(bBottom, bRight, t2);
+
+                XnaColor color = (i % 2 == 0) ? yellow : black;
+
+                stripes[i * 2] = new VertexPositionColor(p1, color);
+                stripes[i * 2 + 1] = new VertexPositionColor(p2, color);
+            }
+
+            foreach (var pass in _basicEffect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, stripes, 0, stripeCount);
             }
         }
 

@@ -261,25 +261,21 @@ namespace Conglomerate
             pnlSpeedControls.Size = new Size(160, 32);
             pnlTopNav.Controls.Add(pnlSpeedControls);
 
-            btnSpeedPause = CreateSpeedButton("||", 0, (s, e) => SetGameSpeed(0, btnSpeedPause));
+            btnSpeedPause = CreateSpeedButton("||", 0, "Zatrzymaj czas (Pauza)", (s, e) => SetGameSpeed(0, btnSpeedPause));
             btnSpeedPause.Size = new Size(35, 30);
             btnSpeedPause.Location = new Point(0, 0);
-            _toolTip.SetToolTip(btnSpeedPause, "Zatrzymaj czas (Pauza)");
 
-            btnSpeed1x = CreateSpeedButton("1x", 0, (s, e) => SetGameSpeed(1000, btnSpeed1x));
+            btnSpeed1x = CreateSpeedButton("1x", 0, "Standardowa prędkość", (s, e) => SetGameSpeed(1000, btnSpeed1x));
             btnSpeed1x.Size = new Size(35, 30);
             btnSpeed1x.Location = new Point(40, 0);
-            _toolTip.SetToolTip(btnSpeed1x, "Standardowa prędkość");
 
-            btnSpeed2x = CreateSpeedButton("2x", 0, (s, e) => SetGameSpeed(500, btnSpeed2x));
+            btnSpeed2x = CreateSpeedButton("2x", 0, "Podwójna prędkość", (s, e) => SetGameSpeed(500, btnSpeed2x));
             btnSpeed2x.Size = new Size(35, 30);
             btnSpeed2x.Location = new Point(80, 0);
-            _toolTip.SetToolTip(btnSpeed2x, "Podwójna prędkość");
 
-            btnSpeed5x = CreateSpeedButton("5x", 0, (s, e) => SetGameSpeed(200, btnSpeed5x));
+            btnSpeed5x = CreateSpeedButton("5x", 0, "Szybka prędkość (5x)", (s, e) => SetGameSpeed(200, btnSpeed5x));
             btnSpeed5x.Size = new Size(35, 30);
             btnSpeed5x.Location = new Point(120, 0);
-            _toolTip.SetToolTip(btnSpeed5x, "Szybka prędkość (5x)");
 
             pnlSpeedControls.Controls.Add(btnSpeedPause);
             pnlSpeedControls.Controls.Add(btnSpeed1x);
@@ -468,6 +464,7 @@ namespace Conglomerate
             // Przycisk zamknięcia [X]
             Button btnCtxClose = new Button();
             btnCtxClose.Text = "X";
+            btnCtxClose.AccessibleName = "Zamknij inspektor";
             btnCtxClose.Font = new Font("Segoe UI", 8, FontStyle.Bold);
             btnCtxClose.Size = new Size(20, 20);
             btnCtxClose.Location = new Point(570, 8);
@@ -476,6 +473,7 @@ namespace Conglomerate
             btnCtxClose.ForeColor = Color.Gray;
             btnCtxClose.Cursor = Cursors.Hand;
             btnCtxClose.Click += (s, e) => CloseContextInspector();
+            _toolTip.SetToolTip(btnCtxClose, "Zamknij inspektor");
             pnlContextInspector.Controls.Add(btnCtxClose);
 
             // Tytuł i P&L w pierwszej linii
@@ -579,20 +577,15 @@ namespace Conglomerate
             pnlRightShortcutBar.Controls.Add(pnlRightShortcutBorder);
 
             // Stack przycisków skrótów
-            Button btnShortcutFinance = CreateShortcutButton("$", 15, Color.FromArgb(100, 220, 100), (s, e) => ToggleFinanceReport());
-            _toolTip.SetToolTip(btnShortcutFinance, "Raport Finansowy");
+            Button btnShortcutFinance = CreateShortcutButton("$", 15, Color.FromArgb(100, 220, 100), "Raport Finansowy", (s, e) => ToggleFinanceReport());
 
-            Button btnShortcutResearch = CreateShortcutButton("🔬", 80, Color.FromArgb(50, 150, 250), (s, e) => MessageBox.Show("Moduł Badawczo-Rozwojowy (R&D) jest zablokowany w tej wersji demonstracyjnej.\n\nAby odblokować drzewo technologiczne i badania, zakup pełną wersję gry.", "Moduł R&D Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
-            _toolTip.SetToolTip(btnShortcutResearch, "Badania i Rozwój (R&D)");
+            Button btnShortcutResearch = CreateShortcutButton("🔬", 80, Color.FromArgb(50, 150, 250), "Badania i Rozwój (R&D)", (s, e) => MessageBox.Show("Moduł Badawczo-Rozwojowy (R&D) jest zablokowany w tej wersji demonstracyjnej.\n\nAby odblokować drzewo technologiczne i badania, zakup pełną wersję gry.", "Moduł R&D Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
-            Button btnShortcutMarketing = CreateShortcutButton("📢", 145, Color.FromArgb(240, 180, 50), (s, e) => MessageBox.Show("Moduł Marketingu i Zarządzania Marką jest zablokowany w tej wersji demonstracyjnej.\n\nAby prowadzić kampanie reklamowe i budować wizerunek firmy, zakup pełną wersję gry.", "Moduł Marketingu Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
-            _toolTip.SetToolTip(btnShortcutMarketing, "Marketing i Marka");
+            Button btnShortcutMarketing = CreateShortcutButton("📢", 145, Color.FromArgb(240, 180, 50), "Marketing i Marka", (s, e) => MessageBox.Show("Moduł Marketingu i Zarządzania Marką jest zablokowany w tej wersji demonstracyjnej.\n\nAby prowadzić kampanie reklamowe i budować wizerunek firmy, zakup pełną wersję gry.", "Moduł Marketingu Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
-            Button btnShortcutHR = CreateShortcutButton("👥", 210, Color.FromArgb(220, 100, 220), (s, e) => MessageBox.Show("Moduł HR i Zarządzania Kadrą Kierowniczą jest zablokowany w tej wersji demonstracyjnej.\n\nAby zatrudniać dyrektorów (CEO, CFO, COO) i zarządzać płacami, zakup pełną wersję gry.", "Moduł HR Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
-            _toolTip.SetToolTip(btnShortcutHR, "Zasoby Ludzkie (HR)");
+            Button btnShortcutHR = CreateShortcutButton("👥", 210, Color.FromArgb(220, 100, 220), "Zasoby Ludzkie (HR)", (s, e) => MessageBox.Show("Moduł HR i Zarządzania Kadrą Kierowniczą jest zablokowany w tej wersji demonstracyjnej.\n\nAby zatrudniać dyrektorów (CEO, CFO, COO) i zarządzać płacami, zakup pełną wersję gry.", "Moduł HR Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
-            Button btnShortcutLogistics = CreateShortcutButton("🚚", 275, Color.FromArgb(240, 180, 50), (s, e) => ToggleLogisticsManagerPanel());
-            _toolTip.SetToolTip(btnShortcutLogistics, "Logistyka i Flota");
+            Button btnShortcutLogistics = CreateShortcutButton("🚚", 275, Color.FromArgb(240, 180, 50), "Logistyka i Flota", (s, e) => ToggleLogisticsManagerPanel());
 
             pnlRightShortcutBar.Controls.Add(btnShortcutFinance);
             pnlRightShortcutBar.Controls.Add(btnShortcutResearch);
@@ -791,10 +784,11 @@ namespace Conglomerate
             };
         }
 
-        private Button CreateSpeedButton(string text, int x, EventHandler onClick)
+        private Button CreateSpeedButton(string text, int x, string tooltipText, EventHandler onClick)
         {
             Button btn = new Button();
             btn.Text = text;
+            btn.AccessibleName = tooltipText;
             btn.Size = new Size(40, 32);
             btn.Location = new Point(x, 0);
             btn.FlatStyle = FlatStyle.Flat;
@@ -804,6 +798,7 @@ namespace Conglomerate
             btn.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             btn.Cursor = Cursors.Hand;
             btn.Click += onClick;
+            _toolTip.SetToolTip(btn, tooltipText);
             return btn;
         }
 
@@ -1174,6 +1169,7 @@ namespace Conglomerate
             // Przycisk zamknięcia [X]
             Button btnClose = new Button();
             btnClose.Text = "X";
+            btnClose.AccessibleName = "Zamknij szczegóły";
             btnClose.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             btnClose.Size = new Size(25, 25);
             btnClose.Location = new Point(pnlBuildingDetails.Width - 35, 10);
@@ -1182,6 +1178,7 @@ namespace Conglomerate
             btnClose.ForeColor = Color.Gray;
             btnClose.Cursor = Cursors.Hand;
             btnClose.Click += (s, e) => CloseBuildingDetails();
+            _toolTip.SetToolTip(btnClose, "Zamknij szczegóły");
             pnlBuildingDetails.Controls.Add(btnClose);
 
             // Nazwa budynku
@@ -1756,10 +1753,11 @@ namespace Conglomerate
             }
         }
 
-        private Button CreateShortcutButton(string iconText, int yPos, Color accentColor, EventHandler onClick)
+        private Button CreateShortcutButton(string iconText, int yPos, Color accentColor, string tooltipText, EventHandler onClick)
         {
             Button btn = new Button();
             btn.Text = iconText;
+            btn.AccessibleName = tooltipText;
             btn.Font = new Font("Segoe UI Semibold", 13, FontStyle.Bold);
             btn.Size = new Size(46, 46);
             btn.Location = new Point(7, yPos);
@@ -1771,6 +1769,7 @@ namespace Conglomerate
             btn.ForeColor = accentColor;
             btn.Cursor = Cursors.Hand;
             btn.Click += onClick;
+            _toolTip.SetToolTip(btn, tooltipText);
             return btn;
         }
 
@@ -1935,6 +1934,7 @@ namespace Conglomerate
             // Przycisk zamknięcia [X]
             Button btnClose = new Button();
             btnClose.Text = "X";
+            btnClose.AccessibleName = "Zamknij raport";
             btnClose.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             btnClose.Size = new Size(25, 25);
             btnClose.Location = new Point(pnlFinanceReport.Width - 35, 10);
@@ -1943,6 +1943,7 @@ namespace Conglomerate
             btnClose.ForeColor = Color.Gray;
             btnClose.Cursor = Cursors.Hand;
             btnClose.Click += (s, e) => CloseFinanceReport();
+            _toolTip.SetToolTip(btnClose, "Zamknij raport");
             pnlFinanceReport.Controls.Add(btnClose);
 
             // Tytuł
@@ -3022,6 +3023,7 @@ namespace Conglomerate
             var btnClose = new Button
             {
                 Text = "✕",
+                AccessibleName = "Zamknij panel logistyki",
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 Size = new Size(30, 28),
                 Location = new Point(810, 10),
@@ -3038,6 +3040,7 @@ namespace Conglomerate
                 if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
                     _gameTimer.Start();
             };
+            _toolTip.SetToolTip(btnClose, "Zamknij panel logistyki");
             pnlLogisticsManager.Controls.Add(btnClose);
 
             int activeTripsCount = _gameManager!.Logistics.ActiveTrips.Count;
@@ -3184,6 +3187,7 @@ namespace Conglomerate
                     var btnEdit = new Button
                     {
                         Text = "✏",
+                        AccessibleName = "Edytuj trasę",
                         Font = new Font("Segoe UI", 8.5f),
                         Size = new Size(24, 24),
                         Location = new Point(365, 20),
@@ -3198,11 +3202,13 @@ namespace Conglomerate
                         _editingRoute = route;
                         BuildLogisticsPanelGlobal();
                     };
+                    _toolTip.SetToolTip(btnEdit, "Edytuj trasę");
                     pnlRow.Controls.Add(btnEdit);
 
                     var btnToggle = new Button
                     {
                         Text = route.IsEnabled ? "⏸" : "▶",
+                        AccessibleName = route.IsEnabled ? "Wstrzymaj trasę" : "Wznów trasę",
                         Font = new Font("Segoe UI", 9),
                         Size = new Size(24, 24),
                         Location = new Point(395, 20),
@@ -3217,11 +3223,13 @@ namespace Conglomerate
                         route.IsEnabled = !route.IsEnabled;
                         BuildLogisticsPanelGlobal();
                     };
+                    _toolTip.SetToolTip(btnToggle, route.IsEnabled ? "Wstrzymaj trasę" : "Wznów trasę");
                     pnlRow.Controls.Add(btnToggle);
 
                     var btnRemove = new Button
                     {
                         Text = "✕",
+                        AccessibleName = "Usuń trasę",
                         Font = new Font("Segoe UI", 8, FontStyle.Bold),
                         Size = new Size(24, 24),
                         Location = new Point(425, 20),
@@ -3825,7 +3833,9 @@ namespace Conglomerate
             // Przycisk zamknięcia
             var btnClose = new Button
             {
-                Text = "✕", Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Text = "✕",
+                AccessibleName = "Zamknij rynek",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 Size = new Size(30, 28), Location = new Point(562, 10),
                 FlatStyle = FlatStyle.Flat, ForeColor = Color.Gray, BackColor = Color.Transparent, Cursor = Cursors.Hand
             };
@@ -3836,6 +3846,7 @@ namespace Conglomerate
                 if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
                     _gameTimer.Start();
             };
+            _toolTip.SetToolTip(btnClose, "Zamknij rynek");
             pnlMarketBuyer.Controls.Add(btnClose);
 
             // Tabela rynku

@@ -3294,6 +3294,7 @@ namespace Conglomerate
                             BuildLogisticsPanelGlobal();
                         }
                     };
+                    _toolTip.SetToolTip(btnRemove, "Usuń trasę");
                     pnlRow.Controls.Add(btnRemove);
 
                     pnlRoutesList.Controls.Add(pnlRow);

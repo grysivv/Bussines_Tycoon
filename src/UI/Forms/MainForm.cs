@@ -80,7 +80,6 @@ namespace Conglomerate
         private Button? _activeSpeedButton = null;
 
         private XnaPoint? _hoveredTile = null;
-        private Panel pnlBuildingDetails = null!;
         private Building? _inspectingBuilding = null;
         private Logistics.SupplyRoute? _editingRoute = null;
         private Dictionary<string, string> _enteredSellQuantities = new Dictionary<string, string>();
@@ -449,8 +448,8 @@ namespace Conglomerate
             _newsTickerTimer.Start();
 
             // 2.1b KONTEKSTOWY INSPEKTOR BUDYNKU (SELECTED OBJECT INSPECTOR)
-            pnlContextInspector = new Panel();
-            pnlContextInspector.Size = new Size(600, 130);
+            pnlContextInspector = new Panel(); typeof(Panel).InvokeMember("DoubleBuffered", System.Reflection.BindingFlags.SetProperty | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, pnlContextInspector, new object[] { true });
+            pnlContextInspector.Size = new Size(800, 130);
             pnlContextInspector.BackColor = Color.FromArgb(25, 25, 25);
             pnlContextInspector.BorderStyle = BorderStyle.FixedSingle;
             pnlContextInspector.Visible = false;
@@ -469,7 +468,7 @@ namespace Conglomerate
             btnCtxClose.AccessibleName = "Zamknij inspektor";
             btnCtxClose.Font = new Font("Segoe UI", 8, FontStyle.Bold);
             btnCtxClose.Size = new Size(20, 20);
-            btnCtxClose.Location = new Point(570, 8);
+            btnCtxClose.Location = new Point(770, 8);
             btnCtxClose.FlatStyle = FlatStyle.Flat;
             btnCtxClose.FlatAppearance.BorderSize = 0;
             btnCtxClose.ForeColor = Color.Gray;
@@ -557,9 +556,9 @@ namespace Conglomerate
             lblContextInv.Size = new Size(250, 15);
             pnlContextInspector.Controls.Add(lblContextInv);
 
-            pnlContextInvBars = new Panel();
+            pnlContextInvBars = new Panel(); typeof(Panel).InvokeMember("DoubleBuffered", System.Reflection.BindingFlags.SetProperty | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, pnlContextInvBars, new object[] { true });
             pnlContextInvBars.Location = new Point(300, 65);
-            pnlContextInvBars.Size = new Size(270, 50);
+            pnlContextInvBars.Size = new Size(480, 50);
             pnlContextInvBars.BackColor = Color.FromArgb(20, 20, 20);
             pnlContextInvBars.AutoScroll = true;
             pnlContextInspector.Controls.Add(pnlContextInvBars);
@@ -755,15 +754,6 @@ namespace Conglomerate
             pnlGameBoard.Controls.Add(mapControl);
             mapControl.BringToFront();
 
-            // 2.5 PANEL SZCZEGÓŁÓW BUDYNKU (Floating Overlay Panel)
-            pnlBuildingDetails = new Panel();
-            pnlBuildingDetails.Size = new Size(700, 1000);
-            pnlBuildingDetails.BackColor = Color.FromArgb(30, 30, 30);
-            pnlBuildingDetails.BorderStyle = BorderStyle.FixedSingle;
-            pnlBuildingDetails.Visible = false;
-            pnlGameBoard.Controls.Add(pnlBuildingDetails);
-            pnlBuildingDetails.BringToFront();
-
             // 2.6 PANEL RAPORTU FINANSOWEGO (Floating Overlay Panel)
             pnlFinanceReport = new Panel();
             pnlFinanceReport.Size = new Size(1000, 800);
@@ -775,7 +765,6 @@ namespace Conglomerate
 
             // Zapewnienie automatycznego centrowania przy zmianie rozmiaru
             pnlGameBoard.SizeChanged += (s, e) => {
-                CenterBuildingDetailsPanel();
                 CenterFinanceReportPanel();
                 CenterSaveGameOverlayPanel();
                 CenterEscapeMenuPanel();
@@ -784,6 +773,7 @@ namespace Conglomerate
                 CenterPanel(pnlMarketBuyer);
             };
 
+            this.Resize += MainForm_Resize;
             // Rejestracja zdarzeń mapy (jednorazowo)
             mapControl.OnTileSelected += OnTileSelectedOnMap;
             mapControl.OnTileHovered += OnTileHoveredOnMap;
@@ -1029,12 +1019,10 @@ namespace Conglomerate
                 ShowTileInfo(tile);
                 if (tile.Type == TileType.Building && tile.Building != null)
                 {
-                    OpenBuildingDetails(tile.Building);
                     ShowContextInspector(tile.Building);
                 }
                 else
                 {
-                    CloseBuildingDetails();
                     CloseContextInspector();
                 }
             }
@@ -1111,9 +1099,9 @@ namespace Conglomerate
             }
 
             // Odświeżenie szczegółów otwartego panelu budynku na żywo
-            if (pnlBuildingDetails.Visible && _inspectingBuilding != null)
+            if (pnlContextInspector.Visible && _inspectingBuilding != null)
             {
-                OpenBuildingDetails(_inspectingBuilding);
+                UpdateContextInspector();
             }
 
             // Odświeżenie szczegółów otwartego raportu finansowego na żywo
@@ -1163,244 +1151,8 @@ namespace Conglomerate
                 UpdateContextInspector();
             }
         }
-
-        private void OpenBuildingDetails(Building building)
+private void HideAllOverlays(Panel? exceptPanel = null)
         {
-            bool isRefresh = pnlBuildingDetails.Visible && _inspectingBuilding == building;
-            if (isRefresh)
-            {
-                // Zaktualizuj pojemność magazynu
-                var lblCapRef = pnlBuildingDetails.Controls.Find("lblCap", true).FirstOrDefault() as Label;
-                if (lblCapRef != null)
-                {
-                    lblCapRef.Text = $"Pojemność magazynu: {building.GetTotalStock()} / {building.WarehouseCapacity} szt.";
-                }
-
-                // Zaktualizuj stany magazynowe surowców
-                foreach (var key in building.Warehouse.Keys)
-                {
-                    var lblResInfoRef = pnlBuildingDetails.Controls.Find("lblResInfo_" + key, true).FirstOrDefault() as Label;
-                    if (lblResInfoRef != null)
-                    {
-                        decimal price = building.ResourcePrices.ContainsKey(key) ? building.ResourcePrices[key] : 0m;
-                        lblResInfoRef.Text = $"{key}: {building.Warehouse[key]} szt. (Cena: {price:C}/szt.)";
-                    }
-                }
-                return;
-            }
-
-            HideAllOverlays(pnlBuildingDetails);
-
-            if (_inspectingBuilding != building)
-            {
-                _enteredSellQuantities.Clear();
-                _inspectingBuilding = building;
-            }
-
-            pnlBuildingDetails.Controls.Clear();
-
-            // Obramowanie ozdobne na górze
-            Panel pnlTopLine = new Panel();
-            pnlTopLine.Dock = DockStyle.Top;
-            pnlTopLine.Height = 4;
-            pnlTopLine.BackColor = Color.FromArgb(50, 150, 250);
-            pnlBuildingDetails.Controls.Add(pnlTopLine);
-
-            // Przycisk zamknięcia [X]
-            Button btnClose = new Button();
-            btnClose.Text = "X";
-            btnClose.AccessibleName = "Zamknij szczegóły";
-            btnClose.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            btnClose.Size = new Size(25, 25);
-            btnClose.Location = new Point(pnlBuildingDetails.Width - 35, 10);
-            btnClose.FlatStyle = FlatStyle.Flat;
-            btnClose.FlatAppearance.BorderSize = 0;
-            btnClose.ForeColor = Color.Gray;
-            btnClose.Cursor = Cursors.Hand;
-            btnClose.Click += (s, e) => CloseBuildingDetails();
-            _toolTip.SetToolTip(btnClose, "Zamknij szczegóły");
-            pnlBuildingDetails.Controls.Add(btnClose);
-
-            // Nazwa budynku
-            Label lblName = new Label();
-            lblName.Text = building.Name;
-            lblName.Font = new Font("Segoe UI", 14, FontStyle.Bold);
-            lblName.ForeColor = Color.FromArgb(50, 150, 250);
-            lblName.Location = new Point(20, 20);
-            lblName.Size = new Size(330, 25);
-            pnlBuildingDetails.Controls.Add(lblName);
-
-            // Typ działalności i koszty
-            Label lblSub = new Label();
-            lblSub.Text = $"{building.ActivityType} | Utrzymanie: {building.MaintenanceCost:C}/doba";
-            lblSub.Font = new Font("Segoe UI", 9, FontStyle.Italic);
-            lblSub.ForeColor = Color.LightGray;
-            lblSub.Location = new Point(20, 48);
-            lblSub.Size = new Size(350, 20);
-            pnlBuildingDetails.Controls.Add(lblSub);
-
-            // Pojemność magazynu
-            int totalStock = building.GetTotalStock();
-            Label lblCap = new Label();
-            lblCap.Name = "lblCap";
-            lblCap.Text = $"Pojemność magazynu: {totalStock} / {building.WarehouseCapacity} szt.";
-            lblCap.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            lblCap.Location = new Point(20, 75);
-            lblCap.Size = new Size(350, 20);
-            pnlBuildingDetails.Controls.Add(lblCap);
-
-            // Lista zasobów z możliwością sprzedaży
-            Panel pnlResources = new Panel();
-            pnlResources.Location = new Point(20, 100);
-            pnlResources.Size = new Size(360, 140);
-            pnlResources.AutoScroll = true;
-            pnlBuildingDetails.Controls.Add(pnlResources);
-
-            int yOffset = 0;
-            foreach (var key in building.Warehouse.Keys.ToList())
-            {
-                int currentQty = building.Warehouse[key];
-                decimal price = building.ResourcePrices.ContainsKey(key) ? building.ResourcePrices[key] : 0m;
-
-                Label lblResInfo = new Label();
-                lblResInfo.Name = "lblResInfo_" + key;
-                lblResInfo.Text = $"{key}: {currentQty} szt. (Cena: {price:C}/szt.)";
-                lblResInfo.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-                lblResInfo.Location = new Point(0, yOffset);
-                lblResInfo.Size = new Size(340, 20);
-                pnlResources.Controls.Add(lblResInfo);
-
-                TextBox txtSellQty = new TextBox();
-                txtSellQty.Text = _enteredSellQuantities.ContainsKey(key) ? _enteredSellQuantities[key] : "0";
-                txtSellQty.Font = new Font("Segoe UI", 9);
-                txtSellQty.Location = new Point(0, yOffset + 22);
-                txtSellQty.Size = new Size(80, 23);
-                txtSellQty.BackColor = Color.FromArgb(45, 45, 45);
-                txtSellQty.ForeColor = Color.White;
-                txtSellQty.BorderStyle = BorderStyle.FixedSingle;
-                
-                string resourceName = key;
-                txtSellQty.TextChanged += (s, e) =>
-                {
-                    _enteredSellQuantities[resourceName] = txtSellQty.Text;
-                };
-                pnlResources.Controls.Add(txtSellQty);
-
-                Button btnAll = new Button();
-                btnAll.Text = "ALL";
-                btnAll.Font = new Font("Segoe UI", 8, FontStyle.Bold);
-                btnAll.Location = new Point(90, yOffset + 21);
-                btnAll.Size = new Size(45, 24);
-                btnAll.FlatStyle = FlatStyle.Flat;
-                btnAll.FlatAppearance.BorderColor = Color.FromArgb(50, 150, 250);
-                btnAll.BackColor = Color.FromArgb(35, 35, 35);
-                btnAll.ForeColor = Color.FromArgb(50, 150, 250);
-                btnAll.Cursor = Cursors.Hand;
-                btnAll.Click += (s, e) => {
-                    txtSellQty.Text = building.Warehouse[resourceName].ToString();
-                };
-                pnlResources.Controls.Add(btnAll);
-
-                Button btnSell = new Button();
-                btnSell.Text = "Sprzedaj";
-                btnSell.Font = new Font("Segoe UI", 8, FontStyle.Bold);
-                btnSell.Location = new Point(145, yOffset + 21);
-                btnSell.Size = new Size(70, 24);
-                btnSell.FlatStyle = FlatStyle.Flat;
-                btnSell.FlatAppearance.BorderSize = 0;
-                btnSell.BackColor = Color.FromArgb(100, 220, 100);
-                btnSell.ForeColor = Color.White;
-                btnSell.Cursor = Cursors.Hand;
-                
-                btnSell.Click += (s, e) =>
-                {
-                    if (int.TryParse(txtSellQty.Text, out int qty) && qty > 0)
-                    {
-                        if (building.SellResource(resourceName, qty, _company!, _gameManager!.CurrentDay, _gameManager!.CurrentHour))
-                        {
-                            lblBottomStatus.Text = $"Sprzedano {qty} szt. {resourceName} za {(price * qty):C}!";
-                            _enteredSellQuantities[resourceName] = "0"; // Reset po udanej sprzedaży
-                            RefreshStats();
-                            OpenBuildingDetails(building); // Odśwież panel
-                            if (_hoveredTile.HasValue)
-                            {
-                                ShowTileInfo(_map!.GetTile(_hoveredTile.Value.X, _hoveredTile.Value.Y));
-                            }
-                        }
-                        else
-                        {
-                            lblBottomStatus.Text = "❌ Błąd: Niepoprawna ilość do sprzedaży (za mało w magazynie)!";
-                        }
-                    }
-                    else
-                    {
-                        lblBottomStatus.Text = "❌ Błąd: Wpisz poprawną liczbę dodatnią!";
-                    }
-                };
-                pnlResources.Controls.Add(btnSell);
-
-                CheckBox chkResAutoSell = new CheckBox();
-                chkResAutoSell.Text = "Auto-sprzedaż";
-                chkResAutoSell.Font = new Font("Segoe UI", 7.5f, FontStyle.Regular);
-                chkResAutoSell.ForeColor = Color.FromArgb(100, 220, 100);
-                chkResAutoSell.Location = new Point(222, yOffset + 21);
-                chkResAutoSell.Size = new Size(110, 24);
-                chkResAutoSell.Checked = building.AutoSellResources.Contains(resourceName);
-                chkResAutoSell.Cursor = Cursors.Hand;
-                chkResAutoSell.CheckedChanged += (s, e) =>
-                {
-                    if (chkResAutoSell.Checked)
-                    {
-                        building.AutoSellResources.Add(resourceName);
-                        building.AutoSell = true;
-                        lblBottomStatus.Text = $"Włączono auto-sprzedaż dla '{resourceName}' w {building.Name}.";
-                    }
-                    else
-                    {
-                        building.AutoSellResources.Remove(resourceName);
-                        if (building.AutoSellResources.Count == 0)
-                        {
-                            building.AutoSell = false;
-                        }
-                        lblBottomStatus.Text = $"Wyłączono auto-sprzedaż dla '{resourceName}' w {building.Name}.";
-                    }
-                };
-                pnlResources.Controls.Add(chkResAutoSell);
-
-                yOffset += 55;
-            }
-
-            // Podpis informacyjny na dole
-            Label lblEsc = new Label();
-            lblEsc.Text = "Wskazówka: Naciśnij ESC, aby zamknąć to okno.";
-            lblEsc.Font = new Font("Segoe UI", 8, FontStyle.Italic);
-            lblEsc.ForeColor = Color.Gray;
-            lblEsc.Location = new Point(20, 315);
-            lblEsc.Size = new Size(350, 15);
-            pnlBuildingDetails.Controls.Add(lblEsc);
-
-            CenterBuildingDetailsPanel();
-            pnlBuildingDetails.Visible = true;
-            pnlBuildingDetails.BringToFront();
-            pnlBuildingDetails.Focus();
-        }
-
-        private void CloseBuildingDetails()
-        {
-            _inspectingBuilding = null;
-            _enteredSellQuantities.Clear();
-            if (pnlBuildingDetails != null)
-            {
-                pnlBuildingDetails.Visible = false;
-            }
-        }
-
-        private void HideAllOverlays(Panel? exceptPanel = null)
-        {
-            if (pnlBuildingDetails != null && pnlBuildingDetails != exceptPanel && pnlBuildingDetails.Visible)
-            {
-                pnlBuildingDetails.Visible = false;
-            }
             if (pnlFinanceReport != null && pnlFinanceReport != exceptPanel && pnlFinanceReport.Visible)
             {
                 pnlFinanceReport.Visible = false;
@@ -1422,26 +1174,22 @@ namespace Conglomerate
                 pnlSaveGameOverlay.Visible = false;
             }
         }
-
-        private void CenterBuildingDetailsPanel()
-        {
-            if (pnlBuildingDetails != null && pnlGameBoard != null)
-            {
-                pnlBuildingDetails.Location = new Point(
-                    (pnlGameBoard.Width - pnlBuildingDetails.Width) / 2,
-                    (pnlGameBoard.Height - pnlBuildingDetails.Height) / 2
-                );
-            }
-        }
-
         private void CenterContextInspectorPanel()
         {
             if (pnlContextInspector != null && pnlGameBoard != null)
             {
+                pnlContextInspector.Width = (int)(pnlGameBoard.Width * 0.60);
+                pnlContextInspector.Height = (int)(pnlGameBoard.Height * 0.60);
                 pnlContextInspector.Location = new Point(
                     (pnlGameBoard.Width - pnlContextInspector.Width) / 2,
-                    pnlGameBoard.Height - pnlNewsTicker.Height - pnlContextInspector.Height - 15
+                    (pnlGameBoard.Height - pnlContextInspector.Height) / 2
                 );
+
+                var btnClose = pnlContextInspector.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "X");
+                if (btnClose != null)
+                {
+                    btnClose.Location = new Point(pnlContextInspector.Width - 30, 8);
+                }
             }
         }
 
@@ -1487,23 +1235,32 @@ namespace Conglomerate
             // ──────────────────────────────────────────────
             if (_inspectingBuilding is RetailBuilding store && isPlayerOwned)
             {
-                pnlContextInspector.Height = 550;
                 CenterContextInspectorPanel();
 
-                // Pozycjonuj przyciski i inne elementy dla retail
-                btnCtxCenter.Location = new Point(15, 110);
-                btnCtxCenter.Size = new Size(140, 22);
-                btnCtxMarket.Location = new Point(165, 110);
-                btnCtxMarket.Size = new Size(140, 22);
+                btnCtxCenter.Location = new Point(20, 90);
+                btnCtxCenter.Size = new Size(160, 22);
+                btnCtxMarket.Location = new Point(190, 90);
+                btnCtxMarket.Size = new Size(160, 22);
 
-                lblContextInv.Location = new Point(360, 20);
-                pnlContextInvBars.Location = new Point(360, 40);
-                pnlContextInvBars.Size = new Size(220, 95);
+                lblContextInv.Location = new Point(410, 130);
+                if (pnlContextInvBars != null)
+                {
+                    pnlContextInvBars.Location = new Point(410, 150);
+                    pnlContextInvBars.Size = new Size(pnlContextInspector.Width - 430, pnlContextInspector.Height - 170);
+                }
 
                 btnCtxCenter.Visible = true;
                 btnCtxMarket.Visible = true;
 
                 UpdateRetailInspector(store);
+                
+                var retailSection = pnlContextInspector.Controls.Find("pnlRetailSection", false).FirstOrDefault();
+                if (retailSection != null)
+                {
+                    retailSection.Location = new Point(20, 130);
+                    retailSection.Size = new Size(380, pnlContextInspector.Height - 150);
+                }
+                
                 return;
             }
 
@@ -1512,18 +1269,19 @@ namespace Conglomerate
             // ──────────────────────────────────────────────
             if (_inspectingBuilding is FactoryBuilding factory && isPlayerOwned)
             {
-                pnlContextInspector.Height = 185;
                 CenterContextInspectorPanel();
 
-                // Pozycjonuj przyciski i inne elementy dla fabryki
-                btnCtxCenter.Location = new Point(15, 145);
-                btnCtxCenter.Size = new Size(140, 22);
-                btnCtxMarket.Location = new Point(165, 145);
-                btnCtxMarket.Size = new Size(140, 22);
+                btnCtxCenter.Location = new Point(20, 150);
+                btnCtxCenter.Size = new Size(160, 22);
+                btnCtxMarket.Location = new Point(190, 150);
+                btnCtxMarket.Size = new Size(160, 22);
 
-                lblContextInv.Location = new Point(330, 20);
-                pnlContextInvBars.Location = new Point(330, 40);
-                pnlContextInvBars.Size = new Size(250, 125);
+                lblContextInv.Location = new Point(360, 90);
+                if (pnlContextInvBars != null)
+                {
+                    pnlContextInvBars.Location = new Point(360, 110);
+                    pnlContextInvBars.Size = new Size(pnlContextInspector.Width - 380, pnlContextInspector.Height - 130);
+                }
 
                 btnCtxCenter.Visible = true;
                 btnCtxMarket.Visible = true;
@@ -1535,7 +1293,6 @@ namespace Conglomerate
             // ──────────────────────────────────────────────
             //  STANDARDOWY Inspektor (Extractory, Magazyny)
             // ──────────────────────────────────────────────
-            pnlContextInspector.Height = 130;
             CenterContextInspectorPanel();
 
             // Usuń kontrolki fabryki jeśli były wcześniej
@@ -1546,16 +1303,18 @@ namespace Conglomerate
                 existingFactoryPanel.Dispose();
             }
             _activeRecipeComboBox = null;
-
-            // Przywróć standardowe pozycje
-            btnCtxCenter.Location = new Point(15, 90);
+            // Przywróć standardowe pozycje (dla okna 60%)
+            btnCtxCenter.Location = new Point(20, 90);
             btnCtxCenter.Size = new Size(160, 22);
-            btnCtxMarket.Location = new Point(185, 90);
+            btnCtxMarket.Location = new Point(190, 90);
             btnCtxMarket.Size = new Size(160, 22);
 
-            lblContextInv.Location = new Point(300, 45);
-            pnlContextInvBars.Location = new Point(300, 65);
-            pnlContextInvBars.Size = new Size(270, 50);
+            lblContextInv.Location = new Point(20, 130);
+            if (pnlContextInvBars != null)
+            {
+                pnlContextInvBars.Location = new Point(20, 150);
+                pnlContextInvBars.Size = new Size(pnlContextInspector.Width - 40, pnlContextInspector.Height - 170);
+            }
 
             btnCtxCenter.Visible = true;
             btnCtxMarket.Visible = isPlayerOwned;
@@ -1759,39 +1518,161 @@ namespace Conglomerate
         /// <summary>Renderuje fill-bary dla każdego surowca w magazynie budynku.</summary>
         private void RenderInventoryBars(Building building)
         {
-            pnlContextInvBars.Controls.Clear();
+            pnlContextInvBars.AutoScroll = true;
             int barY = 0;
             int maxStock = building.WarehouseCapacity;
+            bool isPlayerOwned = _company != null && _company.Buildings.Contains(building);
 
-            foreach (var kvp in building.Warehouse.ToList())
+            var resources = building.Warehouse.ToList();
+            
+            // Check if we need to rebuild controls
+            int expectedControls = isPlayerOwned ? 7 : 3;
+            bool needsRebuild = pnlContextInvBars.Controls.Count != resources.Count * expectedControls;
+
+            if (needsRebuild)
+            {
+                pnlContextInvBars.Controls.Clear();
+                foreach (var kvp in resources)
+                {
+                    string resName = kvp.Key;
+                    decimal price = building.ResourcePrices.ContainsKey(resName) ? building.ResourcePrices[resName] : 0m;
+
+                    Label lblRes = new Label();
+                    lblRes.Name = $"lblRes_{resName}";
+                    lblRes.Font = new Font("Segoe UI", 8, FontStyle.Bold);
+                    lblRes.ForeColor = Color.LightGray;
+                    lblRes.Location = new Point(5, barY + 3);
+                    lblRes.Size = new Size(110, 15);
+                    pnlContextInvBars.Controls.Add(lblRes);
+
+                    Panel pnlBg = new Panel();
+                    pnlBg.Name = $"pnlBg_{resName}";
+                    pnlBg.Location = new Point(120, barY + 5);
+                    pnlBg.Size = new Size(80, 10);
+                    pnlBg.BackColor = Color.FromArgb(45, 45, 45);
+                    pnlContextInvBars.Controls.Add(pnlBg);
+
+                    Panel pnlFg = new Panel();
+                    pnlFg.Name = $"pnlFg_{resName}";
+                    pnlFg.Location = new Point(0, 0);
+                    pnlFg.Size = new Size(0, 10);
+                    pnlFg.BackColor = Color.FromArgb(100, 220, 100);
+                    pnlBg.Controls.Add(pnlFg);
+
+                    if (isPlayerOwned)
+                    {
+                        TextBox txtSellQty = new TextBox();
+                        txtSellQty.Name = $"txtSellQty_{resName}";
+                        txtSellQty.Location = new Point(210, barY);
+                        txtSellQty.Size = new Size(50, 20);
+                        txtSellQty.BackColor = Color.FromArgb(45, 45, 45);
+                        txtSellQty.ForeColor = Color.White;
+                        txtSellQty.BorderStyle = BorderStyle.FixedSingle;
+                        txtSellQty.TextChanged += (s, e) => { _enteredSellQuantities[resName] = txtSellQty.Text; };
+                        pnlContextInvBars.Controls.Add(txtSellQty);
+
+                        Button btnAll = new Button();
+                        btnAll.Name = $"btnAll_{resName}";
+                        btnAll.Text = "ALL";
+                        btnAll.Location = new Point(265, barY - 1);
+                        btnAll.Size = new Size(35, 22);
+                        btnAll.FlatStyle = FlatStyle.Flat;
+                        btnAll.BackColor = Color.FromArgb(35, 35, 35);
+                        btnAll.ForeColor = Color.FromArgb(50, 150, 250);
+                        btnAll.Click += (s, e) => { 
+                            var t = pnlContextInvBars.Controls.Find($"txtSellQty_{resName}", false).FirstOrDefault() as TextBox;
+                            if (t != null) t.Text = building.Warehouse[resName].ToString(); 
+                        };
+                        pnlContextInvBars.Controls.Add(btnAll);
+
+                        Button btnSell = new Button();
+                        btnSell.Name = $"btnSell_{resName}";
+                        btnSell.Location = new Point(305, barY - 1);
+                        btnSell.Size = new Size(110, 22);
+                        btnSell.FlatStyle = FlatStyle.Flat;
+                        btnSell.BackColor = Color.FromArgb(100, 220, 100);
+                        btnSell.ForeColor = Color.White;
+                        btnSell.Click += (s, e) => { 
+                            var t = pnlContextInvBars.Controls.Find($"txtSellQty_{resName}", false).FirstOrDefault() as TextBox;
+                            if (t != null && int.TryParse(t.Text, out int sellQty) && sellQty > 0)
+                            {
+                                if (building.SellResource(resName, sellQty, _company!, _gameManager!.CurrentDay, _gameManager!.CurrentHour))
+                                {
+                                    lblBottomStatus.Text = $"Sprzedano {sellQty} szt. {resName} za {(price * sellQty):C}!";
+                                    _enteredSellQuantities[resName] = "0";
+                                    t.Text = "0";
+                                    RefreshStats();
+                                }
+                                else
+                                {
+                                    lblBottomStatus.Text = "❌ Błąd: Niepoprawna ilość do sprzedaży!";
+                                }
+                            }
+                        };
+                        pnlContextInvBars.Controls.Add(btnSell);
+
+                        CheckBox chkAuto = new CheckBox();
+                        chkAuto.Name = $"chkAuto_{resName}";
+                        chkAuto.Text = "Auto";
+                        chkAuto.Location = new Point(420, barY);
+                        chkAuto.Size = new Size(50, 20);
+                        chkAuto.ForeColor = Color.FromArgb(100, 220, 100);
+                        chkAuto.CheckedChanged += (s, e) => {
+                            if (chkAuto.Checked) {
+                                building.AutoSellResources.Add(resName);
+                                building.AutoSell = true;
+                            } else {
+                                building.AutoSellResources.Remove(resName);
+                                if (building.AutoSellResources.Count == 0) building.AutoSell = false;
+                            }
+                        };
+                        pnlContextInvBars.Controls.Add(chkAuto);
+                    }
+                    barY += 25;
+                }
+            }
+
+            // Update existing controls without recreating them
+            foreach (var kvp in resources)
             {
                 string resName = kvp.Key;
                 int qty = kvp.Value;
+                decimal price = building.ResourcePrices.ContainsKey(resName) ? building.ResourcePrices[resName] : 0m;
 
-                Label lblRes = new Label();
-                lblRes.Text = $"{resName}: {qty}";
-                lblRes.Font = new Font("Segoe UI", 8, FontStyle.Bold);
-                lblRes.ForeColor = Color.LightGray;
-                lblRes.Location = new Point(5, barY);
-                lblRes.Size = new Size(100, 15);
-                pnlContextInvBars.Controls.Add(lblRes);
+                var lbl = pnlContextInvBars.Controls.Find($"lblRes_{resName}", false).FirstOrDefault() as Label;
+                if (lbl != null) lbl.Text = $"{resName}: {qty}";
 
-                Panel pnlBg = new Panel();
-                pnlBg.Location = new Point(110, barY + 2);
-                pnlBg.Size = new Size(130, 10);
-                pnlBg.BackColor = Color.FromArgb(45, 45, 45);
-                pnlContextInvBars.Controls.Add(pnlBg);
+                var pnlBg = pnlContextInvBars.Controls.Find($"pnlBg_{resName}", false).FirstOrDefault() as Panel;
+                if (pnlBg != null && pnlBg.Controls.Count > 0)
+                {
+                    var pnlFg = pnlBg.Controls[0] as Panel;
+                    if (pnlFg != null)
+                    {
+                        int fgWidth = maxStock > 0 ? (int)((double)qty / maxStock * 80) : 0;
+                        pnlFg.Size = new Size(Math.Min(80, fgWidth), 10);
+                    }
+                }
 
-                Panel pnlFg = new Panel();
-                pnlFg.Location = new Point(0, 0);
-                int fgWidth = maxStock > 0 ? (int)((double)qty / maxStock * 130) : 0;
-                pnlFg.Size = new Size(Math.Min(130, fgWidth), 10);
-                pnlFg.BackColor = Color.FromArgb(100, 220, 100);
-                pnlBg.Controls.Add(pnlFg);
+                if (isPlayerOwned)
+                {
+                    var btnSell = pnlContextInvBars.Controls.Find($"btnSell_{resName}", false).FirstOrDefault() as Button;
+                    if (btnSell != null) btnSell.Text = $"Sprzedaj ({price:C})";
 
-                barY += 18;
+                    var chkAuto = pnlContextInvBars.Controls.Find($"chkAuto_{resName}", false).FirstOrDefault() as CheckBox;
+                    if (chkAuto != null) chkAuto.Checked = building.AutoSellResources.Contains(resName);
+                    
+                    var txtSellQty = pnlContextInvBars.Controls.Find($"txtSellQty_{resName}", false).FirstOrDefault() as TextBox;
+                    if (txtSellQty != null && !txtSellQty.Focused)
+                    {
+                        if (_enteredSellQuantities.ContainsKey(resName))
+                            txtSellQty.Text = _enteredSellQuantities[resName];
+                        else
+                            txtSellQty.Text = "0";
+                    }
+                }
             }
         }
+
 
         private Button CreateShortcutButton(string iconText, int yPos, Color accentColor, string tooltipText, EventHandler onClick)
         {
@@ -1819,15 +1700,13 @@ namespace Conglomerate
             if (e.KeyCode == Keys.Escape)
             {
                 // 1. Jeśli otwarte są panele szczegółowe lub modalne, zamknij je w pierwszej kolejności
-                if (pnlBuildingDetails.Visible || pnlFinanceReport.Visible || pnlSaveGameOverlay.Visible || pnlEscapeMenu.Visible || pnlContextInspector.Visible || pnlLogisticsManager.Visible || pnlMarketBuyer.Visible)
+                if (pnlFinanceReport.Visible || pnlSaveGameOverlay.Visible || pnlEscapeMenu.Visible || pnlContextInspector.Visible || pnlLogisticsManager.Visible || pnlMarketBuyer.Visible)
                 {
                     if (pnlEscapeMenu.Visible)
                     {
                         ToggleEscapeMenu();
                         return;
                     }
-                    
-                    CloseBuildingDetails();
                     CloseFinanceReport();
                     CloseContextInspector();
                     pnlLogisticsManager.Visible = false;
@@ -1857,7 +1736,7 @@ namespace Conglomerate
             }
             else
             {
-                CloseBuildingDetails(); // Zamknij szczegóły budynku jeśli były otwarte
+                CloseContextInspector(); // Zamknij szczegóły budynku jeśli były otwarte
                 OpenFinanceReport();
             }
         }
@@ -2821,7 +2700,6 @@ namespace Conglomerate
                 SetGameSpeed(1000, btnSpeed1x);
 
                 // 9. Refresh stats & UI
-                CloseBuildingDetails();
                 CloseFinanceReport();
                 RefreshStats();
 
@@ -4176,18 +4054,40 @@ namespace Conglomerate
 
         private void UpdateReportDetail(Panel pnlReportDetail, RetailBuilding store)
         {
-            pnlReportDetail.Controls.Clear();
-            int subY = 0;
-            foreach (var slot in store.Slots.Where(s => s.IsActive))
+            var activeSlots = store.Slots.Where(s => s.IsActive).ToList();
+            
+            // Usunięcie nadmiarowych etykiet, jeśli liczba slotów się zmniejszyła
+            while (pnlReportDetail.Controls.Count > activeSlots.Count)
             {
-                pnlReportDetail.Controls.Add(new Label
+                var ctrl = pnlReportDetail.Controls[pnlReportDetail.Controls.Count - 1];
+                pnlReportDetail.Controls.Remove(ctrl);
+                ctrl.Dispose();
+            }
+
+            int subY = 0;
+            for (int i = 0; i < activeSlots.Count; i++)
+            {
+                var slot = activeSlots[i];
+                string newText = $"• {slot.ProductName}: {slot.UnitsSoldLast24h} szt. | {slot.RevenueLast24h:C} | Atrakcyjność: {slot.LastAttractiveness:F2}";
+                Color newColor = slot.IsStockout ? Color.FromArgb(240, 80, 80) : Color.LightGray;
+
+                if (i < pnlReportDetail.Controls.Count && pnlReportDetail.Controls[i] is Label lbl)
                 {
-                    Text = $"• {slot.ProductName}: {slot.UnitsSoldLast24h} szt. | {slot.RevenueLast24h:C} | Atrakcyjność: {slot.LastAttractiveness:F2}",
-                    Font = new Font("Segoe UI", 8, FontStyle.Italic),
-                    ForeColor = slot.IsStockout ? Color.FromArgb(240, 80, 80) : Color.LightGray,
-                    Location = new Point(14, subY), Size = new Size(355, 16),
-                    AutoEllipsis = true
-                });
+                    if (lbl.Text != newText) lbl.Text = newText;
+                    if (lbl.ForeColor != newColor) lbl.ForeColor = newColor;
+                }
+                else
+                {
+                    pnlReportDetail.Controls.Add(new Label
+                    {
+                        Text = newText,
+                        Font = new Font("Segoe UI", 8, FontStyle.Italic),
+                        ForeColor = newColor,
+                        Location = new Point(14, subY), 
+                        Size = new Size(355, 16),
+                        AutoEllipsis = true
+                    });
+                }
                 subY += 17;
             }
         }
@@ -4418,6 +4318,37 @@ namespace Conglomerate
             parent.Controls.Add(btnApply);
 
             y += 48;
+        }
+        private void MainForm_Resize(object? sender, EventArgs e)
+        {
+            if (pnlStartScreen != null) pnlStartScreen.Size = this.ClientSize;
+            if (pnlGameBoard != null) pnlGameBoard.Size = this.ClientSize;
+            if (mapControl != null) mapControl.Size = this.ClientSize;
+
+            if (pnlBottom != null)
+            {
+                pnlBottom.Location = new Point(0, this.ClientSize.Height - 30);
+                pnlBottom.Width = this.ClientSize.Width;
+            }
+            if (pnlTopNav != null)
+            {
+                pnlTopNav.Width = this.ClientSize.Width;
+            }
+            if (pnlNewsTicker != null)
+            {
+                pnlNewsTicker.Width = this.ClientSize.Width;
+                pnlNewsTicker.Location = new Point(0, this.ClientSize.Height - 30);
+            }
+            if (pnlRightShortcutBar != null)
+            {
+                pnlRightShortcutBar.Location = new Point(this.ClientSize.Width - 60, 60);
+                pnlRightShortcutBar.Height = this.ClientSize.Height - 100;
+            }
+
+            CenterSaveGameOverlayPanel();
+            CenterEscapeMenuPanel();
+            CenterContextInspectorPanel();
+            CenterFinanceReportPanel();
         }
     }
 }

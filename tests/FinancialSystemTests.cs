@@ -263,8 +263,8 @@ namespace Conglomerate.Financials.Tests
             company.BuyBuilding(farm, map, 1, 1, 1, 8);
             company.BuyBuilding(mine, map, 2, 2, 1, 8);
             company.BuyBuilding(copperMine, map, 3, 3, 1, 8);
-            company.BuyBuilding(foodWh, map, 3, 3, 1, 8);
-            company.BuyBuilding(miningWh, map, 4, 4, 1, 8);
+            company.BuyBuilding(foodWh, map, 4, 3, 1, 8);
+            company.BuyBuilding(miningWh, map, 5, 4, 1, 8);
 
             var gameManager = new GameManager(company, map);
 
@@ -298,12 +298,11 @@ namespace Conglomerate.Financials.Tests
 
             var container = SaveGameManager.LoadGame(testFile.FullName);
             Debug.Assert(container != null);
-            Debug.Assert(container.State.Buildings.Count == 4);
-
+            Debug.Assert(container.State.Buildings.Count == 5, $"Buildings: {container.State.Buildings.Count}");
             var loadedFoodWh = container.State.Buildings.FirstOrDefault(b => b.Type == "FoodWarehouse");
             Debug.Assert(loadedFoodWh != null);
             Debug.Assert(loadedFoodWh.Name == "Magazyn Spozywczy");
-            Debug.Assert(loadedFoodWh.X == 3);
+            Debug.Assert(loadedFoodWh.X == 4);
             Debug.Assert(loadedFoodWh.Y == 3);
             
             var loadedMlekoItem = loadedFoodWh.Warehouse.FirstOrDefault(i => i.Key == "Mleko");

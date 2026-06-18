@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Conglomerate.Logistics;
+using Conglomerate.Simulation;
 
 namespace Conglomerate
 {
@@ -14,6 +16,7 @@ namespace Conglomerate
         // ── System Logistyczny ──
         public FreeMarket Market { get; } = new FreeMarket();
         public LogisticsManager Logistics { get; } = new LogisticsManager();
+        public AIManager AIManager { get; } = new AIManager();
 
         public event Action? OnTickPerformed;
 
@@ -40,106 +43,121 @@ namespace Conglomerate
 
                 // Aktualizacja cen rynkowych (raz na dobę)
                 Market.OnNewDay(CurrentDay);
+                AIManager.TickDaily(ActiveMap, CurrentDay, CurrentHour);
+
+                var allCompanies = new List<Company> { ActiveCompany };
+                allCompanies.AddRange(AIManager.Competitors);
 
                 // Ekstraktorzy (Farm, CoalMine itp.) produkują raz na dobę (o północy)
                 // UWAGA: RetailBuilding i FactoryBuilding są pominięte — mają własne pętle poniżej
-                foreach (var building in ActiveCompany.Buildings)
+                foreach (var company in allCompanies)
                 {
-                    if (building is FactoryBuilding) continue;
-                    if (building is RetailBuilding)  continue; // sklep ma własny tick poniżej
-
-                    decimal oldBalance = ActiveCompany.Balance;
-                    building.Produce(ActiveCompany);
-                    decimal maintenanceCharged = oldBalance - ActiveCompany.Balance;
-                    if (maintenanceCharged > 0)
+                    foreach (var building in company.Buildings)
                     {
-                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour,
-                            $"Utrzymanie: {building.Name}", -maintenanceCharged, "Utrzymanie", building.FacilityId);
-                    }
+                        if (building is FactoryBuilding) continue;
+                        if (building is RetailBuilding)  continue; // sklep ma własny tick poniżej
 
-                    // Przeniesienie nadmiaru surowców do dedykowanych magazynów
-                    TransferResourcesToWarehouses(building, ActiveCompany);
-
-                    foreach (var key in building.Warehouse.Keys.ToList())
-                    {
-                        if (building.AutoSellResources.Contains(key) || (building.AutoSell && building.AutoSellResources.Count == 0))
+                        decimal oldBalance = company.Balance;
+                        building.Produce(company);
+                        decimal maintenanceCharged = oldBalance - company.Balance;
+                        if (maintenanceCharged > 0)
                         {
-                            int qty = building.Warehouse[key];
-                            if (qty > 0)
-                                building.SellResource(key, qty, ActiveCompany, CurrentDay, CurrentHour);
+                            company.AddTransaction(CurrentDay, CurrentHour,
+                                $"Utrzymanie: {building.Name}", -maintenanceCharged, "Utrzymanie", building.FacilityId);
+                        }
+
+                        // Przeniesienie nadmiaru surowców do dedykowanych magazynów
+                        TransferResourcesToWarehouses(building, company);
+
+                        foreach (var key in building.Warehouse.Keys.ToList())
+                        {
+                            if (building.AutoSellResources.Contains(key) || (building.AutoSell && building.AutoSellResources.Count == 0))
+                            {
+                                int qty = building.Warehouse[key];
+                                if (qty > 0)
+                                    building.SellResource(key, qty, company, CurrentDay, CurrentHour);
+                            }
                         }
                     }
-                }
 
-                // Opłata dzienna za utrzymanie fabryk (niezależna od produkcji)
-                foreach (var factory in ActiveCompany.Buildings.OfType<FactoryBuilding>())
-                {
-                    if (ActiveCompany.Balance >= factory.MaintenanceCost)
+                    // Opłata dzienna za utrzymanie fabryk (niezależna od produkcji)
+                    foreach (var factory in company.Buildings.OfType<FactoryBuilding>())
                     {
-                        ActiveCompany.Balance -= factory.MaintenanceCost;
-                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour,
-                            $"Utrzymanie: {factory.Name}", -factory.MaintenanceCost, "Utrzymanie", factory.FacilityId);
+                        if (company.Balance >= factory.MaintenanceCost)
+                        {
+                            company.Balance -= factory.MaintenanceCost;
+                            company.AddTransaction(CurrentDay, CurrentHour,
+                                $"Utrzymanie: {factory.Name}", -factory.MaintenanceCost, "Utrzymanie", factory.FacilityId);
+                        }
                     }
-                }
 
-                // Opłata dzienna za utrzymanie sklepów detalicznych
-                foreach (var store in ActiveCompany.Buildings.OfType<RetailBuilding>())
-                {
-                    if (ActiveCompany.Balance >= store.MaintenanceCost)
+                    // Opłata dzienna za utrzymanie sklepów detalicznych
+                    foreach (var store in company.Buildings.OfType<RetailBuilding>())
                     {
-                        ActiveCompany.Balance -= store.MaintenanceCost;
-                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour,
-                            $"Utrzymanie: {store.Name}", -store.MaintenanceCost, "Utrzymanie", store.FacilityId);
+                        if (company.Balance >= store.MaintenanceCost)
+                        {
+                            company.Balance -= store.MaintenanceCost;
+                            company.AddTransaction(CurrentDay, CurrentHour,
+                                $"Utrzymanie: {store.Name}", -store.MaintenanceCost, "Utrzymanie", store.FacilityId);
+                        }
                     }
-                }
 
-                // Zamknięcie miesiąca w silniku finansowym co 30 dni
-                if (CurrentDay > 1 && (CurrentDay - 1) % 30 == 0)
-                {
-                    ActiveCompany.Engine.CloseMonth(CurrentDay, CurrentHour);
+                    // Zamknięcie miesiąca w silniku finansowym co 30 dni
+                    if (CurrentDay > 1 && (CurrentDay - 1) % 30 == 0)
+                    {
+                        company.Engine.CloseMonth(CurrentDay, CurrentHour);
+                    }
                 }
             }
 
             // Trasy logistyczne — tick co każdą godzinę
             Logistics.Tick(ActiveCompany, Market, CurrentDay, CurrentHour);
 
-            // Fabryki przetwórcze — tick produkcji co każdą godzinę
-            foreach (var factory in ActiveCompany.Buildings.OfType<FactoryBuilding>())
-            {
-                bool cycleCompleted = factory.TryAdvanceProduction(ActiveCompany);
+            var hourlyCompanies = new List<Company> { ActiveCompany };
+            hourlyCompanies.AddRange(AIManager.Competitors);
 
-                if (cycleCompleted)
+            foreach (var company in hourlyCompanies)
+            {
+                // Fabryki przetwórcze — tick produkcji co każdą godzinę
+                foreach (var factory in company.Buildings.OfType<FactoryBuilding>())
                 {
-                    if (factory.ActiveRecipe != null)
+                    decimal oldBalance = company.Balance;
+                    bool cycleCompleted = factory.TryAdvanceProduction(company);
+                    decimal costCharged = oldBalance - company.Balance;
+                    
+                    if (costCharged > 0)
                     {
-                        foreach (var output in factory.ActiveRecipe.Outputs)
+                        company.AddTransaction(CurrentDay, CurrentHour,
+                            $"Produkcja: {factory.Name} ({(factory.ActiveRecipe != null ? factory.ActiveRecipe.DisplayName : "")})",
+                            -costCharged, "Koszty produkcji", factory.FacilityId);
+                    }
+
+                    if (cycleCompleted)
+                    {
+                        if (factory.ActiveRecipe != null)
                         {
-                            if (factory.AutoSellResources.Contains(output.Key) || (factory.AutoSell && factory.AutoSellResources.Count == 0))
+                            foreach (var output in factory.ActiveRecipe.Outputs)
                             {
-                                int qty = factory.Warehouse.ContainsKey(output.Key) ? factory.Warehouse[output.Key] : 0;
-                                if (qty > 0)
-                                    factory.SellResource(output.Key, qty, ActiveCompany, CurrentDay, CurrentHour);
+                                if (factory.AutoSellResources.Contains(output.Key) || (factory.AutoSell && factory.AutoSellResources.Count == 0))
+                                {
+                                    int qty = factory.Warehouse.ContainsKey(output.Key) ? factory.Warehouse[output.Key] : 0;
+                                    if (qty > 0)
+                                        factory.SellResource(output.Key, qty, company, CurrentDay, CurrentHour);
+                                }
                             }
                         }
-                    }
-                    else
-                    {
-                        TransferResourcesToWarehouses(factory, ActiveCompany);
-                    }
-
-                    if (factory.ActiveRecipe != null && factory.ActiveRecipe.OperationalCostPerCycle > 0)
-                    {
-                        ActiveCompany.AddTransaction(CurrentDay, CurrentHour,
-                            $"Produkcja: {factory.Name} ({factory.ActiveRecipe.DisplayName})",
-                            -factory.ActiveRecipe.OperationalCostPerCycle, "Koszty produkcji", factory.FacilityId);
+                        else
+                        {
+                            TransferResourcesToWarehouses(factory, company);
+                        }
                     }
                 }
-            }
 
-            // ── Sklepy detaliczne — tick sprzedaży co każdą godzinę ──
-            foreach (var store in ActiveCompany.Buildings.OfType<RetailBuilding>())
-            {
-                store.TickHourlySales(ActiveCompany, CurrentDay, CurrentHour);
+                // ── Sklepy detaliczne — tick sprzedaży co każdą godzinę ──
+                foreach (var store in company.Buildings.OfType<RetailBuilding>())
+                {
+                    store.TickHourlySales(company, CurrentDay, CurrentHour);
+                }
             }
 
             // Powiadomienie interfejsu graficznego do odświeżenia zegara i statystyk

@@ -83,55 +83,25 @@ namespace Conglomerate
             if (slotIndex < 0 || slotIndex >= MaxSlots) return false;
 
             var slot = Slots[slotIndex];
-            slot.ProductName     = productName;
+            
+            if (slot.ProductName != productName)
+            {
+                if (!string.IsNullOrEmpty(slot.ProductName) && slot.CurrentStock > 0)
+                {
+                    if (!Warehouse.ContainsKey(slot.ProductName)) Warehouse[slot.ProductName] = 0;
+                    Warehouse[slot.ProductName] += slot.CurrentStock;
+                }
+                slot.CurrentStock = 0;
+                slot.LastAttractiveness = 0f;
+                slot.DirectRetailPrice = 0m;
+            }
+            
+            slot.ProductName = productName;
             slot.PriceMultiplier = priceMultiplier;
-            slot.DirectRetailPrice = 0m;
-            slot.CurrentStock    = 0;
-            slot.LastAttractiveness = 0f;
+
             return true;
         }
 
-        /// <summary>Usuwa produkt ze slotu (slot staje się pusty).</summary>
-        public void ClearSlot(int slotIndex)
-        {
-            if (slotIndex < 0 || slotIndex >= MaxSlots) return;
-            var slot = Slots[slotIndex];
-            slot.ProductName      = string.Empty;
-            slot.CurrentStock     = 0;
-            slot.DirectRetailPrice = 0m;
-        }
-
-        /// <summary>
-        /// Uzupełnia stan magazynowy slotu z globalnego magazynu budynku (Warehouse).
-        /// Wywołane ręcznie lub przez trasę logistyczną.
-        /// </summary>
-        public int RestockSlot(int slotIndex)
-        {
-            if (slotIndex < 0 || slotIndex >= MaxSlots) return 0;
-            var slot = Slots[slotIndex];
-            if (!slot.IsActive) return 0;
-
-            int needed   = slot.ShelfCapacity - slot.CurrentStock;
-            if (needed <= 0) return 0;
-
-            if (!Warehouse.TryGetValue(slot.ProductName, out int inWarehouse) || inWarehouse <= 0)
-                return 0;
-
-            int toTransfer = Math.Min(needed, inWarehouse);
-            Warehouse[slot.ProductName] -= toTransfer;
-            slot.CurrentStock           += toTransfer;
-            return toTransfer;
-        }
-
-        /// <summary>
-        /// Uzupełnia wszystkie aktywne sloty z magazynu budynku.
-        /// Wywoływane co godzinę przez GameManager.
-        /// </summary>
-        public void RestockAllSlots()
-        {
-            foreach (var slot in Slots.Where(s => s.IsActive))
-                RestockSlot(slot.SlotIndex);
-        }
 
         // ──────────────────────────────────────────────
         //  Główny tick sprzedaży — wywoływany co godzinę
@@ -174,6 +144,7 @@ namespace Conglomerate
                     slot.CurrentStock -= unitsSold;
 
                     // Zarejestruj transakcję finansową
+                    company.Balance += revenue;
                     company.AddTransaction(day, hour,
                         $"Sprzedaż: {unitsSold}x {slot.ProductName} @ {retailPrice:C} [{Name}]",
                         revenue,

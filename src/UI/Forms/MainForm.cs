@@ -58,7 +58,7 @@ namespace Conglomerate
         private Label lblBottomStatus = null!;
         private Label lblSelectedTileInfo = null!;
 
-        private enum SelectedBlueprint { None, Farm, CoalMine, FoodWarehouse, MiningWarehouse, CheeseFactory, GeneralStore }
+        private enum SelectedBlueprint { None, Farm, CoalMine, FoodWarehouse, MiningWarehouse, CheeseFactory, GeneralStore, CopperMine }
         private SelectedBlueprint _selectedBlueprint = SelectedBlueprint.None;
         private Button btnBuildFarm = null!;
         private Button btnBuildCoalMine = null!;
@@ -66,6 +66,7 @@ namespace Conglomerate
         private Button btnBuildMiningWarehouse = null!;
         private Button btnBuildCheeseFactory = null!;
         private Button btnBuildGeneralStore = null!;
+        private Button btnBuildCopperMine = null!;
 
         // Kontrolki fabryki — przechowujemy referencję do dropdownu przepisu
         private ComboBox? _activeRecipeComboBox = null;
@@ -637,10 +638,24 @@ namespace Conglomerate
             btnBuildCoalMine.Click += (s, e) => SelectBlueprint(SelectedBlueprint.CoalMine, btnBuildCoalMine);
             pnlRight.Controls.Add(btnBuildCoalMine);
 
+            btnBuildCopperMine = new Button();
+            btnBuildCopperMine.Text = "Kopalnia Miedzi\n(Koszt: $20k)";
+            btnBuildCopperMine.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBuildCopperMine.Location = new Point(15, 180);
+            btnBuildCopperMine.Size = new Size(160, 50);
+            btnBuildCopperMine.FlatStyle = FlatStyle.Flat;
+            btnBuildCopperMine.FlatAppearance.BorderSize = 1;
+            btnBuildCopperMine.FlatAppearance.BorderColor = Color.FromArgb(50, 150, 250);
+            btnBuildCopperMine.BackColor = Color.FromArgb(35, 35, 35);
+            btnBuildCopperMine.ForeColor = Color.FromArgb(50, 150, 250);
+            btnBuildCopperMine.Cursor = Cursors.Hand;
+            btnBuildCopperMine.Click += (s, e) => SelectBlueprint(SelectedBlueprint.CopperMine, btnBuildCopperMine);
+            pnlRight.Controls.Add(btnBuildCopperMine);
+
             btnBuildFoodWarehouse = new Button();
             btnBuildFoodWarehouse.Text = "Magazyn Żywności\n(Koszt: $8k)";
             btnBuildFoodWarehouse.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            btnBuildFoodWarehouse.Location = new Point(15, 180);
+            btnBuildFoodWarehouse.Location = new Point(15, 240);
             btnBuildFoodWarehouse.Size = new Size(160, 50);
             btnBuildFoodWarehouse.FlatStyle = FlatStyle.Flat;
             btnBuildFoodWarehouse.FlatAppearance.BorderSize = 1;
@@ -654,7 +669,7 @@ namespace Conglomerate
             btnBuildMiningWarehouse = new Button();
             btnBuildMiningWarehouse.Text = "Magazyn Kopalniany\n(Koszt: $12k)";
             btnBuildMiningWarehouse.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            btnBuildMiningWarehouse.Location = new Point(15, 240);
+            btnBuildMiningWarehouse.Location = new Point(15, 300);
             btnBuildMiningWarehouse.Size = new Size(160, 50);
             btnBuildMiningWarehouse.FlatStyle = FlatStyle.Flat;
             btnBuildMiningWarehouse.FlatAppearance.BorderSize = 1;

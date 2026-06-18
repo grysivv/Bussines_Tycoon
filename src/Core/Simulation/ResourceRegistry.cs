@@ -26,6 +26,7 @@ namespace Conglomerate
 
                 // Surowce kopalniane
                 { "Węgiel",  (ResourceCategory.Mining, 100m) },
+                { "Ruda Miedzi", (ResourceCategory.Mining, 100m) }
             };
 
         public static ResourceCategory GetCategory(string resourceName)

@@ -58,13 +58,14 @@ namespace Conglomerate
         private Label lblBottomStatus = null!;
         private Label lblSelectedTileInfo = null!;
 
-        private enum SelectedBlueprint { None, Farm, CoalMine, FoodWarehouse, MiningWarehouse, CheeseFactory, GeneralStore, CopperMine }
+        private enum SelectedBlueprint { None, Farm, CoalMine, FoodWarehouse, MiningWarehouse, CheeseFactory, GeneralStore, CopperMine, CopperFoundry }
         private SelectedBlueprint _selectedBlueprint = SelectedBlueprint.None;
         private Button btnBuildFarm = null!;
         private Button btnBuildCoalMine = null!;
         private Button btnBuildFoodWarehouse = null!;
         private Button btnBuildMiningWarehouse = null!;
         private Button btnBuildCheeseFactory = null!;
+        private Button btnBuildCopperFoundry = null!;
         private Button btnBuildGeneralStore = null!;
         private Button btnBuildCopperMine = null!;
 
@@ -692,7 +693,7 @@ namespace Conglomerate
             btnBuildCheeseFactory = new Button();
             btnBuildCheeseFactory.Text = "Mleczarnia / Ser\n(Koszt: $25k)";
             btnBuildCheeseFactory.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            btnBuildCheeseFactory.Location = new Point(15, 325);
+            btnBuildCheeseFactory.Location = new Point(15, 385);
             btnBuildCheeseFactory.Size = new Size(160, 50);
             btnBuildCheeseFactory.FlatStyle = FlatStyle.Flat;
             btnBuildCheeseFactory.FlatAppearance.BorderSize = 1;
@@ -703,12 +704,26 @@ namespace Conglomerate
             btnBuildCheeseFactory.Click += (s, e) => SelectBlueprint(SelectedBlueprint.CheeseFactory, btnBuildCheeseFactory);
             pnlRight.Controls.Add(btnBuildCheeseFactory);
 
+            btnBuildCopperFoundry = new Button();
+            btnBuildCopperFoundry.Text = "Huta Miedzi\n(Koszt: $30k)";
+            btnBuildCopperFoundry.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBuildCopperFoundry.Location = new Point(15, 445);
+            btnBuildCopperFoundry.Size = new Size(160, 50);
+            btnBuildCopperFoundry.FlatStyle = FlatStyle.Flat;
+            btnBuildCopperFoundry.FlatAppearance.BorderSize = 1;
+            btnBuildCopperFoundry.FlatAppearance.BorderColor = Color.FromArgb(240, 180, 50);
+            btnBuildCopperFoundry.BackColor = Color.FromArgb(35, 35, 35);
+            btnBuildCopperFoundry.ForeColor = Color.FromArgb(240, 180, 50);
+            btnBuildCopperFoundry.Cursor = Cursors.Hand;
+            btnBuildCopperFoundry.Click += (s, e) => SelectBlueprint(SelectedBlueprint.CopperFoundry, btnBuildCopperFoundry);
+            pnlRight.Controls.Add(btnBuildCopperFoundry);
+
             // ── HANDEL DETALICZNY ──
             var lblRetailSection = new Label();
             lblRetailSection.Text = "──  HANDEL  ──";
             lblRetailSection.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
             lblRetailSection.ForeColor = Color.FromArgb(80, 220, 120);
-            lblRetailSection.Location = new Point(15, 385);
+            lblRetailSection.Location = new Point(15, 505);
             lblRetailSection.Size = new Size(160, 16);
             lblRetailSection.TextAlign = ContentAlignment.MiddleCenter;
             pnlRight.Controls.Add(lblRetailSection);
@@ -716,7 +731,7 @@ namespace Conglomerate
             btnBuildGeneralStore = new Button();
             btnBuildGeneralStore.Text = "🛒 Sklep Ogólny\n(Koszt: $25k)";
             btnBuildGeneralStore.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            btnBuildGeneralStore.Location = new Point(15, 405);
+            btnBuildGeneralStore.Location = new Point(15, 525);
             btnBuildGeneralStore.Size = new Size(160, 50);
             btnBuildGeneralStore.FlatStyle = FlatStyle.Flat;
             btnBuildGeneralStore.FlatAppearance.BorderSize = 1;
@@ -742,7 +757,7 @@ namespace Conglomerate
 
             // 2.5 PANEL SZCZEGÓŁÓW BUDYNKU (Floating Overlay Panel)
             pnlBuildingDetails = new Panel();
-            pnlBuildingDetails.Size = new Size(400, 350);
+            pnlBuildingDetails.Size = new Size(700, 1000);
             pnlBuildingDetails.BackColor = Color.FromArgb(30, 30, 30);
             pnlBuildingDetails.BorderStyle = BorderStyle.FixedSingle;
             pnlBuildingDetails.Visible = false;
@@ -751,7 +766,7 @@ namespace Conglomerate
 
             // 2.6 PANEL RAPORTU FINANSOWEGO (Floating Overlay Panel)
             pnlFinanceReport = new Panel();
-            pnlFinanceReport.Size = new Size(800, 480);
+            pnlFinanceReport.Size = new Size(1000, 800);
             pnlFinanceReport.BackColor = Color.FromArgb(30, 30, 30);
             pnlFinanceReport.BorderStyle = BorderStyle.FixedSingle;
             pnlFinanceReport.Visible = false;
@@ -957,6 +972,11 @@ namespace Conglomerate
                         buildingName = $"Kopalnia Węgla #{_company.Buildings.Count + 1}";
                         building = new CoalMine(buildingName);
                     }
+                    else if (_selectedBlueprint == SelectedBlueprint.CopperMine)
+                    {
+                        buildingName = $"Kopalnia Miedzi #{_company.Buildings.Count + 1}";
+                        building = new CopperMine(buildingName);
+                    }
                     else if (_selectedBlueprint == SelectedBlueprint.FoodWarehouse)
                     {
                         buildingName = $"Magazyn Żywności #{_company.Buildings.Count + 1}";
@@ -971,6 +991,11 @@ namespace Conglomerate
                     {
                         buildingName = $"Mleczarnia #{_company.Buildings.Count + 1}";
                         building = new CheeseFactory(buildingName);
+                    }
+                    else if (_selectedBlueprint == SelectedBlueprint.CopperFoundry)
+                    {
+                        buildingName = $"Huta Miedzi #{_company.Buildings.Count + 1}";
+                        building = new CopperFoundry(buildingName);
                     }
                     else if (_selectedBlueprint == SelectedBlueprint.GeneralStore)
                     {
@@ -2733,6 +2758,10 @@ namespace Conglomerate
                     else if (bData.Type == "CoalMine")
                     {
                         building = new CoalMine(bData.Name);
+                    }
+                    else if (bData.Type == "CopperMine")
+                    {
+                        building = new CopperMine(bData.Name);
                     }
                     else if (bData.Type == "FoodWarehouse")
                     {

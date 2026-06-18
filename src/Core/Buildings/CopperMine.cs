@@ -11,12 +11,12 @@ namespace Conglomerate
         public override int WarehouseCapacity => 50;
         public override Dictionary<string, decimal> ResourcePrices { get; } = new Dictionary<string, decimal>
         {
-            { "Miedz", 100m }
+            { "Ruda Miedzi", 100m }
         };
 
         public CopperMine(string name) : base(name)
         {
-            Warehouse["Miedz"] = 0;
+            Warehouse["Ruda Miedzi"] = 0;
         }
 
         public override bool Produce(Company company)
@@ -42,7 +42,7 @@ namespace Conglomerate
             int freeSpace = WarehouseCapacity - totalStock;
 
             int addedCopper = Math.Min(copperProd, freeSpace);
-            Warehouse["Miedz"] += addedCopper;
+            Warehouse["Ruda Miedzi"] += addedCopper;
 
             return true;
         }

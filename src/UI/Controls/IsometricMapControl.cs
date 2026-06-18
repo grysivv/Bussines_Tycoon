@@ -253,6 +253,11 @@ namespace Conglomerate
                             terrainColor = new XnaColor(45, 45, 45); // Antracyt / ciemnoszary
                             borderColor = new XnaColor(25, 25, 25);
                         }
+                        else if (tile.Building is CopperMine)
+                        {
+                            terrainColor = new XnaColor(150, 100, 80); // Ciepły brąz
+                            borderColor = new XnaColor(100, 70, 50);
+                        }
                         else if (tile.Building is WarehouseBuilding wh)
                         {
                             if (wh.AllowedCategory == ResourceCategory.Food)
@@ -287,8 +292,13 @@ namespace Conglomerate
                             DrawFarmBuilding3D(worldPos.X, worldPos.Y);
                         }
                         else if (tile.Building is CoalMine)
+
                         {
                             DrawCoalMine3D(worldPos.X, worldPos.Y);
+                        }
+                        else if (tile.Building is CopperMine)
+                        {
+                            DrawCopperMine3D(worldPos.X, worldPos.Y);
                         }
                         else if (tile.Building is WarehouseBuilding wh)
                         {
@@ -668,6 +678,30 @@ namespace Conglomerate
             }
         }
 
+        private void DrawCopperMine3D(float x, float y)
+        {
+            if (GraphicsDevice == null || _basicEffect == null) return;
+
+            // Prosty budynek kopalni miedzi (kostka z miedzianym połyskiem)
+            float bw = TileWidth * 0.4f;
+            float bh = TileHeight * 0.3f;
+            float bHeight = 20f;
+
+            XnaColor copperLeft = new XnaColor(150, 100, 80);
+            XnaColor copperRight = new XnaColor(180, 120, 90);
+            XnaColor copperTop = new XnaColor(200, 130, 100);
+
+            Draw3DBox(x, y, bw, bh, bHeight, copperLeft, copperRight, copperTop);
+
+            // Dodatkowe detale: rura wentylacyjna z boku
+            float pipeW = TileWidth * 0.1f;
+            float pipeH = TileHeight * 0.05f;
+            float pipeHeight = 12f;
+            float pipeX = x - TileWidth * 0.2f;
+            float pipeY = y + TileHeight * 0.1f;
+
+            Draw3DBox(pipeX, pipeY, pipeW, pipeH, pipeHeight, new XnaColor(120, 80, 60), new XnaColor(150, 100, 80), new XnaColor(170, 110, 90));
+        }
         private void DrawCoalMine3D(float x, float y)
         {
             if (GraphicsDevice == null || _basicEffect == null) return;

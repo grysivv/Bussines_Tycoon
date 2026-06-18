@@ -256,11 +256,13 @@ namespace Conglomerate.Financials.Tests
             
             var farm = new Farm("Farma Test");
             var mine = new CoalMine("Kopalnia Test");
+            var copperMine = new CopperMine("Kopalnia Miedzi Test");
             var foodWh = new WarehouseBuilding("Magazyn Spozywczy", ResourceCategory.Food);
             var miningWh = new WarehouseBuilding("Magazyn Surowcowy", ResourceCategory.Mining);
 
             company.BuyBuilding(farm, map, 1, 1, 1, 8);
             company.BuyBuilding(mine, map, 2, 2, 1, 8);
+            company.BuyBuilding(copperMine, map, 3, 3, 1, 8);
             company.BuyBuilding(foodWh, map, 3, 3, 1, 8);
             company.BuyBuilding(miningWh, map, 4, 4, 1, 8);
 

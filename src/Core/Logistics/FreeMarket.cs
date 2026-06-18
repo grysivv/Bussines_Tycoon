@@ -69,6 +69,7 @@ namespace Conglomerate.Logistics
 
             // Surowce kopalniane
             AddListing("Węgiel",  basePrice: 100m, premiumMin: 1.4m, premiumMax: 2.0m, dailyAvail: 500);
+            AddListing("Ruda Miedzi", basePrice: 150m, premiumMin: 1.4m, premiumMax: 2.0m, dailyAvail: 400);
 
             // Ustal ceny na start
             foreach (var listing in Listings.Values)

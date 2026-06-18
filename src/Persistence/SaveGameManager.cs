@@ -52,7 +52,9 @@ namespace Conglomerate
                 {
                     Farm             => "Farm",
                     CoalMine         => "CoalMine",
+                    CopperMine       => "CopperMine",
                     CheeseFactory    => "CheeseFactory",
+                    CopperFoundry     => "CopperFoundry",
                     GeneralStore     => "GeneralStore",
                     WarehouseBuilding wh => wh.AllowedCategory == ResourceCategory.Food
                                             ? "FoodWarehouse"
@@ -171,7 +173,9 @@ namespace Conglomerate
             {
                 "Farm"                   => new Farm(bData.Name),
                 "CoalMine"               => new CoalMine(bData.Name),
+                "CopperMine"             => new CopperMine(bData.Name),
                 "CheeseFactory"          => new CheeseFactory(bData.Name),
+                "CopperFoundry"          => new CopperFoundry(bData.Name),
                 "GeneralStore"           => new GeneralStore(bData.Name),
                 "FoodWarehouse"          => new WarehouseBuilding(bData.Name, ResourceCategory.Food),
                 "ProcessedFoodWarehouse" => new WarehouseBuilding(bData.Name, ResourceCategory.ProcessedFood),

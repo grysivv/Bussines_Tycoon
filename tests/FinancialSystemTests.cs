@@ -277,12 +277,12 @@ namespace Conglomerate.Financials.Tests
             gameManager.RestoreState(1, 23);
             gameManager.NextTick();
 
-            // 2. Weryfikacja automatycznego przenoszenia surowców (uwzględniając dobową produkcję: Mleko +2, Mięso +1, Węgiel +4)
-            // Żywność do magazynu spożywczego (15 + 2 = 17 Mleka, 10 + 1 = 11 Mięsa)
+            // 2. Weryfikacja automatycznego przenoszenia surowców (uwzględniając dobową produkcję: Mleko +3, Mięso +2, Węgiel +4)
+            // Żywność do magazynu spożywczego (15 + 3 = 18 Mleka, 10 + 2 = 12 Mięsa)
             Debug.Assert(farm.Warehouse["Mleko"] == 0, $"Farm milk: {farm.Warehouse["Mleko"]}");
             Debug.Assert(farm.Warehouse["Mięso"] == 0, $"Farm meat: {farm.Warehouse["Mięso"]}");
-            Debug.Assert(foodWh.Warehouse["Mleko"] == 17, $"FoodWh milk: {foodWh.Warehouse["Mleko"]}");
-            Debug.Assert(foodWh.Warehouse["Mięso"] == 11, $"FoodWh meat: {foodWh.Warehouse["Mięso"]}");
+            Debug.Assert(foodWh.Warehouse["Mleko"] == 18, $"FoodWh milk: {foodWh.Warehouse["Mleko"]}");
+            Debug.Assert(foodWh.Warehouse["Mięso"] == 12, $"FoodWh meat: {foodWh.Warehouse["Mięso"]}");
 
             // Węgiel do magazynu kopalnianego (30 + 4 = 34 Węgla)
             Debug.Assert(mine.Warehouse["Węgiel"] == 0, $"Mine coal: {mine.Warehouse["Węgiel"]}");
@@ -307,7 +307,7 @@ namespace Conglomerate.Financials.Tests
             
             var loadedMlekoItem = loadedFoodWh.Warehouse.FirstOrDefault(i => i.Key == "Mleko");
             Debug.Assert(loadedMlekoItem != null);
-            Debug.Assert(loadedMlekoItem.Value == 17);
+            Debug.Assert(loadedMlekoItem.Value == 18);
 
             // Porządki po teście
             try

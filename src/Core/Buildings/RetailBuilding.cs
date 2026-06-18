@@ -102,6 +102,54 @@ namespace Conglomerate
             return true;
         }
 
+        /// <summary>
+        /// Usuwa przypisanie produktu ze slotu i zwraca pozostały stock na półce do magazynu budynku.
+        /// </summary>
+        public bool ClearSlot(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= MaxSlots) return false;
+
+            var slot = Slots[slotIndex];
+            if (slot.IsActive)
+            {
+                if (slot.CurrentStock > 0)
+                {
+                    if (!Warehouse.ContainsKey(slot.ProductName)) Warehouse[slot.ProductName] = 0;
+                    Warehouse[slot.ProductName] += slot.CurrentStock;
+                }
+                slot.ProductName = string.Empty;
+                slot.CurrentStock = 0;
+                slot.LastAttractiveness = 0f;
+                slot.DirectRetailPrice = 0m;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Uzupełnia towary na półkach (Slots) z magazynu wewnętrznego (Warehouse).
+        /// </summary>
+        public void RestockAllSlots()
+        {
+            foreach (var slot in Slots)
+            {
+                if (!slot.IsActive) continue;
+
+                int needed = slot.ShelfCapacity - slot.CurrentStock;
+                if (needed <= 0) continue;
+
+                if (Warehouse.TryGetValue(slot.ProductName, out int inWarehouse) && inWarehouse > 0)
+                {
+                    int toTransfer = Math.Min(needed, inWarehouse);
+                    if (toTransfer > 0)
+                    {
+                        slot.CurrentStock += toTransfer;
+                        Warehouse[slot.ProductName] -= toTransfer;
+                    }
+                }
+            }
+        }
+
+
 
         // ──────────────────────────────────────────────
         //  Główny tick sprzedaży — wywoływany co godzinę

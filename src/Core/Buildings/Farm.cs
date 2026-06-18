@@ -38,9 +38,9 @@ namespace Conglomerate
             // Pobierz koszty utrzymania
             company.Balance -= MaintenanceCost;
 
-            // Wyznacz produkcję (Mleko +2, Mięso +1)
-            int milkProd = 2;
-            int meatProd = 1;
+            // Wyznacz produkcję (Mleko +3, Mięso +2)
+            int milkProd = 3;
+            int meatProd = 2;
 
             int freeSpace = WarehouseCapacity - totalStock;
 

@@ -37,7 +37,7 @@ namespace Conglomerate.Simulation
 
         private void TryPlaceBuildingOnMap(AICompany ai, Map map, int day, int hour)
         {
-            Building buildingToBuild = GetBuildingForSpecialization(ai.Specialization);
+            Building? buildingToBuild = GetBuildingForSpecialization(ai.Specialization);
             if (buildingToBuild == null) return;
 
             // Find an empty tile
@@ -69,7 +69,7 @@ namespace Conglomerate.Simulation
             }
         }
 
-        private Building GetBuildingForSpecialization(AIType type)
+        private Building? GetBuildingForSpecialization(AIType type)
         {
             return type switch
             {

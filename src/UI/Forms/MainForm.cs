@@ -3172,6 +3172,7 @@ private void HideAllOverlays(Panel? exceptPanel = null)
                             BuildLogisticsPanelGlobal();
                         }
                     };
+                    _toolTip.SetToolTip(btnRemove, "Usuń trasę");
                     pnlRow.Controls.Add(btnRemove);
 
                     pnlRoutesList.Controls.Add(pnlRow);

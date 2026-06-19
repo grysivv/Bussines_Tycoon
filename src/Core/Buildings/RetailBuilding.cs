@@ -88,8 +88,7 @@ namespace Conglomerate
             {
                 if (!string.IsNullOrEmpty(slot.ProductName) && slot.CurrentStock > 0)
                 {
-                    if (!Warehouse.ContainsKey(slot.ProductName)) Warehouse[slot.ProductName] = 0;
-                    Warehouse[slot.ProductName] += slot.CurrentStock;
+                    AddProduct(slot.ProductName, slot.CurrentStock);
                 }
                 slot.CurrentStock = 0;
                 slot.LastAttractiveness = 0f;
@@ -114,8 +113,7 @@ namespace Conglomerate
             {
                 if (slot.CurrentStock > 0)
                 {
-                    if (!Warehouse.ContainsKey(slot.ProductName)) Warehouse[slot.ProductName] = 0;
-                    Warehouse[slot.ProductName] += slot.CurrentStock;
+                    AddProduct(slot.ProductName, slot.CurrentStock);
                 }
                 slot.ProductName = string.Empty;
                 slot.CurrentStock = 0;
@@ -137,13 +135,14 @@ namespace Conglomerate
                 int needed = slot.ShelfCapacity - slot.CurrentStock;
                 if (needed <= 0) continue;
 
-                if (Warehouse.TryGetValue(slot.ProductName, out int inWarehouse) && inWarehouse > 0)
+                decimal inWarehouse = GetProductQuantity(slot.ProductName);
+                if (inWarehouse > 0)
                 {
-                    int toTransfer = Math.Min(needed, inWarehouse);
+                    decimal toTransfer = Math.Min((decimal)needed, inWarehouse);
                     if (toTransfer > 0)
                     {
-                        slot.CurrentStock += toTransfer;
-                        Warehouse[slot.ProductName] -= toTransfer;
+                        slot.CurrentStock += (int)toTransfer;
+                        RemoveProduct(slot.ProductName, toTransfer);
                     }
                 }
             }
@@ -161,7 +160,6 @@ namespace Conglomerate
         /// </summary>
         public void TickHourlySales(Company company, int day, int hour)
         {
-            // Najpierw uzupełnij półki z wewnętrznego magazynu
             RestockAllSlots();
 
             foreach (var slot in Slots)
@@ -171,27 +169,23 @@ namespace Conglomerate
                 decimal baseMarketPrice = ResourceRegistry.GetPrice(slot.ProductName);
                 decimal retailPrice     = slot.GetEffectivePrice(baseMarketPrice);
 
-                // Oblicz atrakcyjność (oddzielony silnik)
                 float attractiveness = RetailDemandEngine.CalculateAttractiveness(
                     slot.ProductName,
                     retailPrice,
                     baseMarketPrice,
                     LocationFactor);
 
+                attractiveness *= WorkerExperience;
+
                 slot.LastAttractiveness = attractiveness;
 
-                // Oblicz sprzedaż godzinową
                 int unitsSold = RetailDemandEngine.CalculateHourlySales(slot, attractiveness, _rng);
                 bool wasStockout = slot.IsStockout;
 
                 if (unitsSold > 0)
                 {
                     decimal revenue = retailPrice * unitsSold;
-
-                    // Odejmij ze stanu na półce
                     slot.CurrentStock -= unitsSold;
-
-                    // Zarejestruj transakcję finansową
                     company.Balance += revenue;
                     company.AddTransaction(day, hour,
                         $"Sprzedaż: {unitsSold}x {slot.ProductName} @ {retailPrice:C} [{Name}]",
@@ -200,10 +194,58 @@ namespace Conglomerate
                         FacilityId);
                 }
 
-                // Zarejestruj w historii 24h
                 slot.RecordHourlySale(unitsSold, unitsSold > 0 ? retailPrice * unitsSold : 0m, wasStockout);
             }
         }
+
+        /// <summary>
+        /// Tick sprzedaży z uwzględnieniem Brand Awareness gracza.
+        /// Wywoływany przez GameManager dla firmy gracza.
+        /// </summary>
+        public void TickHourlySalesWithBrand(Company company, int day, int hour)
+        {
+            RestockAllSlots();
+
+            foreach (var slot in Slots)
+            {
+                if (!slot.IsActive) continue;
+
+                decimal baseMarketPrice = ResourceRegistry.GetPrice(slot.ProductName);
+                decimal retailPrice     = slot.GetEffectivePrice(baseMarketPrice);
+
+                // Pobierz Brand Awareness produktu (0-100)
+                float brandAwareness = company.GetBrandAwareness(slot.ProductName);
+
+                float attractiveness = RetailDemandEngine.CalculateAttractiveness(
+                    slot.ProductName,
+                    retailPrice,
+                    baseMarketPrice,
+                    LocationFactor,
+                    brandAwareness);
+
+                attractiveness *= WorkerExperience;
+
+                slot.LastAttractiveness = attractiveness;
+
+                int unitsSold = RetailDemandEngine.CalculateHourlySales(slot, attractiveness, _rng);
+                bool wasStockout = slot.IsStockout;
+
+                if (unitsSold > 0)
+                {
+                    decimal revenue = retailPrice * unitsSold;
+                    slot.CurrentStock -= unitsSold;
+                    company.Balance += revenue;
+                    company.AddTransaction(day, hour,
+                        $"Sprzedaż: {unitsSold}x {slot.ProductName} @ {retailPrice:C} [{Name}]",
+                        revenue,
+                        "Sprzedaż detaliczna",
+                        FacilityId);
+                }
+
+                slot.RecordHourlySale(unitsSold, unitsSold > 0 ? retailPrice * unitsSold : 0m, wasStockout);
+            }
+        }
+
 
         // ──────────────────────────────────────────────
         //  Building overrides (sklep nie produkuje — brak Produce)

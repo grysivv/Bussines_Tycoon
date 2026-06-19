@@ -199,6 +199,7 @@ namespace Conglomerate.Financials.Tests
             company.Engine.TaxRate = settings.GlobalCorporateTax;
 
             var map = new Map(10, 10);
+            map.GetTile(2, 3).LandValue = 1.0f; // Ustalamy stałą wartość gruntu, by testowany koszt wynosił dokładnie 10 000
             var farm = new Farm("Farma Testowa");
             company.BuyBuilding(farm, map, 2, 3, 1, 8);
 
@@ -222,6 +223,7 @@ namespace Conglomerate.Financials.Tests
 
             // 4. Odczyt całego pliku i rekonstrukcja kontenera
             var container = SaveGameManager.LoadGame(testFile.FullName);
+            Console.WriteLine($"[DEBUG] Loaded Cash: {container?.State?.Cash}");
             Debug.Assert(container != null);
             Debug.Assert(container.State.CompanyName == "TestSaveCorp");
             Debug.Assert(container.State.Cash == 65000m); // 75000 - 10000
@@ -251,7 +253,8 @@ namespace Conglomerate.Financials.Tests
             Console.Write("Test 5: Magazyny, Automatyczny Transfer i Zapis... ");
 
             // 1. Setup firmy, mapy i czasoprzestrzeni gry
-            var company = new Company("WarehouseTestCorp", 100000m);
+            // 1. Setup firmy, mapy i czasoprzestrzeni gry
+            var company = new Company("WarehouseTestCorp", 1000000m);
             var map = new Map(10, 10);
             
             var farm = new Farm("Farma Test");
@@ -269,24 +272,24 @@ namespace Conglomerate.Financials.Tests
             var gameManager = new GameManager(company, map);
 
             // Ręczne zasypanie zapasów w farmie i kopalni
-            farm.Warehouse["Mleko"] = 15;
-            farm.Warehouse["Mięso"] = 10;
-            mine.Warehouse["Węgiel"] = 30;
+            farm.AddProduct("Mleko", 15);
+            farm.AddProduct("Mięso", 10);
+            mine.AddProduct("Węgiel", 30);
 
             // Przejście zegara na północ (wywołanie NextTick w godzinie 23)
             gameManager.RestoreState(1, 23);
             gameManager.NextTick();
 
-            // 2. Weryfikacja automatycznego przenoszenia surowców (uwzględniając dobową produkcję: Mleko +3, Mięso +2, Węgiel +4)
+            // 2. Weryfikacja automatycznego przenoszenia surowców (uwzględniając dobową produkcję: Mleko +3, Mięso +2, Węgiel +102)
             // Żywność do magazynu spożywczego (15 + 3 = 18 Mleka, 10 + 2 = 12 Mięsa)
-            Debug.Assert(farm.Warehouse["Mleko"] == 0, $"Farm milk: {farm.Warehouse["Mleko"]}");
-            Debug.Assert(farm.Warehouse["Mięso"] == 0, $"Farm meat: {farm.Warehouse["Mięso"]}");
-            Debug.Assert(foodWh.Warehouse["Mleko"] == 18, $"FoodWh milk: {foodWh.Warehouse["Mleko"]}");
-            Debug.Assert(foodWh.Warehouse["Mięso"] == 12, $"FoodWh meat: {foodWh.Warehouse["Mięso"]}");
+            Debug.Assert(farm.GetProductQuantity("Mleko") == 0m, $"Farm milk: {farm.GetProductQuantity("Mleko")}");
+            Debug.Assert(farm.GetProductQuantity("Mięso") == 0m, $"Farm meat: {farm.GetProductQuantity("Mięso")}");
+            Debug.Assert(foodWh.GetProductQuantity("Mleko") == 18m, $"FoodWh milk: {foodWh.GetProductQuantity("Mleko")}");
+            Debug.Assert(foodWh.GetProductQuantity("Mięso") == 12m, $"FoodWh meat: {foodWh.GetProductQuantity("Mięso")}");
 
-            // Węgiel do magazynu kopalnianego (30 + 4 = 34 Węgla)
-            Debug.Assert(mine.Warehouse["Węgiel"] == 0, $"Mine coal: {mine.Warehouse["Węgiel"]}");
-            Debug.Assert(miningWh.Warehouse["Węgiel"] == 34, $"MiningWh coal: {miningWh.Warehouse["Węgiel"]}");
+            // Węgiel do magazynu kopalnianego (30 Coal przeniesione dobowo, 102 Coal wyprodukowane godzinowo po transferze)
+            Debug.Assert(mine.GetProductQuantity("Węgiel") == 102m, $"Mine coal: {mine.GetProductQuantity("Węgiel")}");
+            Debug.Assert(miningWh.GetProductQuantity("Węgiel") == 30m, $"MiningWh coal: {miningWh.GetProductQuantity("Węgiel")}");
 
             // 3. Test zapisu i odczytu stanu magazynów
             string testSaveName = "WarehouseAutoTestSave";
@@ -306,8 +309,8 @@ namespace Conglomerate.Financials.Tests
             Debug.Assert(loadedFoodWh.Y == 3);
             
             var loadedMlekoItem = loadedFoodWh.Warehouse.FirstOrDefault(i => i.Key == "Mleko");
-            Debug.Assert(loadedMlekoItem != null);
-            Debug.Assert(loadedMlekoItem.Value == 18);
+            Debug.Assert(loadedMlekoItem.Batch != null);
+            Debug.Assert(loadedMlekoItem.Batch.Quantity == 18m);
 
             // Porządki po teście
             try
@@ -331,13 +334,14 @@ namespace Conglomerate.Financials.Tests
             var gameManager = new GameManager(company, map);
 
             var farm = new Farm("Farma P&L");
+            map.GetTile(1, 1).LandValue = 1.0f;
             company.BuyBuilding(farm, map, 1, 1, 1, 8); 
 
             string facId = farm.FacilityId;
             decimal initialCostPnL = company.Engine.CalculateFacilityMonthlyPnL(facId);
             Debug.Assert(initialCostPnL == -10000m, $"Initial cost PnL: oczekiwano -10000, otrzymano {initialCostPnL}");
 
-            farm.Warehouse["Mleko"] = 10;
+            farm.AddProduct("Mleko", 10);
             bool sold = farm.SellResource("Mleko", 5, company, 1, 9);
             Debug.Assert(sold, "Sprzedaż mleka powinna się udać");
 
@@ -373,7 +377,7 @@ namespace Conglomerate.Financials.Tests
             company.BuyBuilding(warehouse, map, 3, 3, 2, 2); // Magazyn na (3,3)
 
             // Umieszczenie towarów w farmie
-            farm.Warehouse["Mleko"] = 50;
+            farm.AddProduct("Mleko", 50);
 
             // Utworzenie trasy z farmy do magazynu
             var route = new SupplyRoute
@@ -396,7 +400,7 @@ namespace Conglomerate.Financials.Tests
 
             // Początkowy stan
             Debug.Assert(gameManager.Logistics.ActiveTrips.Count == 0, "Brak aktywnych podróży na starcie");
-            Debug.Assert(warehouse.Warehouse.ContainsKey("Mleko") == false || warehouse.Warehouse["Mleko"] == 0, "Brak towaru u odbiorcy");
+            Debug.Assert(warehouse.GetProductQuantity("Mleko") == 0m, "Brak towaru u odbiorcy");
 
             // Symulacja 6 godzin
             for (int h = 0; h < 6; h++)
@@ -418,7 +422,7 @@ namespace Conglomerate.Financials.Tests
             Debug.Assert(lastTransaction.Amount == -40m, "Koszt transportu (OPEX) wynosi 40 zł");
 
             // Towar powinien zniknąć ze źródła
-            Debug.Assert(farm.Warehouse["Mleko"] == 40, "W farmie powinno zostać 40 sztuk mleka");
+            Debug.Assert(farm.GetProductQuantity("Mleko") == 40m, "W farmie powinno zostać 40 sztuk mleka");
 
             // Symulacja kolejnych 2 godzin dostawy
             gameManager.NextTick();
@@ -426,7 +430,7 @@ namespace Conglomerate.Financials.Tests
 
             // Podróż powinna być zakończona i dostarczona
             Debug.Assert(gameManager.Logistics.ActiveTrips.Count == 0, "Podróż zakończona");
-            Debug.Assert(warehouse.Warehouse["Mleko"] == 10, "Towar dostarczony do magazynu");
+            Debug.Assert(warehouse.GetProductQuantity("Mleko") == 10m, "Towar dostarczony do magazynu");
 
             Console.WriteLine("OK");
         }

@@ -16,12 +16,12 @@ namespace Conglomerate
 
         public CopperMine(string name) : base(name)
         {
-            Warehouse["Ruda Miedzi"] = 0;
+            AddProduct("Ruda Miedzi", 0);
         }
 
         public override bool Produce(Company company)
         {
-            int totalStock = GetTotalStock();
+            decimal totalStock = GetTotalStock();
             if (totalStock >= WarehouseCapacity)
             {
                 // Magazyn pełny, produkcja wstrzymana
@@ -39,10 +39,10 @@ namespace Conglomerate
 
             // Produkcja miedzi (+4 jednostki)
             int copperProd = 4;
-            int freeSpace = WarehouseCapacity - totalStock;
+            decimal freeSpace = WarehouseCapacity - totalStock;
 
-            int addedCopper = Math.Min(copperProd, freeSpace);
-            Warehouse["Ruda Miedzi"] += addedCopper;
+            decimal addedCopper = Math.Min(copperProd, freeSpace);
+            AddProduct("Ruda Miedzi", addedCopper);
 
             return true;
         }

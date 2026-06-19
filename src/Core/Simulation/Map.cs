@@ -23,7 +23,18 @@ namespace Conglomerate
                 for (int y = 0; y < Height; y++)
                 {
                     // Uproszczona mapa - wszystkie kafle to zielona trawa
-                    _tiles[x, y] = new Tile(x, y, TileType.Grass);
+                    Tile tile = new Tile(x, y, TileType.Grass);
+                    
+                    // Capitalism Lab: Land Value (centrum drogie, peryferia tanie)
+                    float centerX = Width / 2f;
+                    float centerY = Height / 2f;
+                    float maxDist = (float)Math.Sqrt(centerX * centerX + centerY * centerY);
+                    float dist = (float)Math.Sqrt(Math.Pow(x - centerX, 2) + Math.Pow(y - centerY, 2));
+                    
+                    // Wartość od 0.5 (obrzeża) do 2.0 (centrum)
+                    tile.LandValue = 2.0f - (dist / maxDist) * 1.5f;
+                    
+                    _tiles[x, y] = tile;
                 }
             }
         }

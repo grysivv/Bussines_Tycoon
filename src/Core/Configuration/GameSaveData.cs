@@ -61,13 +61,13 @@ namespace Conglomerate
     public class WarehouseItem
     {
         public string Key { get; set; } = "";
-        public int Value { get; set; }
+        public Economy.ProductBatch Batch { get; set; } = new Economy.ProductBatch();
 
         public WarehouseItem() { }
-        public WarehouseItem(string key, int value)
+        public WarehouseItem(string key, Economy.ProductBatch batch)
         {
             Key = key;
-            Value = value;
+            Batch = batch;
         }
     }
 

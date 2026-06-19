@@ -201,7 +201,7 @@ namespace Conglomerate
             // Przywróć stan magazynu
             foreach (var item in bData.Warehouse)
             {
-                building.Warehouse[item.Key] = item.Value;
+                building.Warehouse[item.Key] = item.Batch;
             }
 
             // Przywróć aktywny przepis fabryki

@@ -39,9 +39,9 @@ namespace Conglomerate
             });
 
             // Inicjalizacja slotów w magazynie
-            Warehouse["Ruda Miedzi"] = 0;   // wejście
-            Warehouse["Węgiel"] = 0;         // wejście
-            Warehouse["Miedź"] = 0;         // wyjście
+            AddProduct("Ruda Miedzi", 0);   // wejście
+            AddProduct("Węgiel", 0);         // wejście
+            AddProduct("Miedź", 0);         // wyjście
         }
     }
 }

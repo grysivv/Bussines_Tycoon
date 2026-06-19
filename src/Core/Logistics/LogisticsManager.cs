@@ -77,9 +77,7 @@ namespace Conglomerate.Logistics
                     // Dostawa na miejsce
                     if (buildingMap.TryGetValue(trip.DestinationBuildingId, out var target))
                     {
-                        if (!target.Warehouse.ContainsKey(trip.ResourceName))
-                            target.Warehouse[trip.ResourceName] = 0;
-                        target.Warehouse[trip.ResourceName] += trip.CargoAmount;
+                        target.AddProduct(trip.ResourceName, trip.CargoAmount);
 
                         var r = Routes.Find(x => x.Id == trip.RouteId);
                         if (r != null)
@@ -107,7 +105,7 @@ namespace Conglomerate.Logistics
                 }
 
                 // Wolne miejsce w magazynie docelowym (z uwzględnieniem pojazdów w drodze)
-                int freeSpace = target.WarehouseCapacity - target.GetTotalStock();
+                decimal freeSpace = target.WarehouseCapacity - target.GetTotalStock();
                 int inTransit = ActiveTrips
                     .Where(t => t.DestinationBuildingId == route.TargetFacilityId && t.ResourceName == route.ResourceName)
                     .Sum(t => t.CargoAmount);
@@ -121,7 +119,7 @@ namespace Conglomerate.Logistics
 
                 var vehicle = VehicleRegistry.Get(route.VehicleTypeName);
                 int maxToLoad = route.LoadRule == LoadThresholdRule.FullOnly ? vehicle.Capacity : Math.Min(route.AmountPerTrip, vehicle.Capacity);
-                int capacity = Math.Min(maxToLoad, freeSpace);
+                int capacity = (int)Math.Min((decimal)maxToLoad, freeSpace);
 
                 // Dostępność towaru u dostawcy
                 int availableCargo = 0;
@@ -142,9 +140,8 @@ namespace Conglomerate.Logistics
                     if (buildingMap.TryGetValue(route.SourceFacilityId, out var source))
                     {
                         route.SourceDisplayName = source.Name;
-                        int stock = 0;
-                        source.Warehouse.TryGetValue(route.ResourceName, out stock);
-                        availableCargo = Math.Min(capacity, stock);
+                        decimal stock = source.GetProductQuantity(route.ResourceName);
+                        availableCargo = (int)Math.Min((decimal)capacity, stock);
                     }
                     else
                     {
@@ -241,7 +238,7 @@ namespace Conglomerate.Logistics
                 else
                 {
                     var source = buildingMap[route.SourceFacilityId];
-                    source.Warehouse[route.ResourceName] -= dispatch.CargoToLoad;
+                    source.RemoveProduct(route.ResourceName, dispatch.CargoToLoad);
                 }
 
                 // Pobierz koszty transportu (Logistics OPEX)

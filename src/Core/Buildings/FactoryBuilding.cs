@@ -158,7 +158,7 @@ namespace Conglomerate
             if (ActiveRecipe == null) return false;
             foreach (var input in ActiveRecipe.Inputs)
             {
-                if (!Warehouse.ContainsKey(input.Key) || Warehouse[input.Key] < input.Value)
+                if (!Warehouse.ContainsKey(input.Key) || Warehouse[input.Key].Quantity < input.Value)
                     return false;
             }
             return true;
@@ -174,21 +174,18 @@ namespace Conglomerate
             if (ActiveRecipe == null) return;
             foreach (var input in ActiveRecipe.Inputs)
             {
-                if (Warehouse.ContainsKey(input.Key))
-                    Warehouse[input.Key] -= input.Value;
+                RemoveProduct(input.Key, input.Value);
             }
         }
 
         private void ProduceOutputs()
         {
             if (ActiveRecipe == null) return;
-            int freeSpace = WarehouseCapacity - GetTotalStock();
+            decimal freeSpace = WarehouseCapacity - GetTotalStock();
             foreach (var output in ActiveRecipe.Outputs)
             {
-                int toAdd = Math.Min(output.Value, freeSpace);
-                if (!Warehouse.ContainsKey(output.Key))
-                    Warehouse[output.Key] = 0;
-                Warehouse[output.Key] += toAdd;
+                decimal toAdd = Math.Min(output.Value, freeSpace);
+                AddProduct(output.Key, toAdd, 10m * (decimal)WorkerExperience);
                 freeSpace -= toAdd;
             }
         }

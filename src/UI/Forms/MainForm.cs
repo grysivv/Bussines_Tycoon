@@ -6,6 +6,8 @@ using System.Windows.Forms;
 using Conglomerate.Financials;
 using Conglomerate.Logistics;
 using Conglomerate.Retail;
+using Conglomerate.HR;
+using Conglomerate.UI;
 using Point = System.Drawing.Point;
 using XnaPoint = Microsoft.Xna.Framework.Point;
 
@@ -26,9 +28,10 @@ namespace Conglomerate
         private Panel pnlSaveGameOverlay = null!;
         private Panel pnlEscapeMenu = null!;
 
-        // Panele logistyczne (floating overlays)
+        // Panele logistyczne i HR (floating overlays)
         private Panel pnlLogisticsManager = null!;  // Zarządzanie trasami dla wybranego budynku
         private Panel pnlMarketBuyer = null!;        // Zakup surowców na wolnym rynku
+        private Panel pnlHRManager = null!;          // Panel zarządzania HR
 
         public enum MenuState
         {
@@ -58,7 +61,14 @@ namespace Conglomerate
         private Label lblBottomStatus = null!;
         private Label lblSelectedTileInfo = null!;
 
-        private enum SelectedBlueprint { None, Farm, CoalMine, FoodWarehouse, MiningWarehouse, CheeseFactory, GeneralStore, CopperMine, CopperFoundry }
+        private enum SelectedBlueprint
+        {
+            None, Farm, CoalMine, FoodWarehouse, MiningWarehouse, CheeseFactory,
+            GeneralStore, CopperMine, CopperFoundry, RNDCenter,
+            // Nowe (Capitalism Lab)
+            IronMine, SteelMill, ElectronicsFactory, TextileFactory, WoodworkingFactory, BakeryFactory,
+            ElectronicsStore, ClothingStore, FurnitureStore, GroceryStore, Headquarters
+        }
         private SelectedBlueprint _selectedBlueprint = SelectedBlueprint.None;
         private Button btnBuildFarm = null!;
         private Button btnBuildCoalMine = null!;
@@ -67,7 +77,18 @@ namespace Conglomerate
         private Button btnBuildCheeseFactory = null!;
         private Button btnBuildCopperFoundry = null!;
         private Button btnBuildGeneralStore = null!;
+        private Button btnBuildRNDCenter = null!;
         private Button btnBuildCopperMine = null!;
+        // Nowe budynki
+        private Button btnBuildIronMine = null!;
+        private Button btnBuildSteelMill = null!;
+        private Button btnBuildElectronicsFactory = null!;
+        private Button btnBuildTextileFactory = null!;
+        private Button btnBuildWoodworkingFactory = null!;
+        private Button btnBuildBakeryFactory = null!;
+        private Button btnBuildElectronicsStore = null!;
+        private Button btnBuildClothingStore = null!;
+        private Button btnBuildFurnitureStore = null!;
 
         // Kontrolki fabryki — przechowujemy referencję do dropdownu przepisu
         private ComboBox? _activeRecipeComboBox = null;
@@ -82,6 +103,9 @@ namespace Conglomerate
         private XnaPoint? _hoveredTile = null;
         private Building? _inspectingBuilding = null;
         private Logistics.SupplyRoute? _editingRoute = null;
+        private Building? _prefillSource = null;
+        private Building? _prefillDest = null;
+        private string _prefillResource = string.Empty;
         private Dictionary<string, string> _enteredSellQuantities = new Dictionary<string, string>();
         private Panel pnlFinanceReport = null!;
 
@@ -112,6 +136,16 @@ namespace Conglomerate
         private Button btnCtxCenter = null!;
         private Button btnCtxMarket = null!;
 
+        // Nowe panele Capitalism Lab (F1-F4)
+        private Panel pnlStockMarketOverlay  = null!;
+        private Panel pnlBankingOverlay      = null!;
+        private Panel pnlMarketReportOverlay = null!;
+        private Panel pnlExecutivesOverlay   = null!;
+        private StockMarketForm  _stockMarketForm  = null!;
+        private BankingForm      _bankingForm      = null!;
+        private MarketReportForm _marketReportForm = null!;
+        private ExecutivesForm   _executivesForm   = null!;
+
         protected override CreateParams CreateParams
         {
             get
@@ -139,6 +173,9 @@ namespace Conglomerate
 
             // Ustawienie okna na pełny ekran / zmaksymalizowane
             this.WindowState = FormWindowState.Maximized;
+
+            // Zastosowanie motywu graficznego Capitalism Lab na starcie gry
+            ThemeManager.ApplyTheme(this);
         }
 
         private void InitializeComponent()
@@ -293,7 +330,7 @@ namespace Conglomerate
             pnlTopNav.Controls.Add(lblCashTitle);
 
             lblCash = new Label();
-            lblCash.Text = "0,00 zł";
+            lblCash.Text = "$0";
             lblCash.Font = new Font("Segoe UI", 13, FontStyle.Bold);
             lblCash.ForeColor = Color.FromArgb(100, 220, 100);
             lblCash.Location = new Point(360, 25);
@@ -302,7 +339,7 @@ namespace Conglomerate
 
             // Wskaźnik Trendu Gotówkowego (Trend Indicator)
             lblCashTrend = new Label();
-            lblCashTrend.Text = "+0,00 zł / min";
+            lblCashTrend.Text = "+$0.00/min";
             lblCashTrend.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             lblCashTrend.ForeColor = Color.FromArgb(100, 220, 100);
             lblCashTrend.Location = new Point(545, 27);
@@ -487,7 +524,7 @@ namespace Conglomerate
             pnlContextInspector.Controls.Add(lblContextTitle);
 
             lblContextPnL = new Label();
-            lblContextPnL.Text = "Wynik (P&L): +0,00 zł";
+            lblContextPnL.Text = "Wynik (P&L): +$0";
             lblContextPnL.Font = new Font("Segoe UI", 11, FontStyle.Bold);
             lblContextPnL.ForeColor = Color.FromArgb(100, 220, 100);
             lblContextPnL.Location = new Point(320, 10);
@@ -577,19 +614,37 @@ namespace Conglomerate
             pnlRightShortcutBorder.BackColor = Color.FromArgb(45, 45, 45);
             pnlRightShortcutBar.Controls.Add(pnlRightShortcutBorder);
 
-            // Stack przycisków skrótów
+            // Stack przycisków skrótów (Capitalism Lab Style)
             Button btnShortcutFinance = CreateShortcutButton("$", 15, Color.FromArgb(100, 220, 100), "Raport Finansowy", (s, e) => ToggleFinanceReport());
 
-            Button btnShortcutResearch = CreateShortcutButton("🔬", 80, Color.FromArgb(50, 150, 250), "Badania i Rozwój (R&D)", (s, e) => MessageBox.Show("Moduł Badawczo-Rozwojowy (R&D) jest zablokowany w tej wersji demonstracyjnej.\n\nAby odblokować drzewo technologiczne i badania, zakup pełną wersję gry.", "Moduł R&D Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            Button btnShortcutExecutives = CreateShortcutButton("👔", 80, Color.FromArgb(200, 150, 255), "Dyrektorzy (C-Suite)", (s, e) =>
+            {
+                if (CheckHeadquartersRequirement("Dyrektorów (C-Suite)"))
+                {
+                    ToggleCapLabPanel(pnlExecutivesOverlay, () => _executivesForm.SetGameManager(_gameManager!, _company!));
+                }
+            });
 
-            Button btnShortcutMarketing = CreateShortcutButton("📢", 145, Color.FromArgb(240, 180, 50), "Marketing i Marka", (s, e) => MessageBox.Show("Moduł Marketingu i Zarządzania Marką jest zablokowany w tej wersji demonstracyjnej.\n\nAby prowadzić kampanie reklamowe i budować wizerunek firmy, zakup pełną wersję gry.", "Moduł Marketingu Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            Button btnShortcutMarketing = CreateShortcutButton("📢", 145, Color.FromArgb(240, 180, 50), "Marketing i Marka", (s, e) =>
+            {
+                if (CheckHeadquartersRequirement("Raportu Rynkowego i Marketingu"))
+                {
+                    ToggleCapLabPanel(pnlMarketReportOverlay, () => _marketReportForm.SetGameManager(_gameManager!, _company!));
+                }
+            });
 
-            Button btnShortcutHR = CreateShortcutButton("👥", 210, Color.FromArgb(220, 100, 220), "Zasoby Ludzkie (HR)", (s, e) => MessageBox.Show("Moduł HR i Zarządzania Kadrą Kierowniczą jest zablokowany w tej wersji demonstracyjnej.\n\nAby zatrudniać dyrektorów (CEO, CFO, COO) i zarządzać płacami, zakup pełną wersję gry.", "Moduł HR Zablokowany", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            Button btnShortcutHR = CreateShortcutButton("👥", 210, Color.FromArgb(220, 100, 220), "Zasoby Ludzkie (HR)", (s, e) =>
+            {
+                if (CheckHeadquartersRequirement("Zasobów Ludzkich (HR)"))
+                {
+                    ToggleHRManagerPanel();
+                }
+            });
 
             Button btnShortcutLogistics = CreateShortcutButton("🚚", 275, Color.FromArgb(240, 180, 50), "Logistyka i Flota", (s, e) => ToggleLogisticsManagerPanel());
 
             pnlRightShortcutBar.Controls.Add(btnShortcutFinance);
-            pnlRightShortcutBar.Controls.Add(btnShortcutResearch);
+            pnlRightShortcutBar.Controls.Add(btnShortcutExecutives);
             pnlRightShortcutBar.Controls.Add(btnShortcutMarketing);
             pnlRightShortcutBar.Controls.Add(btnShortcutHR);
             pnlRightShortcutBar.Controls.Add(btnShortcutLogistics);
@@ -741,6 +796,74 @@ namespace Conglomerate
             btnBuildGeneralStore.Click += (s, e) => SelectBlueprint(SelectedBlueprint.GeneralStore, btnBuildGeneralStore);
             pnlRight.Controls.Add(btnBuildGeneralStore);
 
+            // ── KORPORACYJNE ──
+            var lblCorpSection = new Label();
+            lblCorpSection.Text = "──  KORPORACJA  ──";
+            lblCorpSection.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            lblCorpSection.ForeColor = Color.FromArgb(200, 100, 250);
+            lblCorpSection.Location = new Point(15, 585);
+            lblCorpSection.Size = new Size(160, 16);
+            lblCorpSection.TextAlign = ContentAlignment.MiddleCenter;
+            pnlRight.Controls.Add(lblCorpSection);
+
+            btnBuildRNDCenter = new Button();
+            btnBuildRNDCenter.Text = "Centrum R&D\n(Koszt: $500k)";
+            btnBuildRNDCenter.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBuildRNDCenter.Location = new Point(15, 605);
+            btnBuildRNDCenter.Size = new Size(160, 50);
+            btnBuildRNDCenter.FlatStyle = FlatStyle.Flat;
+            btnBuildRNDCenter.FlatAppearance.BorderSize = 1;
+            btnBuildRNDCenter.FlatAppearance.BorderColor = Color.FromArgb(200, 100, 250);
+            btnBuildRNDCenter.BackColor = Color.FromArgb(35, 35, 35);
+            btnBuildRNDCenter.ForeColor = Color.FromArgb(200, 100, 250);
+            btnBuildRNDCenter.Cursor = Cursors.Hand;
+            btnBuildRNDCenter.Click += (s, e) => SelectBlueprint(SelectedBlueprint.RNDCenter, btnBuildRNDCenter);
+            pnlRight.Controls.Add(btnBuildRNDCenter);
+
+            // ── NOWE BUDYNKI (CAPITALISM LAB) ──────────────────────
+            Button MakeBuildBtn(string text, Color clr, int yPos, SelectedBlueprint bp)
+            {
+                var b = new Button();
+                b.Text = text;
+                b.Font = new Font("Segoe UI", 8, FontStyle.Bold);
+                b.Location = new Point(15, yPos);
+                b.Size = new Size(160, 45);
+                b.FlatStyle = FlatStyle.Flat;
+                b.FlatAppearance.BorderSize = 1;
+                b.FlatAppearance.BorderColor = clr;
+                b.BackColor = Color.FromArgb(35, 35, 35);
+                b.ForeColor = clr;
+                b.Cursor = Cursors.Hand;
+                b.Click += (s, e) => SelectBlueprint(bp, b);
+                pnlRight.Controls.Add(b);
+                return b;
+            }
+
+            // Sekcja: Metale
+            var lblMetalSection = new Label { Text = "─── METALE ───", Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = Color.FromArgb(180, 120, 60), Location = new Point(15, 665), Size = new Size(160, 16), TextAlign = ContentAlignment.MiddleCenter };
+            pnlRight.Controls.Add(lblMetalSection);
+            btnBuildIronMine         = MakeBuildBtn("⛏ Kopalnia Żelaza\n(200k)",  Color.FromArgb(180, 120, 60), 685,  SelectedBlueprint.IronMine);
+            btnBuildSteelMill        = MakeBuildBtn("🏭 Huta Stali\n(350k)",       Color.FromArgb(200, 140, 80), 735,  SelectedBlueprint.SteelMill);
+
+            // Sekcja: Elektronika
+            var lblElecSection = new Label { Text = "─── ELEKTRONIKA ───", Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = Color.FromArgb(80, 180, 255), Location = new Point(15, 790), Size = new Size(160, 16), TextAlign = ContentAlignment.MiddleCenter };
+            pnlRight.Controls.Add(lblElecSection);
+            btnBuildElectronicsFactory = MakeBuildBtn("💻 Fabryka Elektroniki\n(600k)", Color.FromArgb(80, 180, 255), 810, SelectedBlueprint.ElectronicsFactory);
+
+            // Sekcja: Tekstylia & Drewno
+            var lblTextSection = new Label { Text = "─── PRZEMYSŁ ───", Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = Color.FromArgb(140, 200, 100), Location = new Point(15, 865), Size = new Size(160, 16), TextAlign = ContentAlignment.MiddleCenter };
+            pnlRight.Controls.Add(lblTextSection);
+            btnBuildTextileFactory     = MakeBuildBtn("🧵 Fabryka Tekstylna\n(280k)",  Color.FromArgb(140, 200, 100), 885, SelectedBlueprint.TextileFactory);
+            btnBuildWoodworkingFactory = MakeBuildBtn("🪵 Tartarnia/Meblownia\n(220k)", Color.FromArgb(160, 120, 70),  935, SelectedBlueprint.WoodworkingFactory);
+            btnBuildBakeryFactory      = MakeBuildBtn("🥐 Zakład Spożywczy\n(180k)",   Color.FromArgb(220, 160, 80),  985, SelectedBlueprint.BakeryFactory);
+
+            // Sekcja: Nowe sklepy
+            var lblNewRetailSection = new Label { Text = "─── SKLEPY NOWE ───", Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = Color.FromArgb(100, 240, 160), Location = new Point(15, 1040), Size = new Size(160, 16), TextAlign = ContentAlignment.MiddleCenter };
+            pnlRight.Controls.Add(lblNewRetailSection);
+            btnBuildElectronicsStore = MakeBuildBtn("📱 Sklep Elektroniczny\n(250k)", Color.FromArgb(100, 200, 255), 1060, SelectedBlueprint.ElectronicsStore);
+            btnBuildClothingStore    = MakeBuildBtn("👗 Sklep Odzieżowy\n(180k)",    Color.FromArgb(200, 130, 220), 1110, SelectedBlueprint.ClothingStore);
+            btnBuildFurnitureStore   = MakeBuildBtn("🛋 Salon Meblowy\n(220k)",      Color.FromArgb(180, 150, 100), 1160, SelectedBlueprint.FurnitureStore);
+
             // 2.3 PANEL DOLNY (Status) - ukryty w celu uzyskania nowoczesnego HUDu
             pnlBottom = new Panel();
             pnlBottom.Visible = false;
@@ -771,6 +894,11 @@ namespace Conglomerate
                 CenterContextInspectorPanel();
                 CenterPanel(pnlLogisticsManager);
                 CenterPanel(pnlMarketBuyer);
+                CenterPanel(pnlHRManager);
+                if (pnlStockMarketOverlay  != null) CenterPanel(pnlStockMarketOverlay);
+                if (pnlBankingOverlay      != null) CenterPanel(pnlBankingOverlay);
+                if (pnlMarketReportOverlay != null) CenterPanel(pnlMarketReportOverlay);
+                if (pnlExecutivesOverlay   != null) CenterPanel(pnlExecutivesOverlay);
             };
 
             this.Resize += MainForm_Resize;
@@ -785,6 +913,8 @@ namespace Conglomerate
             InitializeEscapeMenu();
             InitializeLogisticsManagerPanel();
             InitializeMarketBuyerPanel();
+            InitializeHRManagerPanel();
+            InitializeCapitalismLabPanels();
 
             // Automatyczne pozycjonowanie paneli przy starcie
             pnlStartScreen.SizeChanged += (s, e) =>
@@ -992,6 +1122,21 @@ namespace Conglomerate
                         buildingName = $"Sklep Ogólny #{_company.Buildings.Count + 1}";
                         building = new GeneralStore(buildingName);
                     }
+                    else if (_selectedBlueprint == SelectedBlueprint.RNDCenter)
+                    {
+                        buildingName = $"Centrum R&D #{_company.Buildings.Count + 1}";
+                        building = new RNDCenter(buildingName);
+                    }
+                    else if (_selectedBlueprint == SelectedBlueprint.IronMine) { buildingName = $"Kopalnia Želaza #{_company.Buildings.Count + 1}"; building = new IronMine(buildingName); }
+                    else if (_selectedBlueprint == SelectedBlueprint.SteelMill) { buildingName = $"Huta Stali #{_company.Buildings.Count + 1}"; building = new SteelMill(buildingName); }
+                    else if (_selectedBlueprint == SelectedBlueprint.ElectronicsFactory) { buildingName = $"Fabryka Elektroniki #{_company.Buildings.Count + 1}"; building = new ElectronicsFactory(buildingName); }
+                    else if (_selectedBlueprint == SelectedBlueprint.TextileFactory) { buildingName = $"Fabryka Tekstylna #{_company.Buildings.Count + 1}"; building = new TextileFactory(buildingName); }
+                    else if (_selectedBlueprint == SelectedBlueprint.WoodworkingFactory) { buildingName = $"Tartarnia #{_company.Buildings.Count + 1}"; building = new WoodworkingFactory(buildingName); }
+                    else if (_selectedBlueprint == SelectedBlueprint.BakeryFactory) { buildingName = $"Zakład Spożywczy #{_company.Buildings.Count + 1}"; building = new BakeryFactory(buildingName); }
+                    else if (_selectedBlueprint == SelectedBlueprint.ElectronicsStore) { buildingName = $"Sklep Elektroniczny #{_company.Buildings.Count + 1}"; building = new ElectronicsStore(buildingName); }
+                    else if (_selectedBlueprint == SelectedBlueprint.ClothingStore) { buildingName = $"Sklep Odzieżowy #{_company.Buildings.Count + 1}"; building = new ClothingStore(buildingName); }
+                    else if (_selectedBlueprint == SelectedBlueprint.FurnitureStore) { buildingName = $"Salon Meblowy #{_company.Buildings.Count + 1}"; building = new FurnitureStore(buildingName); }
+                    else if (_selectedBlueprint == SelectedBlueprint.Headquarters) { buildingName = $"Kwatera Główna (HQ)"; building = new Headquarters(buildingName); }
                     else
                     {
                         return;
@@ -1064,7 +1209,7 @@ namespace Conglomerate
             else if (tile.Type == TileType.Building && tile.Building != null)
             {
                 var building = tile.Building;
-                int totalStock = building.GetTotalStock();
+                decimal totalStock = building.GetTotalStock();
                 bool isFull = totalStock >= building.WarehouseCapacity;
                 info += $"Typ: {building.ActivityType}\n" +
                         $"Nazwa: {building.Name}\n" +
@@ -1150,6 +1295,9 @@ namespace Conglomerate
             {
                 UpdateContextInspector();
             }
+
+            // Refresh Capitalism Lab panels if visible
+            RefreshCapLabPanels();
         }
 private void HideAllOverlays(Panel? exceptPanel = null)
         {
@@ -1173,6 +1321,14 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             {
                 pnlSaveGameOverlay.Visible = false;
             }
+            if (pnlHRManager != null && pnlHRManager != exceptPanel && pnlHRManager.Visible)
+            {
+                pnlHRManager.Visible = false;
+            }
+            if (pnlStockMarketOverlay != null  && pnlStockMarketOverlay  != exceptPanel) pnlStockMarketOverlay.Visible  = false;
+            if (pnlBankingOverlay != null       && pnlBankingOverlay      != exceptPanel) pnlBankingOverlay.Visible      = false;
+            if (pnlMarketReportOverlay != null  && pnlMarketReportOverlay != exceptPanel) pnlMarketReportOverlay.Visible = false;
+            if (pnlExecutivesOverlay != null    && pnlExecutivesOverlay   != exceptPanel) pnlExecutivesOverlay.Visible   = false;
         }
         private void CenterContextInspectorPanel()
         {
@@ -1195,7 +1351,7 @@ private void HideAllOverlays(Panel? exceptPanel = null)
 
         private void ShowContextInspector(Building building)
         {
-            // Jeśli zmieniamy budynek — wyczyść sekcję fabryki (może być nieaktualna)
+            // Jeśli zmieniamy budynek — wyczyść stare sekcje
             if (_inspectingBuilding != building)
             {
                 var oldSection = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
@@ -1205,6 +1361,13 @@ private void HideAllOverlays(Panel? exceptPanel = null)
                     oldSection.Dispose();
                 }
                 _activeRecipeComboBox = null;
+
+                var oldCoalSection = pnlContextInspector.Controls.Find("pnlCoalMineSection", false).FirstOrDefault();
+                if (oldCoalSection != null)
+                {
+                    pnlContextInspector.Controls.Remove(oldCoalSection);
+                    oldCoalSection.Dispose();
+                }
             }
 
             _inspectingBuilding = building;
@@ -1212,6 +1375,7 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             pnlContextInspector.BringToFront();
             CenterContextInspectorPanel();
             UpdateContextInspector();
+            ThemeManager.ApplyTheme(pnlContextInspector);
         }
 
         private void CloseContextInspector()
@@ -1235,6 +1399,20 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             // ──────────────────────────────────────────────
             if (_inspectingBuilding is RetailBuilding store && isPlayerOwned)
             {
+                var existingCoalPanel = pnlContextInspector.Controls.Find("pnlCoalMineSection", false).FirstOrDefault();
+                if (existingCoalPanel != null)
+                {
+                    pnlContextInspector.Controls.Remove(existingCoalPanel);
+                    existingCoalPanel.Dispose();
+                }
+                var existingFactoryPanel = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
+                if (existingFactoryPanel != null)
+                {
+                    pnlContextInspector.Controls.Remove(existingFactoryPanel);
+                    existingFactoryPanel.Dispose();
+                }
+                _activeRecipeComboBox = null;
+
                 CenterContextInspectorPanel();
 
                 btnCtxCenter.Location = new Point(20, 90);
@@ -1269,6 +1447,13 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             // ──────────────────────────────────────────────
             if (_inspectingBuilding is FactoryBuilding factory && isPlayerOwned)
             {
+                var existingCoalPanel = pnlContextInspector.Controls.Find("pnlCoalMineSection", false).FirstOrDefault();
+                if (existingCoalPanel != null)
+                {
+                    pnlContextInspector.Controls.Remove(existingCoalPanel);
+                    existingCoalPanel.Dispose();
+                }
+
                 CenterContextInspectorPanel();
 
                 btnCtxCenter.Location = new Point(20, 150);
@@ -1291,19 +1476,92 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             }
 
             // ──────────────────────────────────────────────
+            //  KOPALNIA WĘGLA: Specjalny tryb inspektora z zatrudnieniem i poziomem
+            // ──────────────────────────────────────────────
+            if (_inspectingBuilding is CoalMine mine && isPlayerOwned)
+            {
+                var existingFactoryPanel = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
+                if (existingFactoryPanel != null)
+                {
+                    pnlContextInspector.Controls.Remove(existingFactoryPanel);
+                    existingFactoryPanel.Dispose();
+                }
+                _activeRecipeComboBox = null;
+
+                CenterContextInspectorPanel();
+
+                btnCtxCenter.Location = new Point(20, 210);
+                btnCtxCenter.Size = new Size(160, 22);
+                btnCtxMarket.Location = new Point(190, 210);
+                btnCtxMarket.Size = new Size(160, 22);
+
+                lblContextInv.Location = new Point(360, 90);
+                if (pnlContextInvBars != null)
+                {
+                    pnlContextInvBars.Location = new Point(360, 110);
+                    pnlContextInvBars.Size = new Size(pnlContextInspector.Width - 380, pnlContextInspector.Height - 130);
+                }
+
+                btnCtxCenter.Visible = true;
+                btnCtxMarket.Visible = true;
+
+                UpdateCoalMineInspector(mine);
+            }
+            else if (_inspectingBuilding is RNDCenter rndCenter)
+            {
+                CenterContextInspectorPanel();
+
+                // Cleanup existing
+                var existingRNDPanel = pnlContextInspector.Controls.Find("pnlRNDSection", false).FirstOrDefault();
+                if (existingRNDPanel != null)
+                {
+                    pnlContextInspector.Controls.Remove(existingRNDPanel);
+                    existingRNDPanel.Dispose();
+                }
+                
+                var existingFactoryPanelStandard2 = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
+                if (existingFactoryPanelStandard2 != null)
+                {
+                    pnlContextInspector.Controls.Remove(existingFactoryPanelStandard2);
+                    existingFactoryPanelStandard2.Dispose();
+                }
+
+                btnCtxCenter.Visible = false;
+                btnCtxMarket.Visible = false;
+                lblContextInv.Visible = false;
+                if (pnlContextInvBars != null) pnlContextInvBars.Visible = false;
+
+                UpdateRNDInspector(rndCenter);
+                return;
+            }
+            // ──────────────────────────────────────────────
             //  STANDARDOWY Inspektor (Extractory, Magazyny)
             // ──────────────────────────────────────────────
             CenterContextInspectorPanel();
 
-            // Usuń kontrolki fabryki jeśli były wcześniej
-            var existingFactoryPanel = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
-            if (existingFactoryPanel != null)
+            var existingFactoryPanelStandard = pnlContextInspector.Controls.Find("pnlFactorySection", false).FirstOrDefault();
+            if (existingFactoryPanelStandard != null)
             {
-                pnlContextInspector.Controls.Remove(existingFactoryPanel);
-                existingFactoryPanel.Dispose();
+                pnlContextInspector.Controls.Remove(existingFactoryPanelStandard);
+                existingFactoryPanelStandard.Dispose();
             }
             _activeRecipeComboBox = null;
-            // Przywróć standardowe pozycje (dla okna 60%)
+
+            var existingCoalPanelStandard = pnlContextInspector.Controls.Find("pnlCoalMineSection", false).FirstOrDefault();
+            if (existingCoalPanelStandard != null)
+            if (existingCoalPanelStandard != null)
+            {
+                pnlContextInspector.Controls.Remove(existingCoalPanelStandard);
+                existingCoalPanelStandard.Dispose();
+            }
+
+            var existingRNDPanelStandard = pnlContextInspector.Controls.Find("pnlRNDSection", false).FirstOrDefault();
+            if (existingRNDPanelStandard != null)
+            {
+                pnlContextInspector.Controls.Remove(existingRNDPanelStandard);
+                existingRNDPanelStandard.Dispose();
+            }
+
             btnCtxCenter.Location = new Point(20, 90);
             btnCtxCenter.Size = new Size(160, 22);
             btnCtxMarket.Location = new Point(190, 90);
@@ -1337,7 +1595,7 @@ private void HideAllOverlays(Panel? exceptPanel = null)
                 }
                 else if (_inspectingBuilding is WarehouseBuilding)
                 {
-                    int totalStock = _inspectingBuilding.GetTotalStock();
+                    decimal totalStock = _inspectingBuilding.GetTotalStock();
                     int cap = _inspectingBuilding.WarehouseCapacity;
                     utilization = cap > 0 ? (int)((double)totalStock / cap * 100) : 0;
                     utilText = $"Zapełnienie: {utilization}%";
@@ -1357,7 +1615,7 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             pnlContextUtilProgressFg.Width = (int)((utilization / 100.0) * pnlContextUtilProgressBg.Width);
 
             // 2. Inventory Status
-            int currentStock = _inspectingBuilding.GetTotalStock();
+            decimal currentStock = _inspectingBuilding.GetTotalStock();
             int maxStock = _inspectingBuilding.WarehouseCapacity;
             lblContextInv.Text = $"Stan Magazynu: {currentStock} / {maxStock} szt.";
 
@@ -1402,7 +1660,7 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             pnlContextUtilProgressFg.BackColor = stateColor;
 
             // ── Magazyn ──
-            int currentStock = factory.GetTotalStock();
+            decimal currentStock = factory.GetTotalStock();
             int maxStock = factory.WarehouseCapacity;
             lblContextInv.Text = $"Magazyn: {currentStock} / {maxStock} szt.";
             RenderInventoryBars(factory);
@@ -1515,6 +1773,344 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             lblContextTitle.Text = $"{factory.Name} (Gracz)  —  {cycleInfo}";
         }
 
+        private void UpdateRNDInspector(RNDCenter rnd)
+        {
+            var oldSection = pnlContextInspector.Controls.Find("pnlRNDSection", false).FirstOrDefault();
+            bool needsRebuild = oldSection == null;
+
+            if (needsRebuild)
+            {
+                if (oldSection != null)
+                {
+                    pnlContextInspector.Controls.Remove(oldSection);
+                    oldSection.Dispose();
+                }
+
+                Panel pnlRNDSection = new Panel();
+                pnlRNDSection.Name = "pnlRNDSection";
+                pnlRNDSection.Location = new Point(15, 90);
+                pnlRNDSection.Size = new Size(330, 150);
+                pnlRNDSection.BackColor = Color.Transparent;
+
+                Label lblProjectHeader = new Label();
+                lblProjectHeader.Text = "Projekt Badawczy:";
+                lblProjectHeader.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+                lblProjectHeader.ForeColor = Color.LightGray;
+                lblProjectHeader.Location = new Point(0, 0);
+                lblProjectHeader.AutoSize = true;
+                pnlRNDSection.Controls.Add(lblProjectHeader);
+
+                ComboBox cmbProjects = new ComboBox();
+                cmbProjects.Name = "cmbProjects";
+                cmbProjects.DropDownStyle = ComboBoxStyle.DropDownList;
+                cmbProjects.Location = new Point(0, 20);
+                cmbProjects.Size = new Size(200, 25);
+                cmbProjects.BackColor = Color.FromArgb(45, 45, 45);
+                cmbProjects.ForeColor = Color.White;
+                cmbProjects.FlatStyle = FlatStyle.Flat;
+
+                cmbProjects.Items.Add("Brak");
+                cmbProjects.Items.Add("Mleko");
+                cmbProjects.Items.Add("Mięso");
+                cmbProjects.Items.Add("Ser");
+                cmbProjects.Items.Add("Węgiel");
+                cmbProjects.Items.Add("Ruda Miedzi");
+                cmbProjects.Items.Add("Miedź");
+
+                cmbProjects.SelectedIndex = 0;
+                if (!string.IsNullOrEmpty(rnd.ActiveResearchProject))
+                {
+                    if (cmbProjects.Items.Contains(rnd.ActiveResearchProject))
+                        cmbProjects.SelectedItem = rnd.ActiveResearchProject;
+                }
+
+                cmbProjects.SelectedIndexChanged += (s, e) =>
+                {
+                    if (cmbProjects.SelectedIndex > 0)
+                    {
+                        rnd.SetResearchProject(cmbProjects.SelectedItem.ToString(), 24 * 30); // 30 dni
+                    }
+                    else
+                    {
+                        rnd.SetResearchProject(null, 0);
+                    }
+                    UpdateContextInspector(); // Refresh UI
+                };
+                pnlRNDSection.Controls.Add(cmbProjects);
+
+                Label lblTechLvl = new Label();
+                lblTechLvl.Name = "lblTechLvl";
+                lblTechLvl.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+                lblTechLvl.ForeColor = Color.Cyan;
+                lblTechLvl.Location = new Point(210, 22);
+                lblTechLvl.Size = new Size(120, 25);
+                pnlRNDSection.Controls.Add(lblTechLvl);
+
+                Label lblProgressLabel = new Label();
+                lblProgressLabel.Text = "Postęp Badań:";
+                lblProgressLabel.Font = new Font("Segoe UI", 8, FontStyle.Regular);
+                lblProgressLabel.ForeColor = Color.LightGray;
+                lblProgressLabel.Location = new Point(0, 60);
+                lblProgressLabel.AutoSize = true;
+                pnlRNDSection.Controls.Add(lblProgressLabel);
+
+                Panel pnlProgressBg = new Panel();
+                pnlProgressBg.Name = "pnlProgressBg";
+                pnlProgressBg.BackColor = Color.FromArgb(40, 40, 40);
+                pnlProgressBg.Location = new Point(0, 80);
+                pnlProgressBg.Size = new Size(330, 20);
+                pnlRNDSection.Controls.Add(pnlProgressBg);
+
+                Panel pnlProgressFg = new Panel();
+                pnlProgressFg.Name = "pnlProgressFg";
+                pnlProgressFg.BackColor = Color.FromArgb(200, 100, 250);
+                pnlProgressFg.Location = new Point(0, 0);
+                pnlProgressFg.Size = new Size(0, 20);
+                pnlProgressBg.Controls.Add(pnlProgressFg);
+
+                pnlContextInspector.Controls.Add(pnlRNDSection);
+            }
+
+            var currentSection = pnlContextInspector.Controls.Find("pnlRNDSection", false).FirstOrDefault() as Panel;
+            if (currentSection != null)
+            {
+                var cmb = currentSection.Controls.Find("cmbProjects", false).FirstOrDefault() as ComboBox;
+                var lblTechLvl = currentSection.Controls.Find("lblTechLvl", false).FirstOrDefault() as Label;
+                var pnlBg = currentSection.Controls.Find("pnlProgressBg", false).FirstOrDefault() as Panel;
+                
+                if (cmb != null && lblTechLvl != null && pnlBg != null)
+                {
+                    string selectedProj = rnd.ActiveResearchProject;
+                    if (string.IsNullOrEmpty(selectedProj))
+                    {
+                        lblTechLvl.Text = "";
+                    }
+                    else
+                    {
+                        float currentTech = _company != null && _company.TechLevels.ContainsKey(selectedProj) ? _company.TechLevels[selectedProj] : 0f;
+                        lblTechLvl.Text = $"Tech: {currentTech:F0}";
+                    }
+
+                    var pnlFg = pnlBg.Controls.Find("pnlProgressFg", false).FirstOrDefault() as Panel;
+                    if (pnlFg != null)
+                    {
+                        pnlFg.Width = (int)(rnd.ProgressNormalized * pnlBg.Width);
+                    }
+                }
+            }
+
+            string utilText = string.IsNullOrEmpty(rnd.ActiveResearchProject) ? "Status: Bezczynny" : "Status: W trakcie badań";
+            lblContextUtilization.Text = utilText;
+            lblContextUtilization.ForeColor = string.IsNullOrEmpty(rnd.ActiveResearchProject) ? Color.Gray : Color.FromArgb(200, 100, 250);
+            
+            pnlContextUtilProgressFg.Width = (int)(rnd.ProgressNormalized * pnlContextUtilProgressBg.Width);
+            pnlContextUtilProgressFg.BackColor = Color.FromArgb(200, 100, 250);
+            
+            decimal pnlValue = _company != null ? _company.Engine.CalculateFacilityMonthlyPnL(rnd.FacilityId) : 0m;
+            lblContextPnL.Text = $"Wynik (P&L): {pnlValue:C}";
+            lblContextPnL.ForeColor = pnlValue >= 0 ? Color.FromArgb(100, 220, 100) : Color.FromArgb(240, 80, 80);
+        }
+
+        private void UpdateCoalMineInspector(CoalMine mine)
+        {
+            // ── Sekcja kopalni (TrackBar + informacje o poziomie i pracownikach) ──
+            // Używamy Panel o nazwie "pnlCoalMineSection" — usuwamy stary i tworzymy nowy przy zmianie budynku
+            var oldSection = pnlContextInspector.Controls.Find("pnlCoalMineSection", false).FirstOrDefault();
+            bool needsRebuild = oldSection == null;
+
+            if (needsRebuild)
+            {
+                if (oldSection != null)
+                {
+                    pnlContextInspector.Controls.Remove(oldSection);
+                    oldSection.Dispose();
+                }
+
+                Panel pnlCoalMineSection = new Panel();
+                pnlCoalMineSection.Name = "pnlCoalMineSection";
+                pnlCoalMineSection.Location = new Point(15, 92);
+                pnlCoalMineSection.Size = new Size(330, 115);
+                pnlCoalMineSection.BackColor = Color.Transparent;
+
+                // Level label
+                Label lblLevel = new Label();
+                lblLevel.Name = "lblLevel";
+                lblLevel.Text = $"Poziom: {mine.Level}";
+                lblLevel.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+                lblLevel.ForeColor = Color.White;
+                lblLevel.Location = new Point(0, 2);
+                lblLevel.Size = new Size(110, 20);
+                pnlCoalMineSection.Controls.Add(lblLevel);
+
+                // Upgrade Button
+                Button btnUpgrade = new Button();
+                btnUpgrade.Name = "btnUpgrade";
+                btnUpgrade.Text = mine.Level == 1 ? "Ulepsz do Poz. 2 ($15k)" : "Maksymalny Poziom";
+                btnUpgrade.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
+                btnUpgrade.Size = new Size(180, 22);
+                btnUpgrade.Location = new Point(120, 0);
+                btnUpgrade.FlatStyle = FlatStyle.Flat;
+                btnUpgrade.FlatAppearance.BorderSize = 1;
+                btnUpgrade.FlatAppearance.BorderColor = Color.FromArgb(50, 150, 250);
+                btnUpgrade.BackColor = Color.FromArgb(35, 35, 35);
+                btnUpgrade.ForeColor = Color.FromArgb(50, 150, 250);
+                btnUpgrade.Cursor = Cursors.Hand;
+                btnUpgrade.Enabled = mine.Level == 1 && _company != null && _company.Balance >= 15000m;
+                btnUpgrade.Click += (s, e) =>
+                {
+                    if (mine.Level == 1 && _company != null && _company.Balance >= 15000m)
+                    {
+                        _company.Balance -= 15000m;
+                        mine.Level = 2;
+                        int day = _gameManager != null ? _gameManager.CurrentDay : 1;
+                        int hour = _gameManager != null ? _gameManager.CurrentHour : 0;
+                        _company.AddTransaction(day, hour, "Modernizacja kopalni do poziomu 2", -15000m, "Inwestycje", mine.FacilityId);
+                        UpdateContextInspector();
+                    }
+                };
+                pnlCoalMineSection.Controls.Add(btnUpgrade);
+
+                // Employees count Label
+                Label lblEmployees = new Label();
+                lblEmployees.Name = "lblEmployees";
+                lblEmployees.Text = $"Zatrudnienie: {mine.CurrentEmployees} / {mine.MaxEmployees} os.";
+                lblEmployees.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+                lblEmployees.ForeColor = Color.DarkGray;
+                lblEmployees.Location = new Point(0, 28);
+                lblEmployees.Size = new Size(300, 18);
+                pnlCoalMineSection.Controls.Add(lblEmployees);
+
+                // TrackBar for Employees
+                TrackBar tbEmployees = new TrackBar();
+                tbEmployees.Name = "tbEmployees";
+                tbEmployees.Minimum = 0;
+                tbEmployees.Maximum = mine.MaxEmployees;
+                tbEmployees.Value = mine.CurrentEmployees;
+                tbEmployees.TickFrequency = mine.MaxEmployees / 10;
+                tbEmployees.Location = new Point(0, 48);
+                tbEmployees.Size = new Size(300, 30);
+                tbEmployees.BackColor = Color.FromArgb(25, 25, 25);
+                tbEmployees.Scroll += (s, e) =>
+                {
+                    mine.CurrentEmployees = tbEmployees.Value;
+                    var lblEmp = pnlCoalMineSection.Controls.Find("lblEmployees", false).FirstOrDefault() as Label;
+                    if (lblEmp != null)
+                        lblEmp.Text = $"Zatrudnienie: {mine.CurrentEmployees} / {mine.MaxEmployees} os.";
+
+                    var lblW = pnlCoalMineSection.Controls.Find("lblWage", false).FirstOrDefault() as Label;
+                    if (lblW != null)
+                        lblW.Text = $"Koszty płac: {mine.CurrentEmployees * 81.25:N0} $/h";
+
+                    var lblProd = pnlCoalMineSection.Controls.Find("lblProduction", false).FirstOrDefault() as Label;
+                    if (lblProd != null)
+                    {
+                        double pRate = mine.CurrentEmployees * 0.085 * mine.LevelMultiplier * mine.TechnologyMultiplier;
+                        lblProd.Text = $"Wydajność: {pRate:N1} t/h";
+                    }
+                };
+                pnlCoalMineSection.Controls.Add(tbEmployees);
+
+                // Hourly wages label
+                Label lblWage = new Label();
+                lblWage.Name = "lblWage";
+                lblWage.Text = $"Koszty płac: {mine.CurrentEmployees * 81.25:N0} $/h";
+                lblWage.Font = new Font("Segoe UI", 8f);
+                lblWage.ForeColor = Color.LightCoral;
+                lblWage.Location = new Point(0, 80);
+                lblWage.Size = new Size(300, 16);
+                pnlCoalMineSection.Controls.Add(lblWage);
+
+                // Hourly production rate label
+                Label lblProduction = new Label();
+                lblProduction.Name = "lblProduction";
+                double prodRate = mine.CurrentEmployees * 0.085 * mine.LevelMultiplier * mine.TechnologyMultiplier;
+                lblProduction.Text = $"Wydajność: {prodRate:N1} t/h";
+                lblProduction.Font = new Font("Segoe UI", 8f);
+                lblProduction.ForeColor = Color.LightGreen;
+                lblProduction.Location = new Point(0, 96);
+                lblProduction.Size = new Size(300, 16);
+                pnlCoalMineSection.Controls.Add(lblProduction);
+
+                pnlContextInspector.Controls.Add(pnlCoalMineSection);
+                pnlContextInspector.Visible = true;
+            }
+            else
+            {
+                var section = pnlContextInspector.Controls.Find("pnlCoalMineSection", false).FirstOrDefault() as Panel;
+                if (section != null)
+                {
+                    var lblLevel = section.Controls.Find("lblLevel", false).FirstOrDefault() as Label;
+                    if (lblLevel != null)
+                        lblLevel.Text = $"Poziom: {mine.Level}";
+
+                    var btnUpgrade = section.Controls.Find("btnUpgrade", false).FirstOrDefault() as Button;
+                    if (btnUpgrade != null)
+                    {
+                        btnUpgrade.Text = mine.Level == 1 ? "Ulepsz do Poz. 2 ($15k)" : "Maksymalny Poziom";
+                        btnUpgrade.Enabled = mine.Level == 1 && _company != null && _company.Balance >= 15000m;
+                    }
+
+                    var lblEmployees = section.Controls.Find("lblEmployees", false).FirstOrDefault() as Label;
+                    if (lblEmployees != null)
+                        lblEmployees.Text = $"Zatrudnienie: {mine.CurrentEmployees} / {mine.MaxEmployees} os.";
+
+                    var tbEmployees = section.Controls.Find("tbEmployees", false).FirstOrDefault() as TrackBar;
+                    if (tbEmployees != null)
+                    {
+                        tbEmployees.Maximum = mine.MaxEmployees;
+                        tbEmployees.Value = mine.CurrentEmployees;
+                        tbEmployees.TickFrequency = mine.MaxEmployees / 10;
+                    }
+
+                    var lblWage = section.Controls.Find("lblWage", false).FirstOrDefault() as Label;
+                    if (lblWage != null)
+                        lblWage.Text = $"Koszty płac: {mine.CurrentEmployees * 81.25:N0} $/h";
+
+                    var lblProduction = section.Controls.Find("lblProduction", false).FirstOrDefault() as Label;
+                    if (lblProduction != null)
+                    {
+                        double pRate = mine.CurrentEmployees * 0.085 * mine.LevelMultiplier * mine.TechnologyMultiplier;
+                        lblProduction.Text = $"Wydajność: {pRate:N1} t/h";
+                    }
+                }
+            }
+
+            // ── Stan (wskaźnik kolorowy) ──
+            int utilization = 100;
+            string utilText = "Moc: 100% (Praca)";
+            if (mine.GetTotalStock() >= mine.WarehouseCapacity)
+            {
+                utilization = 0;
+                utilText = "Moc: 0% (Magazyn Pełny)";
+            }
+            else if (_company != null && _company.Balance < (mine.CurrentEmployees * 81.25m + mine.MaintenanceCost / 24m))
+            {
+                utilization = 0;
+                utilText = "Moc: 0% (Brak Środków)";
+            }
+            else if (mine.CurrentEmployees == 0)
+            {
+                utilization = 0;
+                utilText = "Moc: 0% (Brak Pracowników)";
+            }
+
+            lblContextUtilization.Text = utilText;
+            pnlContextUtilProgressFg.Width = (int)((utilization / 100.0) * pnlContextUtilProgressBg.Width);
+
+            // ── Magazyn ──
+            decimal currentStock = mine.GetTotalStock();
+            int maxStock = mine.WarehouseCapacity;
+            lblContextInv.Text = $"Stan Magazynu: {currentStock} / {maxStock} szt.";
+            RenderInventoryBars(mine);
+
+            // ── Wynik finansowy (P&L) ──
+            decimal pnlValue = _company != null
+                ? _company.Engine.CalculateFacilityMonthlyPnL(mine.FacilityId)
+                : 0m;
+            lblContextPnL.Text = $"Wynik (P&L): {pnlValue:C}";
+            lblContextPnL.ForeColor = pnlValue >= 0 ? Color.FromArgb(100, 220, 100) : Color.FromArgb(240, 80, 80);
+        }
+
         /// <summary>Renderuje fill-bary dla każdego surowca w magazynie budynku.</summary>
         private void RenderInventoryBars(Building building)
         {
@@ -1526,7 +2122,7 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             var resources = building.Warehouse.ToList();
             
             // Check if we need to rebuild controls
-            int expectedControls = isPlayerOwned ? 7 : 3;
+            int expectedControls = isPlayerOwned ? 8 : 3;
             bool needsRebuild = pnlContextInvBars.Controls.Count != resources.Count * expectedControls;
 
             if (needsRebuild)
@@ -1627,6 +2223,21 @@ private void HideAllOverlays(Panel? exceptPanel = null)
                             }
                         };
                         pnlContextInvBars.Controls.Add(chkAuto);
+
+                        Button btnQuickRoute = new Button();
+                        btnQuickRoute.Name = $"btnQuickRoute_{resName}";
+                        btnQuickRoute.Text = "🚚";
+                        btnQuickRoute.Location = new Point(475, barY - 1);
+                        btnQuickRoute.Size = new Size(24, 22);
+                        btnQuickRoute.FlatStyle = FlatStyle.Flat;
+                        btnQuickRoute.BackColor = Color.FromArgb(35, 35, 35);
+                        btnQuickRoute.ForeColor = Color.FromArgb(240, 180, 50);
+                        btnQuickRoute.Cursor = Cursors.Hand;
+                        btnQuickRoute.Click += (s, e) => {
+                            OpenLogisticsWithPrefills(building, resName);
+                        };
+                        _toolTip.SetToolTip(btnQuickRoute, "Szybkie tworzenie trasy dla tego surowca");
+                        pnlContextInvBars.Controls.Add(btnQuickRoute);
                     }
                     barY += 25;
                 }
@@ -1636,11 +2247,12 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             foreach (var kvp in resources)
             {
                 string resName = kvp.Key;
-                int qty = kvp.Value;
+                decimal qty = kvp.Value.Quantity;
+                decimal qlt = kvp.Value.Quality;
                 decimal price = building.ResourcePrices.ContainsKey(resName) ? building.ResourcePrices[resName] : 0m;
 
                 var lbl = pnlContextInvBars.Controls.Find($"lblRes_{resName}", false).FirstOrDefault() as Label;
-                if (lbl != null) lbl.Text = $"{resName}: {qty}";
+                if (lbl != null) lbl.Text = $"{resName}: {qty:F0} (Q:{qlt:F0})";
 
                 var pnlBg = pnlContextInvBars.Controls.Find($"pnlBg_{resName}", false).FirstOrDefault() as Panel;
                 if (pnlBg != null && pnlBg.Controls.Count > 0)
@@ -1960,6 +2572,8 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             lblFooter.Location = new Point(20, 445);
             lblFooter.Size = new Size(400, 15);
             pnlFinanceReport.Controls.Add(lblFooter);
+
+            ThemeManager.ApplyTheme(pnlFinanceReport);
         }
 
         private void InitializeNewGameSettingsPanel()
@@ -2642,6 +3256,10 @@ private void HideAllOverlays(Panel? exceptPanel = null)
                     {
                         building = new CopperMine(bData.Name);
                     }
+                    else if (bData.Type == "RNDCenter")
+                    {
+                        building = new RNDCenter(bData.Name);
+                    }
                     else if (bData.Type == "FoodWarehouse")
                     {
                         building = new WarehouseBuilding(bData.Name, ResourceCategory.Food);
@@ -2665,7 +3283,7 @@ private void HideAllOverlays(Panel? exceptPanel = null)
                     {
                         if (building.Warehouse.ContainsKey(item.Key))
                         {
-                            building.Warehouse[item.Key] = item.Value;
+                            building.Warehouse[item.Key] = item.Batch;
                         }
                     }
 
@@ -2905,8 +3523,43 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             }
             else
             {
+                _prefillSource = null;
+                _prefillDest = null;
+                _prefillResource = string.Empty;
                 OpenLogisticsManagerGlobal();
             }
+        }
+
+        private void OpenLogisticsWithPrefills(Building building, string resourceName)
+        {
+            // Determine if the resource is an input or an output
+            bool isInput = false;
+            if (building is FactoryBuilding fb && fb.ActiveRecipe != null)
+            {
+                if (fb.ActiveRecipe.Inputs.ContainsKey(resourceName))
+                {
+                    isInput = true;
+                }
+            }
+            else if (building is RetailBuilding || building is WarehouseBuilding)
+            {
+                // Warehouses and Retail stores are consumers (destinations)
+                isInput = true;
+            }
+
+            if (isInput)
+            {
+                _prefillSource = null; // Default to Market
+                _prefillDest = building;
+            }
+            else
+            {
+                _prefillSource = building;
+                _prefillDest = null;
+            }
+            _prefillResource = resourceName;
+
+            OpenLogisticsManagerGlobal();
         }
 
         private void OpenLogisticsManagerGlobal()
@@ -3195,6 +3848,9 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             btnAddNewRoute.Click += (s, e) =>
             {
                 _editingRoute = null;
+                _prefillSource = null;
+                _prefillDest = null;
+                _prefillResource = string.Empty;
                 BuildLogisticsPanelGlobal();
             };
             pnlLogisticsManager.Controls.Add(btnAddNewRoute);
@@ -3482,9 +4138,9 @@ private void HideAllOverlays(Panel? exceptPanel = null)
                 decimal baseCost = config.BaseCostPerTrip;
                 decimal totalCost = baseCost + (numAmount.Value * unitCost);
 
-                lblCalculatedUnitCost.Text = $"Koszt jedn. (auto):\n{unitCost:F1} zł/szt. (Dyst: {dist:F1})";
-                lblOpexBase.Text = $"Koszt pojazdu (OPEX): {baseCost:F2} zł [Pojemność: {config.Capacity}]";
-                lblOpexTotal.Text = $"Szacowany koszt kursu: {totalCost:F2} zł";
+                lblCalculatedUnitCost.Text = $"Koszt jedn. (auto):\n${unitCost:F1}/szt. (Dyst: {dist:F1})";
+                lblOpexBase.Text = $"Koszt pojazdu (OPEX): ${baseCost:F2} [Pojemność: {config.Capacity}]";
+                lblOpexTotal.Text = $"Szacowany koszt kursu: ${totalCost:F2}";
             };
 
             cmbVehicle.SelectedIndexChanged += (s, e) => updateOpexPreview();
@@ -3701,12 +4357,58 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             }
             else
             {
-                // Domyślne wartości dla kreatora nowej trasy
-                if (cmbSource.Items.Count > 0) cmbSource.SelectedIndex = 0;
-                if (cmbDest.Items.Count > 0) cmbDest.SelectedIndex = 0;
+                // Domyślne wartości lub wartości z szybkiego tworzenia (prefill)
+                if (_prefillSource != null)
+                {
+                    for (int i = 1; i < cmbSource.Items.Count; i++)
+                    {
+                        if (cmbSource.Items[i] is Building b && b.FacilityId == _prefillSource.FacilityId)
+                        {
+                            cmbSource.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    if (cmbSource.Items.Count > 0) cmbSource.SelectedIndex = 0;
+                }
+
+                if (_prefillDest != null)
+                {
+                    for (int i = 0; i < cmbDest.Items.Count; i++)
+                    {
+                        if (cmbDest.Items[i] is Building b && b.FacilityId == _prefillDest.FacilityId)
+                        {
+                            cmbDest.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    if (cmbDest.Items.Count > 0) cmbDest.SelectedIndex = 0;
+                }
+
                 updateResources();
+
+                if (!string.IsNullOrEmpty(_prefillResource))
+                {
+                    for (int i = 0; i < cmbResource.Items.Count; i++)
+                    {
+                        var item = cmbResource.Items[i];
+                        if (item != null && item.ToString() == _prefillResource)
+                        {
+                            cmbResource.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+
                 updateOpexPreview();
             }
+
+            ThemeManager.ApplyTheme(pnlLogisticsManager);
         }
 
         // ───────────────────────────────────────────────────────────────────
@@ -3899,6 +4601,8 @@ private void HideAllOverlays(Panel? exceptPanel = null)
                 Size = new Size(570, 36)
             };
             pnlMarketBuyer.Controls.Add(lblInfo);
+
+            ThemeManager.ApplyTheme(pnlMarketBuyer);
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -4258,7 +4962,7 @@ private void HideAllOverlays(Panel? exceptPanel = null)
 
             parent.Controls.Add(new Label
             {
-                Text = "lub zł/szt.:",
+                Text = "lub $/szt.:",
                 Font = new Font("Segoe UI", 8), ForeColor = Color.Gray,
                 Location = new Point(167, y + 3), Size = new Size(72, 16)
             });
@@ -4349,6 +5053,554 @@ private void HideAllOverlays(Panel? exceptPanel = null)
             CenterEscapeMenuPanel();
             CenterContextInspectorPanel();
             CenterFinanceReportPanel();
+            CenterPanel(pnlHRManager);
+        }
+
+        private void InitializeHRManagerPanel()
+        {
+            pnlHRManager = new Panel();
+            pnlHRManager.Size = new Size(850, 580);
+            pnlHRManager.BackColor = Color.FromArgb(22, 22, 22);
+            pnlHRManager.BorderStyle = BorderStyle.FixedSingle;
+            pnlHRManager.Visible = false;
+            pnlGameBoard.Controls.Add(pnlHRManager);
+            pnlHRManager.BringToFront();
+        }
+
+        private void ToggleHRManagerPanel()
+        {
+            if (_gameManager == null || _company == null) return;
+
+            if (pnlHRManager.Visible)
+            {
+                pnlHRManager.Visible = false;
+                if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
+                    _gameTimer.Start();
+            }
+            else
+            {
+                OpenHRManagerGlobal();
+            }
+        }
+
+        private void OpenHRManagerGlobal()
+        {
+            if (_gameManager == null || _company == null) return;
+
+            _gameTimer.Stop();
+            HideAllOverlays(pnlHRManager);
+            BuildHRPanelGlobal();
+            CenterPanel(pnlHRManager);
+            pnlHRManager.Visible = true;
+            pnlHRManager.BringToFront();
+        }
+
+        private void BuildHRPanelGlobal()
+        {
+            if (_gameManager == null) return;
+            pnlHRManager.Controls.Clear();
+
+            // Górna linia akcentu (fioletowa dla HR)
+            var topLine = new Panel { Dock = DockStyle.Top, Height = 3, BackColor = Color.FromArgb(220, 100, 220) };
+            pnlHRManager.Controls.Add(topLine);
+
+            var lblTitle = new Label
+            {
+                Text = "👥  ZARZĄDZANIE KADRAMI (HR)",
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                ForeColor = Color.FromArgb(220, 100, 220),
+                Location = new Point(15, 15),
+                Size = new Size(400, 24)
+            };
+            pnlHRManager.Controls.Add(lblTitle);
+
+            // Przycisk zamknij
+            var btnClose = new Button
+            {
+                Text = "✕",
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                Size = new Size(32, 28),
+                Location = new Point(pnlHRManager.Width - 47, 10),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.White,
+                Cursor = Cursors.Hand
+            };
+            btnClose.FlatAppearance.BorderSize = 0;
+            btnClose.Click += (s, e) => {
+                pnlHRManager.Visible = false;
+                if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
+                    _gameTimer.Start();
+            };
+            pnlHRManager.Controls.Add(btnClose);
+
+            // Pobierz dane HR z managera
+            var hrManager = _gameManager.HR;
+            var employees = hrManager.Employees;
+            var candidates = hrManager.CandidatePool;
+
+            // 1. STATYSTYKI SUMARYCZNE (Górny panel statystyk)
+            decimal totalPayroll = hrManager.CalculateTotalMonthlyPayroll();
+            float avgSatisfaction = employees.Count > 0 ? employees.Average(e => e.Satisfaction) : 0f;
+            float avgFatigue = employees.Count > 0 ? employees.Average(e => e.Fatigue) : 0f;
+            float avgEfficiency = employees.Count > 0 ? employees.Average(e => e.Efficiency) * 100f : 0f;
+
+            var pnlStats = new Panel
+            {
+                Location = new Point(15, 45),
+                Size = new Size(pnlHRManager.Width - 30, 45),
+                BackColor = Color.FromArgb(28, 28, 28),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            pnlHRManager.Controls.Add(pnlStats);
+
+            var lblStatsText = new Label
+            {
+                Text = $"Liczba pracowników: {employees.Count}   |   Miesięczny fundusz płac: ${totalPayroll:N0}   |   Średnie zadowolenie: {avgSatisfaction:F1}%   |   Średnie zmęczenie: {avgFatigue:F1}%   |   Średnia efektywność: {avgEfficiency:F1}%",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(200, 200, 200),
+                Location = new Point(10, 12),
+                Size = new Size(pnlStats.Width - 20, 20),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            pnlStats.Controls.Add(lblStatsText);
+
+            // 2. LEWA KOLUMNA: Lista pracowników
+            var lblEmployeesHeader = new Label
+            {
+                Text = $"ZATRUDNIENI PRACOWNICY ({employees.Count})",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Color.DarkGray,
+                Location = new Point(15, 105),
+                Size = new Size(490, 20)
+            };
+            pnlHRManager.Controls.Add(lblEmployeesHeader);
+
+            var pnlEmployeesList = new Panel
+            {
+                Location = new Point(15, 125),
+                Size = new Size(490, 435),
+                AutoScroll = true,
+                BackColor = Color.FromArgb(16, 16, 16),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            pnlHRManager.Controls.Add(pnlEmployeesList);
+
+            int empY = 5;
+            if (employees.Count == 0)
+            {
+                var lblEmpty = new Label
+                {
+                    Text = "Brak zatrudnionych pracowników.\nZrekrutuj kandydatów z panelu po prawej stronie.",
+                    Font = new Font("Segoe UI", 9, FontStyle.Italic),
+                    ForeColor = Color.FromArgb(100, 100, 100),
+                    Location = new Point(10, 20),
+                    Size = new Size(470, 50),
+                    TextAlign = ContentAlignment.TopCenter
+                };
+                pnlEmployeesList.Controls.Add(lblEmpty);
+            }
+            else
+            {
+                foreach (var emp in employees)
+                {
+                    var pnlRow = new Panel
+                    {
+                        Location = new Point(5, empY),
+                        Size = new Size(pnlEmployeesList.Width - 28, 75),
+                        BackColor = Color.FromArgb(25, 25, 25),
+                        BorderStyle = BorderStyle.FixedSingle
+                    };
+                    pnlEmployeesList.Controls.Add(pnlRow);
+
+                    var lblEmpInfo = new Label
+                    {
+                        Text = $"{emp.Name}  ({emp.Role.Title})",
+                        Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                        ForeColor = Color.FromArgb(220, 220, 220),
+                        Location = new Point(10, 8),
+                        Size = new Size(320, 18)
+                    };
+                    pnlRow.Controls.Add(lblEmpInfo);
+
+                    var lblEmpStats = new Label
+                    {
+                        Text = $"Dział: {emp.Role.Type}   Morale: {emp.Satisfaction:F0}%   Zmęczenie: {emp.Fatigue:F0}%   Wydajność: {emp.Efficiency * 100f:F0}%",
+                        Font = new Font("Segoe UI", 8f),
+                        ForeColor = Color.Gray,
+                        Location = new Point(10, 28),
+                        Size = new Size(340, 16)
+                    };
+                    pnlRow.Controls.Add(lblEmpStats);
+
+                    var lblEmpSalary = new Label
+                    {
+                        Text = $"Płaca: ${emp.MonthlySalary:N0} / mies. (Rynkowa: ${emp.Role.BaseMarketSalary:N0})",
+                        Font = new Font("Segoe UI", 8f, emp.IsPlanningToQuit ? FontStyle.Strikeout : FontStyle.Regular),
+                        ForeColor = emp.MonthlySalary < emp.Role.BaseMarketSalary ? Color.FromArgb(240, 120, 120) : Color.FromArgb(120, 240, 120),
+                        Location = new Point(10, 48),
+                        Size = new Size(260, 16)
+                    };
+                    pnlRow.Controls.Add(lblEmpSalary);
+
+                    if (emp.IsPlanningToQuit)
+                    {
+                        var lblQuitWarning = new Label
+                        {
+                            Text = "⚠️ Planuje odejść!",
+                            Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                            ForeColor = Color.FromArgb(244, 67, 54),
+                            Location = new Point(275, 48),
+                            Size = new Size(110, 16)
+                        };
+                        pnlRow.Controls.Add(lblQuitWarning);
+                    }
+
+                    // Przycisk zmniejszania płacy
+                    var btnSubSalary = new Button
+                    {
+                        Text = "-$500",
+                        Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                        Size = new Size(45, 20),
+                        Location = new Point(pnlRow.Width - 165, 45),
+                        FlatStyle = FlatStyle.Flat,
+                        BackColor = Color.FromArgb(50, 40, 40),
+                        ForeColor = Color.FromArgb(240, 120, 120),
+                        Cursor = Cursors.Hand
+                    };
+                    btnSubSalary.FlatAppearance.BorderSize = 0;
+                    btnSubSalary.Click += (s, e) => {
+                        emp.AdjustSalary(Math.Max(0, emp.MonthlySalary - 500));
+                        BuildHRPanelGlobal();
+                    };
+                    pnlRow.Controls.Add(btnSubSalary);
+
+                    // Przycisk zwiększania płacy
+                    var btnAddSalary = new Button
+                    {
+                        Text = "+$500",
+                        Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                        Size = new Size(45, 20),
+                        Location = new Point(pnlRow.Width - 115, 45),
+                        FlatStyle = FlatStyle.Flat,
+                        BackColor = Color.FromArgb(40, 50, 40),
+                        ForeColor = Color.FromArgb(120, 240, 120),
+                        Cursor = Cursors.Hand
+                    };
+                    btnAddSalary.FlatAppearance.BorderSize = 0;
+                    btnAddSalary.Click += (s, e) => {
+                        emp.AdjustSalary(emp.MonthlySalary + 500);
+                        BuildHRPanelGlobal();
+                    };
+                    pnlRow.Controls.Add(btnAddSalary);
+
+                    // Przycisk zwolnienia
+                    var btnFire = new Button
+                    {
+                        Text = "Zwolnij",
+                        Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                        Size = new Size(55, 26),
+                        Location = new Point(pnlRow.Width - 65, 10),
+                        FlatStyle = FlatStyle.Flat,
+                        BackColor = Color.FromArgb(60, 30, 30),
+                        ForeColor = Color.FromArgb(255, 100, 100),
+                        Cursor = Cursors.Hand
+                    };
+                    btnFire.FlatAppearance.BorderSize = 0;
+                    btnFire.Click += (s, e) => {
+                        var res = MessageBox.Show($"Czy na pewno chcesz zwolnić pracownika {emp.Name}?", "Potwierdzenie zwolnienia", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        if (res == DialogResult.Yes)
+                        {
+                            hrManager.FireEmployee(emp.Id);
+                            BuildHRPanelGlobal();
+                        }
+                    };
+                    pnlRow.Controls.Add(btnFire);
+
+                    empY += 80;
+                }
+            }
+
+            // 3. PRAWA KOLUMNA: Rekrutacja / Wolni kandydaci
+            var lblRecruitHeader = new Label
+            {
+                Text = "DOSTĘPNI KANDYDACI DO PRACY",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Color.DarkGray,
+                Location = new Point(520, 105),
+                Size = new Size(310, 20)
+            };
+            pnlHRManager.Controls.Add(lblRecruitHeader);
+
+            var pnlCandidatesList = new Panel
+            {
+                Location = new Point(520, 125),
+                Size = new Size(310, 385),
+                AutoScroll = true,
+                BackColor = Color.FromArgb(16, 16, 16),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            pnlHRManager.Controls.Add(pnlCandidatesList);
+
+            int candY = 5;
+            foreach (var cand in candidates)
+            {
+                var pnlRow = new Panel
+                {
+                    Location = new Point(5, candY),
+                    Size = new Size(pnlCandidatesList.Width - 28, 70),
+                    BackColor = Color.FromArgb(25, 25, 25),
+                    BorderStyle = BorderStyle.FixedSingle
+                };
+                pnlCandidatesList.Controls.Add(pnlRow);
+
+                var lblCandName = new Label
+                {
+                    Text = cand.Name,
+                    Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(220, 220, 220),
+                    Location = new Point(10, 6),
+                    Size = new Size(180, 18)
+                };
+                pnlRow.Controls.Add(lblCandName);
+
+                var lblCandRole = new Label
+                {
+                    Text = $"{cand.Role.Title} ({cand.Role.Type})",
+                    Font = new Font("Segoe UI", 8f),
+                    ForeColor = Color.Gray,
+                    Location = new Point(10, 24),
+                    Size = new Size(180, 16)
+                };
+                pnlRow.Controls.Add(lblCandRole);
+
+                var lblCandSalary = new Label
+                {
+                    Text = $"Żądanie: ${cand.MonthlySalary:N0}/m",
+                    Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(100, 180, 240),
+                    Location = new Point(10, 42),
+                    Size = new Size(180, 16)
+                };
+                pnlRow.Controls.Add(lblCandSalary);
+
+                var btnHire = new Button
+                {
+                    Text = "Zatrudnij",
+                    Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                    Size = new Size(75, 28),
+                    Location = new Point(pnlRow.Width - 85, 20),
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Color.FromArgb(30, 55, 30),
+                    ForeColor = Color.FromArgb(120, 240, 120),
+                    Cursor = Cursors.Hand
+                };
+                btnHire.FlatAppearance.BorderSize = 0;
+                btnHire.Click += (s, e) => {
+                    hrManager.HireEmployee(cand);
+                    BuildHRPanelGlobal();
+                };
+                pnlRow.Controls.Add(btnHire);
+
+                candY += 75;
+            }
+
+            // Przycisk ręcznego odświeżenia puli kandydatów (np. za opłatą $500)
+            var btnRefreshPool = new Button
+            {
+                Text = "🔄 Odśwież kandydatów (Koszt: $500)",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                Size = new Size(310, 35),
+                Location = new Point(520, 525),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(35, 35, 45),
+                ForeColor = Color.FromArgb(150, 150, 250),
+                Cursor = Cursors.Hand
+            };
+            btnRefreshPool.FlatAppearance.BorderSize = 1;
+            btnRefreshPool.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 150);
+            btnRefreshPool.Click += (s, e) => {
+                if (_company!.Balance >= 500m)
+                {
+                    _company.Balance -= 500m;
+                    _company.AddTransaction(_gameManager.CurrentDay, _gameManager.CurrentHour, "Opłata za rekrutację (odświeżenie)", -500m, "Utrzymanie");
+                    hrManager.RefreshCandidatePool();
+                    BuildHRPanelGlobal();
+                }
+                else
+                {
+                    MessageBox.Show("Brak wystarczających środków na rekrutację (wymagane $500).", "Błąd Rekrutacji", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            };
+            pnlHRManager.Controls.Add(btnRefreshPool);
+
+            ThemeManager.ApplyTheme(pnlHRManager);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  NOWE PANELE CAPITALISM LAB
+        // ═══════════════════════════════════════════════════════════════
+
+        private Panel CreateCapLabOverlay(int w, int h, string title, out Panel contentPanel)
+        {
+            var overlay = new Panel
+            {
+                Size = new Size(w, h),
+                BackColor = Color.FromArgb(24, 28, 36),
+                BorderStyle = BorderStyle.FixedSingle,
+                Visible = false
+            };
+
+            // Custom Title Bar
+            var titleBar = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 35,
+                BackColor = Color.FromArgb(44, 58, 76), // Slate Blue Header
+                ForeColor = Color.FromArgb(240, 244, 248),
+                Cursor = Cursors.SizeAll
+            };
+            overlay.Controls.Add(titleBar);
+
+            var lblTitle = new Label
+            {
+                Text = "  " + title,
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(245, 158, 11), // Złoty/bursztynowy akcent
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            titleBar.Controls.Add(lblTitle);
+
+            var btnClose = new Button
+            {
+                Text = "✕",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Width = 35,
+                Dock = DockStyle.Right,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(239, 68, 68), // Czerwień Close
+                ForeColor = Color.White,
+                Cursor = Cursors.Hand
+            };
+            btnClose.FlatAppearance.BorderSize = 0;
+            btnClose.Click += (s, e) =>
+            {
+                overlay.Visible = false;
+                if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
+                    _gameTimer.Start();
+            };
+            titleBar.Controls.Add(btnClose);
+
+            // Drag functionality
+            ThemeManager.MakeDraggable(titleBar, overlay);
+
+            // Content Panel (gdzie montowane są pod-formularze)
+            contentPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(32, 38, 48), // PanelBackground
+                Padding = new Padding(8)
+            };
+            overlay.Controls.Add(contentPanel);
+
+            // Upewniamy się, że panel zawartości jest pod paskiem tytułowym w kolejności z-order
+            contentPanel.SendToBack();
+
+            pnlGameBoard.Controls.Add(overlay);
+            overlay.BringToFront();
+            return overlay;
+        }
+
+        private void InitializeCapitalismLabPanels()
+        {
+            // Stock Market
+            pnlStockMarketOverlay = CreateCapLabOverlay(820, 600, "📈 NOTOWANIA GIEŁDOWE & PORTFEL", out var stockContent);
+            _stockMarketForm = new StockMarketForm { Dock = DockStyle.Fill };
+            stockContent.Controls.Add(_stockMarketForm);
+
+            // Banking
+            pnlBankingOverlay = CreateCapLabOverlay(700, 500, "🏦 USŁUGI BANKOWE & FINANSOWANIE", out var bankingContent);
+            _bankingForm = new BankingForm { Dock = DockStyle.Fill };
+            bankingContent.Controls.Add(_bankingForm);
+
+            // Market Report
+            pnlMarketReportOverlay = CreateCapLabOverlay(700, 700, "📊 ANALIZA RYNKU & MARKETING", out var marketContent);
+            _marketReportForm = new MarketReportForm { Dock = DockStyle.Fill };
+            marketContent.Controls.Add(_marketReportForm);
+
+            // Executives
+            pnlExecutivesOverlay = CreateCapLabOverlay(720, 680, "👔 ZARZĄDZANIE KADRĄ C-SUITE", out var execsContent);
+            _executivesForm = new ExecutivesForm { Dock = DockStyle.Fill };
+            execsContent.Controls.Add(_executivesForm);
+
+            // Podłącz istniejące przyciski skrótów (jeśli istnieją) do nowych paneli
+            // Skróty klawiaturowe F1-F4 obsługiwane przez KeyDown
+            this.KeyDown += OnCapLabKeyDown;
+        }
+
+        private bool CheckHeadquartersRequirement(string moduleName)
+        {
+            if (_company == null) return false;
+            bool hasHQ = _company.Buildings.Any(b => b is Headquarters);
+            if (!hasHQ)
+            {
+                MessageBox.Show(
+                    $"[BLOKADA CENTRALNA]\n\nAby uzyskać dostęp do panelu {moduleName}, musisz najpierw wybudować Kwaterę Główną (HQ) na mapie.\n\nKoszt budowy HQ: $1,000,000.",
+                    "Wymagana Kwatera Główna (HQ)",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+                return false;
+            }
+            return true;
+        }
+
+        private void OnCapLabKeyDown(object? sender, KeyEventArgs e)
+        {
+            if (_currentMenuState != MenuState.Playing || _gameManager == null || _company == null) return;
+
+            switch (e.KeyCode)
+            {
+                case Keys.F1: ToggleCapLabPanel(pnlStockMarketOverlay,  () => _stockMarketForm.SetGameManager(_gameManager, _company)); break;
+                case Keys.F2: ToggleCapLabPanel(pnlBankingOverlay,      () => _bankingForm.SetGameManager(_gameManager, _company));     break;
+                case Keys.F3: 
+                    if (CheckHeadquartersRequirement("Raportu Rynkowego i Marketingu"))
+                        ToggleCapLabPanel(pnlMarketReportOverlay, () => _marketReportForm.SetGameManager(_gameManager, _company)); 
+                    break;
+                case Keys.F4: 
+                    if (CheckHeadquartersRequirement("Dyrektorów (C-Suite)"))
+                        ToggleCapLabPanel(pnlExecutivesOverlay, () => _executivesForm.SetGameManager(_gameManager, _company)); 
+                    break;
+            }
+        }
+
+        private void ToggleCapLabPanel(Panel panel, Action openAction)
+        {
+            if (panel.Visible)
+            {
+                panel.Visible = false;
+                if (_activeSpeedButton != btnSpeedPause && _currentMenuState == MenuState.Playing)
+                    _gameTimer.Start();
+            }
+            else
+            {
+                _gameTimer.Stop();
+                HideAllOverlays(panel);
+                openAction();
+                CenterPanel(panel);
+                panel.Visible = true;
+                panel.BringToFront();
+            }
+        }
+
+        private void RefreshCapLabPanels()
+        {
+            if (_gameManager == null || _company == null) return;
+            if (pnlStockMarketOverlay?.Visible == true)  _stockMarketForm.RefreshData();
+            if (pnlBankingOverlay?.Visible == true)      _bankingForm.RefreshData();
+            if (pnlMarketReportOverlay?.Visible == true) _marketReportForm.RefreshData();
+            if (pnlExecutivesOverlay?.Visible == true)   _executivesForm.RefreshData();
         }
     }
 }

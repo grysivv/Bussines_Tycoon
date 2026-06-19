@@ -8,6 +8,10 @@ namespace Conglomerate
         [STAThread]
         static void Main(string[] args)
         {
+            // Wymuszenie globalnego formatowania en-US w celu ujednolicenia prezentacji walut w stylu Capitalism Lab ($1,000,000)
+            System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+            System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+
             // Konfiguracja globalnego przechwytywania i logowania wyjątków
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += (sender, e) => LogException(e.Exception);
@@ -16,6 +20,8 @@ namespace Conglomerate
             if (args.Length > 0 && args[0] == "--run-tests")
             {
                 Conglomerate.Financials.Tests.FinancialSystemTests.RunTests();
+                Conglomerate.Tests.HRSystemTests.RunTests();
+                Conglomerate.Tests.CoalMineTests.RunTests();
                 return;
             }
 

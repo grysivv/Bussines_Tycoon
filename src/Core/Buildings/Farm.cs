@@ -17,13 +17,13 @@ namespace Conglomerate
 
         public Farm(string name) : base(name)
         {
-            Warehouse["Mleko"] = 0;
-            Warehouse["Mięso"] = 0;
+            AddProduct("Mleko", 0);
+            AddProduct("Mięso", 0);
         }
 
         public override bool Produce(Company company)
         {
-            int totalStock = GetTotalStock();
+            decimal totalStock = GetTotalStock();
             if (totalStock >= WarehouseCapacity)
             {
                 return false;
@@ -42,15 +42,15 @@ namespace Conglomerate
             int milkProd = 3;
             int meatProd = 2;
 
-            int freeSpace = WarehouseCapacity - totalStock;
+            decimal freeSpace = WarehouseCapacity - totalStock;
 
             // Częściowa produkcja do zapełnienia magazynu
-            int addedMilk = Math.Min(milkProd, freeSpace);
-            Warehouse["Mleko"] += addedMilk;
+            decimal addedMilk = Math.Min(milkProd, freeSpace);
+            AddProduct("Mleko", addedMilk);
             freeSpace -= addedMilk;
 
-            int addedMeat = Math.Min(meatProd, freeSpace);
-            Warehouse["Mięso"] += addedMeat;
+            decimal addedMeat = Math.Min(meatProd, freeSpace);
+            AddProduct("Mięso", addedMeat);
 
             return true;
         }

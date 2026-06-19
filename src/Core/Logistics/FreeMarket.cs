@@ -68,7 +68,7 @@ namespace Conglomerate.Logistics
             AddListing("Masło",   basePrice: 130m, premiumMin: 1.3m, premiumMax: 1.7m, dailyAvail: 120);
 
             // Surowce kopalniane
-            AddListing("Węgiel",  basePrice: 100m, premiumMin: 1.4m, premiumMax: 2.0m, dailyAvail: 500);
+            AddListing("Węgiel",  basePrice: 400m, premiumMin: 1.4m, premiumMax: 2.0m, dailyAvail: 500);
             AddListing("Ruda Miedzi", basePrice: 150m, premiumMin: 1.4m, premiumMax: 2.0m, dailyAvail: 400);
 
             // Ustal ceny na start
@@ -140,10 +140,10 @@ namespace Conglomerate.Logistics
             if (amount > listing.RemainingToday) return false;
 
             // Sprawdź pojemność magazynu celu
-            int freeSpace = targetBuilding.WarehouseCapacity - targetBuilding.GetTotalStock();
+            decimal freeSpace = targetBuilding.WarehouseCapacity - targetBuilding.GetTotalStock();
             if (freeSpace <= 0) return false;
 
-            int actualAmount = Math.Min(amount, freeSpace);
+            int actualAmount = (int)Math.Min((decimal)amount, freeSpace);
             decimal totalCost = listing.CurrentPrice * actualAmount;
 
             if (company.Balance < totalCost) return false;
@@ -151,9 +151,7 @@ namespace Conglomerate.Logistics
             // Wykonaj zakup
             company.Balance -= totalCost;
 
-            if (!targetBuilding.Warehouse.ContainsKey(resourceName))
-                targetBuilding.Warehouse[resourceName] = 0;
-            targetBuilding.Warehouse[resourceName] += actualAmount;
+            targetBuilding.AddProduct(resourceName, actualAmount);
 
             listing.TodayPurchased += actualAmount;
 

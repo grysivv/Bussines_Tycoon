@@ -52,9 +52,9 @@ namespace Conglomerate
             });
 
             // Inicjalizacja slotów w magazynie
-            Warehouse["Mleko"] = 0;   // wejście
-            Warehouse["Ser"] = 0;     // wyjście
-            Warehouse["Masło"] = 0;   // wyjście drugiego przepisu
+            Warehouse["Mleko"] = new Economy.ProductBatch("Mleko", 0);   // wejście
+            Warehouse["Ser"] = new Economy.ProductBatch("Ser", 0);     // wyjście
+            Warehouse["Masło"] = new Economy.ProductBatch("Masło", 0);   // wyjście drugiego przepisu
         }
     }
 }

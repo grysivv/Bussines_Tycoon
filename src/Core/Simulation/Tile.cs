@@ -14,6 +14,8 @@ namespace Conglomerate
         public TileType Type { get; set; }
         public Building? Building { get; set; }
 
+        public float LandValue { get; set; } = 1.0f; // 1.0f = standard, >1.0f = center, <1.0f = rural
+
         public Tile(int x, int y, TileType type = TileType.Grass)
         {
             X = x;

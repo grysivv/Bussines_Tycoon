@@ -32,7 +32,7 @@ namespace Conglomerate
             // Initialize warehouse slots for matching category resources
             foreach (var resName in ResourceRegistry.GetResourcesByCategory(category))
             {
-                Warehouse[resName] = 0;
+                AddProduct(resName, 0);
             }
         }
 

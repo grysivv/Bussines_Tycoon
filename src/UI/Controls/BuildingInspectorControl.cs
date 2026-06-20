@@ -13,36 +13,57 @@ namespace Conglomerate.UI.Controls
         private Company? _company;
         private GameManager? _gameManager;
 
-        /// <summary>Wywoływane po ręcznej sprzedaży — pozwala odświeżyć HUD (saldo).</summary>
+        /// <summary>Wywoływane po ręcznej sprzedaży / zmianie stanu — pozwala odświeżyć HUD (saldo).</summary>
         public event EventHandler? OnInventoryChanged;
 
-        private Label lblTitle;
-        private Label lblTypeValue;
-        private Label lblLocationValue;
-        private Label lblWorkerExpValue;
-        private Label lblTrainingValue;
-        private TrackBar tbTrainingBudget;
-        private Panel pnlStatusDot;
+        // Szerokość pojedynczej sekcji wewnątrz przewijanej kolumny.
+        private const int SectionWidth = 292;
 
-        // ── Sekcja R&D (widoczna tylko dla RNDCenter) ──
-        private Panel _pnlRnd;
-        private ComboBox _cmbRndProject;
-        private Label _lblRndTech;
-        private Label _lblRndStatus;
-        private Panel _pnlRndProgressFg;
-        private bool _suppressRndEvent;
+        // ── Nagłówek ──
+        private Label lblTitle = null!;
+        private Panel pnlStatusDot = null!;
 
-        // ── Sekcja magazynu / sprzedaży ──
-        private Panel _pnlInventory = null!;
+        // ── Kolumna sekcji (przewijana) ──
+        private FlowLayoutPanel _flow = null!;
+
+        // ── Informacje ──
+        private Label _lblTypeValue = null!;
+        private Label _lblLocationValue = null!;
+        private Label _lblLevelValue = null!;
+        private Panel _rowLevel = null!;
+
+        // ── Zatrudnienie (tylko CoalMine) ──
+        private Panel _secEmployees = null!;
+        private Label _lblEmpMax = null!;
+        private NumericUpDown _numEmployees = null!;
+        private Label _lblEmpProd = null!;
+        private Label _lblEmpCost = null!;
+        private Label _lblEmpStatus = null!;
+        private Button _btnUpgradeMine = null!;
+        private bool _suppressEmpEvent;
+
+        // ── Personel / szkolenia ──
+        private Label _lblWorkerExpValue = null!;
+        private Label _lblTrainingValue = null!;
+        private TrackBar _tbTrainingBudget = null!;
+
+        // ── Magazyn / sprzedaż ──
+        private Panel _secInventory = null!;
         private Panel _invList = null!;
         private CheckBox _chkAutoSell = null!;
         private Label _lblInvEmpty = null!;
         private bool _suppressAutoSellEvent;
         private readonly Dictionary<string, InvRow> _invRows = new(StringComparer.OrdinalIgnoreCase);
 
-        private const int BaseHeight = 400;
-        private const int RndHeight = 560;
-        private const int InventoryHeight = 620;
+        // ── R&D (tylko RNDCenter) ──
+        private Panel _secRnd = null!;
+        private ComboBox _cmbRndProject = null!;
+        private Label _lblRndTech = null!;
+        private Label _lblRndStatus = null!;
+        private Panel _pnlRndProgressFg = null!;
+        private bool _suppressRndEvent;
+
+        private const int UpgradeCost = 50000;
 
         private sealed class InvRow
         {
@@ -61,18 +82,42 @@ namespace Conglomerate.UI.Controls
 
         private void InitializeComponent()
         {
-            this.Size           = new Size(300, 400);
+            this.Size           = new Size(340, 600);
             this.BackColor      = ThemeManager.BackgroundColor;
             this.DoubleBuffered = true;
 
-            // Ramka okna
             this.Paint += (s, e) =>
             {
                 using var pen = new Pen(ThemeManager.BorderColor, 1);
                 e.Graphics.DrawRectangle(pen, 0, 0, this.Width - 1, this.Height - 1);
             };
 
-            // ── Nagłówek ────────────────────────────────────────────────────────
+            // ── Przewijana kolumna sekcji ───────────────────────────────────────
+            _flow = new FlowLayoutPanel
+            {
+                Dock          = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents  = false,
+                AutoScroll    = true,
+                BackColor     = ThemeManager.BackgroundColor,
+                Padding       = new Padding(14, 10, 10, 12)
+            };
+
+            _flow.Controls.Add(BuildInfoSection());
+            _flow.Controls.Add(BuildEmployeesSection());
+            _flow.Controls.Add(BuildTrainingSection());
+            _flow.Controls.Add(BuildInventorySection());
+            _flow.Controls.Add(BuildRndSection());
+            _flow.Controls.Add(BuildActionsSection());
+
+            // Fill musi być z tyłu z-order (dodane jako pierwsze), a Top-header na wierzchu —
+            // dlatego najpierw dodajemy kolumnę, a dopiero potem nagłówek.
+            this.Controls.Add(_flow);
+            BuildHeader();
+        }
+
+        private void BuildHeader()
+        {
             Panel pnlHeader = new Panel
             {
                 Dock      = DockStyle.Top,
@@ -82,28 +127,16 @@ namespace Conglomerate.UI.Controls
             pnlHeader.Paint += (s, e) =>
             {
                 ThemeManager.DrawWindowHeader(e.Graphics, ((Panel)s).ClientRectangle, "", ThemeManager.HeaderFont);
-                // Złoty pasek na górze
                 using var goldPen = new Pen(ThemeManager.GoldColor, 2);
                 e.Graphics.DrawLine(goldPen, 0, 0, ((Panel)s).Width, 0);
             };
 
-            lblTitle = new Label
-            {
-                Font      = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = ThemeManager.GoldColor,
-                Location  = new Point(12, 14),
-                AutoSize  = true,
-                Text      = "—"
-            };
-            pnlHeader.Controls.Add(lblTitle);
-
             pnlStatusDot = new Panel
             {
                 Size      = new Size(10, 10),
-                Location  = new Point(12, 6),
+                Location  = new Point(12, 8),
                 BackColor = ThemeManager.PositiveColor
             };
-            // Okrągły status
             pnlStatusDot.Paint += (s, e) =>
             {
                 var p = (Panel)s;
@@ -111,8 +144,17 @@ namespace Conglomerate.UI.Controls
                 using var brush = new SolidBrush(p.BackColor);
                 e.Graphics.FillEllipse(brush, 0, 0, p.Width - 1, p.Height - 1);
             };
-            pnlStatusDot.Visible = false;
             pnlHeader.Controls.Add(pnlStatusDot);
+
+            lblTitle = new Label
+            {
+                Font      = new Font("Segoe UI", 10, FontStyle.Bold),
+                ForeColor = ThemeManager.GoldColor,
+                Location  = new Point(28, 13),
+                AutoSize  = true,
+                Text      = "—"
+            };
+            pnlHeader.Controls.Add(lblTitle);
 
             Button btnClose = new Button
             {
@@ -128,227 +170,241 @@ namespace Conglomerate.UI.Controls
 
             this.Controls.Add(pnlHeader);
 
-            // ── Zawartość ────────────────────────────────────────────────────────
-            Panel pnlContent = new Panel
+            ThemeManager.MakeDraggable(pnlHeader, this);
+            ThemeManager.MakeDraggable(lblTitle, this);
+        }
+
+        // ───────────────────────────────────────────────────────────────────────
+        //  Budowniczowie sekcji
+        // ───────────────────────────────────────────────────────────────────────
+
+        private Panel NewSection(int height)
+        {
+            return new Panel
             {
-                Dock      = DockStyle.Fill,
-                BackColor = ThemeManager.BackgroundColor,
-                Padding   = new Padding(14, 10, 14, 10)
+                Size      = new Size(SectionWidth, height),
+                Margin    = new Padding(0, 0, 0, 10),
+                BackColor = Color.Transparent
             };
+        }
 
-            int y = 10;
-
-            // Sekcja: Informacje ogólne
-            pnlContent.Controls.Add(MakeSectionHeader("INFORMACJE", ref y));
-            pnlContent.Controls.Add(MakeRow("Typ:", ref y, out lblTypeValue));
-            pnlContent.Controls.Add(MakeRow("Lokalizacja:", ref y, out lblLocationValue));
-
-            y += 8;
-            pnlContent.Controls.Add(MakeSeparator(ref y));
-
-            // Sekcja: Personel
-            pnlContent.Controls.Add(MakeSectionHeader("PERSONEL", ref y));
-            pnlContent.Controls.Add(MakeRow("Doświadczenie:", ref y, out lblWorkerExpValue));
-
-            y += 6;
-
-            // Budżet szkoleniowy
-            Label lblTrainingTitle = new Label
+        private Label SectionHeader(string text)
+        {
+            return new Label
             {
-                Text      = "BUDŻET SZKOLENIOWY",
-                ForeColor = ThemeManager.MutedTextColor,
-                Font      = ThemeManager.SmallFont,
-                AutoSize  = false,
-                Size      = new Size(260, 14),
-                Location  = new Point(0, y),
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            pnlContent.Controls.Add(lblTrainingTitle);
-            y += 18;
-
-            lblTrainingValue = new Label
-            {
-                Text      = "$0 / msc",
-                ForeColor = ThemeManager.GoldColor,
-                Font      = ThemeManager.BoldDataFont,
-                AutoSize  = false,
-                Size      = new Size(260, 18),
-                Location  = new Point(0, y)
-            };
-            pnlContent.Controls.Add(lblTrainingValue);
-            y += 22;
-
-            tbTrainingBudget = new TrackBar
-            {
-                Location    = new Point(0, y),
-                Width       = 260,
-                Minimum     = 0,
-                Maximum     = 1000000,
-                TickFrequency = 100000,
-                SmallChange = 10000,
-                LargeChange = 100000,
-                BackColor   = ThemeManager.BackgroundColor
-            };
-            tbTrainingBudget.Scroll += (s, e) =>
-            {
-                if (_building == null) return;
-                _building.TrainingBudget = tbTrainingBudget.Value;
-                lblTrainingValue.Text    = $"${_building.TrainingBudget:N0} / msc";
-            };
-            pnlContent.Controls.Add(tbTrainingBudget);
-            y += 50;
-
-            y += 4;
-            pnlContent.Controls.Add(MakeSeparator(ref y));
-
-            // Sekcja: Akcje
-            pnlContent.Controls.Add(MakeSectionHeader("AKCJE", ref y));
-
-            Button btnUpgrade = new Button
-            {
-                Text     = "Ulepsz Budynek",
-                Size     = new Size(260, 32),
-                Location = new Point(0, y)
-            };
-            ThemeManager.ApplyButtonTheme(btnUpgrade);
-            btnUpgrade.BackColor   = ThemeManager.HeaderBackground;
-            pnlContent.Controls.Add(btnUpgrade);
-            y += 38;
-
-            Button btnDemolish = new Button
-            {
-                Text     = "Wyburz",
-                Size     = new Size(120, 28),
-                Location = new Point(0, y)
-            };
-            ThemeManager.ApplySecondaryButtonTheme(btnDemolish);
-            btnDemolish.ForeColor = ThemeManager.NegativeColor;
-            pnlContent.Controls.Add(btnDemolish);
-
-            // ── Sekcja R&D (domyślnie ukryta) ───────────────────────────────────
-            _pnlRnd = new Panel
-            {
-                Location  = new Point(0, y + 38),
-                Size      = new Size(260, 160),
-                BackColor = Color.Transparent,
-                Visible   = false
-            };
-
-            _pnlRnd.Controls.Add(new Panel { Size = new Size(260, 1), Location = new Point(0, 0), BackColor = ThemeManager.SeparatorColor });
-
-            _pnlRnd.Controls.Add(new Label
-            {
-                Text = "BADANIA I ROZWÓJ",
-                ForeColor = ThemeManager.GoldColor,
-                Font = new Font("Segoe UI", 8, FontStyle.Bold),
-                AutoSize = false,
-                Size = new Size(260, 16),
-                Location = new Point(0, 10)
-            });
-
-            _pnlRnd.Controls.Add(new Label
-            {
-                Text = "Projekt:",
-                ForeColor = ThemeManager.MutedTextColor,
-                Font = ThemeManager.SmallFont,
-                AutoSize = false,
-                Size = new Size(60, 22),
-                Location = new Point(0, 34),
-                TextAlign = ContentAlignment.MiddleLeft
-            });
-
-            _cmbRndProject = new ComboBox
-            {
-                Location = new Point(62, 32),
-                Width = 198,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = ThemeManager.BackgroundColor,
-                ForeColor = ThemeManager.TextColor,
-                Font = ThemeManager.DefaultFont
-            };
-            _cmbRndProject.Items.AddRange(new object[] { "Brak", "Mleko", "Mięso", "Ser", "Węgiel", "Ruda Miedzi", "Miedź" });
-            _cmbRndProject.SelectedIndex = 0;
-            _cmbRndProject.SelectedIndexChanged += (s, e) => OnRndProjectChanged();
-            _pnlRnd.Controls.Add(_cmbRndProject);
-
-            _lblRndTech = new Label
-            {
-                Text = "",
-                ForeColor = ThemeManager.AccentColor,
-                Font = ThemeManager.BoldDataFont,
-                AutoSize = false,
-                Size = new Size(260, 18),
-                Location = new Point(0, 66)
-            };
-            _pnlRnd.Controls.Add(_lblRndTech);
-
-            _pnlRnd.Controls.Add(new Label
-            {
-                Text = "Postęp badań:",
-                ForeColor = ThemeManager.MutedTextColor,
-                Font = ThemeManager.SmallFont,
-                AutoSize = false,
-                Size = new Size(260, 14),
-                Location = new Point(0, 90)
-            });
-
-            Panel pnlRndProgressBg = new Panel
-            {
-                Location = new Point(0, 108),
-                Size = new Size(260, 18),
-                BackColor = Color.FromArgb(20, 36, 56)
-            };
-            _pnlRndProgressFg = new Panel
-            {
-                Location = new Point(0, 0),
-                Size = new Size(0, 18),
-                BackColor = Color.FromArgb(200, 100, 250)
-            };
-            pnlRndProgressBg.Controls.Add(_pnlRndProgressFg);
-            _pnlRnd.Controls.Add(pnlRndProgressBg);
-
-            _lblRndStatus = new Label
-            {
-                Text = "Status: Bezczynny",
-                ForeColor = ThemeManager.MutedTextColor,
-                Font = ThemeManager.SmallFont,
-                AutoSize = false,
-                Size = new Size(260, 16),
-                Location = new Point(0, 132)
-            };
-            _pnlRnd.Controls.Add(_lblRndStatus);
-
-            pnlContent.Controls.Add(_pnlRnd);
-
-            // ── Sekcja Magazyn / Sprzedaż (dla budynków produkcyjnych) ──────────
-            _pnlInventory = new Panel
-            {
-                Location  = new Point(0, y + 38),
-                Size      = new Size(260, 230),
-                BackColor = Color.Transparent,
-                Visible   = false
-            };
-
-            _pnlInventory.Controls.Add(new Panel { Size = new Size(260, 1), Location = new Point(0, 0), BackColor = ThemeManager.SeparatorColor });
-
-            _pnlInventory.Controls.Add(new Label
-            {
-                Text      = "MAGAZYN",
+                Text      = text,
                 ForeColor = ThemeManager.GoldColor,
                 Font      = new Font("Segoe UI", 8, FontStyle.Bold),
                 AutoSize  = false,
-                Size      = new Size(160, 16),
-                Location  = new Point(0, 10)
+                Size      = new Size(SectionWidth, 16),
+                Location  = new Point(0, 0),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+        }
+
+        private Panel SeparatorLine(int y)
+        {
+            return new Panel
+            {
+                Size      = new Size(SectionWidth, 1),
+                Location  = new Point(0, y),
+                BackColor = ThemeManager.SeparatorColor
+            };
+        }
+
+        private Panel KeyValueRow(string key, int y, out Label valueLabel)
+        {
+            var row = new Panel { Size = new Size(SectionWidth, 20), Location = new Point(0, y), BackColor = Color.Transparent };
+            row.Controls.Add(new Label
+            {
+                Text = key, ForeColor = ThemeManager.MutedTextColor, Font = ThemeManager.SmallFont,
+                AutoSize = false, Size = new Size(120, 20), Location = Point.Empty,
+                TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.Transparent
             });
+            valueLabel = new Label
+            {
+                Text = "—", ForeColor = ThemeManager.TextColor, Font = ThemeManager.DataFont,
+                AutoSize = false, Size = new Size(SectionWidth - 122, 20), Location = new Point(122, 0),
+                TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.Transparent
+            };
+            row.Controls.Add(valueLabel);
+            return row;
+        }
+
+        private Panel BuildInfoSection()
+        {
+            var sec = NewSection(86);
+            sec.Controls.Add(SectionHeader("INFORMACJE"));
+            sec.Controls.Add(KeyValueRow("Typ:", 20, out _lblTypeValue));
+            sec.Controls.Add(KeyValueRow("Lokalizacja:", 42, out _lblLocationValue));
+            _rowLevel = KeyValueRow("Poziom:", 64, out _lblLevelValue);
+            sec.Controls.Add(_rowLevel);
+            return sec;
+        }
+
+        private Panel BuildEmployeesSection()
+        {
+            _secEmployees = NewSection(206);
+            _secEmployees.Controls.Add(SeparatorLine(0));
+            var head = SectionHeader("ZATRUDNIENIE");
+            head.Location = new Point(0, 8);
+            _secEmployees.Controls.Add(head);
+
+            _lblEmpMax = new Label
+            {
+                Text = "Limit: —", ForeColor = ThemeManager.MutedTextColor, Font = ThemeManager.SmallFont,
+                AutoSize = false, Size = new Size(SectionWidth, 16), Location = new Point(0, 28),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            _secEmployees.Controls.Add(_lblEmpMax);
+
+            _secEmployees.Controls.Add(new Label
+            {
+                Text = "Liczba pracowników:", ForeColor = ThemeManager.TextColor, Font = ThemeManager.SmallFont,
+                AutoSize = false, Size = new Size(160, 24), Location = new Point(0, 48),
+                TextAlign = ContentAlignment.MiddleLeft
+            });
+
+            _numEmployees = new NumericUpDown
+            {
+                Location  = new Point(160, 48),
+                Width     = 132,
+                Minimum   = 0,
+                Maximum   = 100000,
+                Increment = 50,
+                Font      = ThemeManager.BoldDataFont,
+                BackColor = ThemeManager.PanelBackground,
+                ForeColor = ThemeManager.TextColor,
+                BorderStyle = BorderStyle.FixedSingle,
+                TextAlign = HorizontalAlignment.Center
+            };
+            _numEmployees.ValueChanged += (s, e) =>
+            {
+                if (_suppressEmpEvent || _building is not CoalMine mine) return;
+                mine.CurrentEmployees = (int)_numEmployees.Value;
+                // Setter mógł obciąć wartość do limitu — zsynchronizuj kontrolkę.
+                if ((int)_numEmployees.Value != mine.CurrentEmployees)
+                {
+                    _suppressEmpEvent = true;
+                    _numEmployees.Value = mine.CurrentEmployees;
+                    _suppressEmpEvent = false;
+                }
+                UpdateEmployeeLive(mine);
+            };
+            _secEmployees.Controls.Add(_numEmployees);
+
+            var btnZero = new Button { Text = "0", Size = new Size(58, 26), Location = new Point(0, 80) };
+            ThemeManager.ApplySecondaryButtonTheme(btnZero);
+            btnZero.Click += (s, e) => { if (_building is CoalMine) _numEmployees.Value = 0; };
+            _secEmployees.Controls.Add(btnZero);
+
+            var btnHalf = new Button { Text = "½", Size = new Size(58, 26), Location = new Point(64, 80) };
+            ThemeManager.ApplySecondaryButtonTheme(btnHalf);
+            btnHalf.Click += (s, e) => { if (_building is CoalMine m) _numEmployees.Value = Math.Min(_numEmployees.Maximum, m.MaxEmployees / 2); };
+            _secEmployees.Controls.Add(btnHalf);
+
+            var btnMax = new Button { Text = "Max", Size = new Size(64, 26), Location = new Point(128, 80) };
+            ThemeManager.ApplySecondaryButtonTheme(btnMax);
+            btnMax.ForeColor = ThemeManager.GoldColor;
+            btnMax.Click += (s, e) => { if (_building is CoalMine m) _numEmployees.Value = Math.Min(_numEmployees.Maximum, m.MaxEmployees); };
+            _secEmployees.Controls.Add(btnMax);
+
+            _lblEmpProd = new Label
+            {
+                Text = "Produkcja: —", ForeColor = ThemeManager.PositiveColor, Font = ThemeManager.SmallFont,
+                AutoSize = false, Size = new Size(SectionWidth, 16), Location = new Point(0, 112)
+            };
+            _secEmployees.Controls.Add(_lblEmpProd);
+
+            _lblEmpCost = new Label
+            {
+                Text = "Koszt pracy: —", ForeColor = ThemeManager.NegativeColor, Font = ThemeManager.SmallFont,
+                AutoSize = false, Size = new Size(SectionWidth, 16), Location = new Point(0, 130)
+            };
+            _secEmployees.Controls.Add(_lblEmpCost);
+
+            _btnUpgradeMine = new Button
+            {
+                Text     = $"Ulepsz do Poziomu 2  (${UpgradeCost:N0})",
+                Size     = new Size(SectionWidth, 30),
+                Location = new Point(0, 152)
+            };
+            ThemeManager.ApplyButtonTheme(_btnUpgradeMine);
+            _btnUpgradeMine.BackColor = ThemeManager.HeaderBackground;
+            _btnUpgradeMine.Click += (s, e) => UpgradeMine();
+            _secEmployees.Controls.Add(_btnUpgradeMine);
+
+            _lblEmpStatus = new Label
+            {
+                Text = "", ForeColor = ThemeManager.NegativeColor, Font = ThemeManager.SmallFont,
+                AutoSize = false, Size = new Size(SectionWidth, 16), Location = new Point(0, 186)
+            };
+            _secEmployees.Controls.Add(_lblEmpStatus);
+
+            return _secEmployees;
+        }
+
+        private Panel BuildTrainingSection()
+        {
+            var sec = NewSection(126);
+            sec.Controls.Add(SeparatorLine(0));
+            var head = SectionHeader("PERSONEL");
+            head.Location = new Point(0, 8);
+            sec.Controls.Add(head);
+
+            sec.Controls.Add(KeyValueRow("Doświadczenie:", 28, out _lblWorkerExpValue));
+
+            sec.Controls.Add(new Label
+            {
+                Text = "BUDŻET SZKOLENIOWY", ForeColor = ThemeManager.MutedTextColor, Font = ThemeManager.SmallFont,
+                AutoSize = false, Size = new Size(SectionWidth, 14), Location = new Point(0, 52),
+                TextAlign = ContentAlignment.MiddleLeft
+            });
+
+            _lblTrainingValue = new Label
+            {
+                Text = "$0 / msc", ForeColor = ThemeManager.GoldColor, Font = ThemeManager.BoldDataFont,
+                AutoSize = false, Size = new Size(SectionWidth, 18), Location = new Point(0, 68)
+            };
+            sec.Controls.Add(_lblTrainingValue);
+
+            _tbTrainingBudget = new TrackBar
+            {
+                Location      = new Point(-2, 88),
+                Width         = SectionWidth,
+                Minimum       = 0,
+                Maximum       = 1000000,
+                TickFrequency = 100000,
+                SmallChange   = 10000,
+                LargeChange   = 100000,
+                BackColor     = ThemeManager.BackgroundColor
+            };
+            _tbTrainingBudget.Scroll += (s, e) =>
+            {
+                if (_building == null) return;
+                _building.TrainingBudget = _tbTrainingBudget.Value;
+                _lblTrainingValue.Text   = $"${_building.TrainingBudget:N0} / msc";
+            };
+            sec.Controls.Add(_tbTrainingBudget);
+
+            return sec;
+        }
+
+        private Panel BuildInventorySection()
+        {
+            _secInventory = NewSection(244);
+            _secInventory.Controls.Add(SeparatorLine(0));
+            var head = SectionHeader("MAGAZYN / SPRZEDAŻ");
+            head.Location = new Point(0, 8);
+            _secInventory.Controls.Add(head);
 
             _chkAutoSell = new CheckBox
             {
-                Text      = "Auto-sprzedaż",
+                Text      = "Auto-sprzedaż produkcji",
                 ForeColor = ThemeManager.TextColor,
-                Font      = ThemeManager.SmallFont,
+                Font      = ThemeManager.DefaultFont,
                 AutoSize  = false,
-                Size      = new Size(160, 20),
+                Size      = new Size(SectionWidth, 24),
                 Location  = new Point(0, 30),
                 FlatStyle = FlatStyle.Flat
             };
@@ -356,17 +412,18 @@ namespace Conglomerate.UI.Controls
             {
                 if (_suppressAutoSellEvent || _building == null) return;
                 _building.AutoSell = _chkAutoSell.Checked;
+                OnInventoryChanged?.Invoke(this, EventArgs.Empty);
             };
-            _pnlInventory.Controls.Add(_chkAutoSell);
+            _secInventory.Controls.Add(_chkAutoSell);
 
             _invList = new Panel
             {
-                Location  = new Point(0, 56),
-                Size      = new Size(260, 168),
-                BackColor = Color.FromArgb(10, 20, 34),
+                Location   = new Point(0, 58),
+                Size       = new Size(SectionWidth, 184),
+                BackColor  = Color.FromArgb(10, 20, 34),
                 AutoScroll = true
             };
-            _pnlInventory.Controls.Add(_invList);
+            _secInventory.Controls.Add(_invList);
 
             _lblInvEmpty = new Label
             {
@@ -374,100 +431,123 @@ namespace Conglomerate.UI.Controls
                 ForeColor = ThemeManager.MutedTextColor,
                 Font      = ThemeManager.SmallFont,
                 AutoSize  = false,
-                Size      = new Size(240, 20),
+                Size      = new Size(SectionWidth - 16, 20),
                 Location  = new Point(8, 8),
                 TextAlign = ContentAlignment.MiddleLeft
             };
             _invList.Controls.Add(_lblInvEmpty);
 
-            pnlContent.Controls.Add(_pnlInventory);
-
-            this.Controls.Add(pnlContent);
-
-            ThemeManager.MakeDraggable(pnlHeader, this);
-            ThemeManager.MakeDraggable(lblTitle, this);
+            return _secInventory;
         }
 
-        /// <summary>Przekazuje GameManager (potrzebny do dnia/godziny przy sprzedaży).</summary>
+        private Panel BuildRndSection()
+        {
+            _secRnd = NewSection(168);
+            _secRnd.Controls.Add(SeparatorLine(0));
+            var head = SectionHeader("BADANIA I ROZWÓJ");
+            head.Location = new Point(0, 8);
+            _secRnd.Controls.Add(head);
+
+            _secRnd.Controls.Add(new Label
+            {
+                Text = "Projekt:", ForeColor = ThemeManager.MutedTextColor, Font = ThemeManager.SmallFont,
+                AutoSize = false, Size = new Size(56, 24), Location = new Point(0, 32),
+                TextAlign = ContentAlignment.MiddleLeft
+            });
+
+            _cmbRndProject = new ComboBox
+            {
+                Location      = new Point(58, 30),
+                Width         = SectionWidth - 58,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                FlatStyle     = FlatStyle.Flat,
+                BackColor     = ThemeManager.PanelBackground,
+                ForeColor     = ThemeManager.TextColor,
+                Font          = ThemeManager.DefaultFont
+            };
+            _cmbRndProject.Items.AddRange(new object[] { "Brak", "Mleko", "Mięso", "Ser", "Węgiel", "Ruda Miedzi", "Miedź" });
+            _cmbRndProject.SelectedIndex = 0;
+            _cmbRndProject.SelectedIndexChanged += (s, e) => OnRndProjectChanged();
+            _secRnd.Controls.Add(_cmbRndProject);
+
+            _lblRndTech = new Label
+            {
+                Text = "", ForeColor = ThemeManager.AccentColor, Font = ThemeManager.BoldDataFont,
+                AutoSize = false, Size = new Size(SectionWidth, 18), Location = new Point(0, 64)
+            };
+            _secRnd.Controls.Add(_lblRndTech);
+
+            _secRnd.Controls.Add(new Label
+            {
+                Text = "Postęp badań:", ForeColor = ThemeManager.MutedTextColor, Font = ThemeManager.SmallFont,
+                AutoSize = false, Size = new Size(SectionWidth, 14), Location = new Point(0, 88)
+            });
+
+            Panel pnlRndProgressBg = new Panel
+            {
+                Location  = new Point(0, 106),
+                Size      = new Size(SectionWidth, 18),
+                BackColor = Color.FromArgb(20, 36, 56)
+            };
+            _pnlRndProgressFg = new Panel
+            {
+                Location  = new Point(0, 0),
+                Size      = new Size(0, 18),
+                BackColor = Color.FromArgb(200, 100, 250)
+            };
+            pnlRndProgressBg.Controls.Add(_pnlRndProgressFg);
+            _secRnd.Controls.Add(pnlRndProgressBg);
+
+            _lblRndStatus = new Label
+            {
+                Text = "Status: Bezczynny", ForeColor = ThemeManager.MutedTextColor, Font = ThemeManager.SmallFont,
+                AutoSize = false, Size = new Size(SectionWidth, 16), Location = new Point(0, 130)
+            };
+            _secRnd.Controls.Add(_lblRndStatus);
+
+            return _secRnd;
+        }
+
+        private Panel BuildActionsSection()
+        {
+            var sec = NewSection(70);
+            sec.Controls.Add(SeparatorLine(0));
+            var head = SectionHeader("AKCJE");
+            head.Location = new Point(0, 8);
+            sec.Controls.Add(head);
+
+            Button btnDemolish = new Button
+            {
+                Text     = "Wyburz",
+                Size     = new Size(130, 28),
+                Location = new Point(0, 30),
+                Enabled  = false
+            };
+            ThemeManager.ApplySecondaryButtonTheme(btnDemolish);
+            btnDemolish.ForeColor = ThemeManager.MutedTextColor;
+            var tip = new ToolTip();
+            tip.SetToolTip(btnDemolish, "Wyburzanie budynków — wkrótce.");
+            sec.Controls.Add(btnDemolish);
+
+            return sec;
+        }
+
+        // ───────────────────────────────────────────────────────────────────────
+
         public void SetGameManager(GameManager gm) => _gameManager = gm;
-
-        private Label MakeSectionHeader(string text, ref int y)
-        {
-            var lbl = new Label
-            {
-                Text      = text,
-                ForeColor = ThemeManager.GoldColor,
-                Font      = new Font("Segoe UI", 8, FontStyle.Bold),
-                AutoSize  = false,
-                Size      = new Size(260, 16),
-                Location  = new Point(0, y),
-                TextAlign = ContentAlignment.BottomLeft
-            };
-            y += 20;
-            return lbl;
-        }
-
-        private Panel MakeSeparator(ref int y)
-        {
-            var sep = new Panel
-            {
-                Size      = new Size(260, 1),
-                Location  = new Point(0, y),
-                BackColor = ThemeManager.SeparatorColor
-            };
-            y += 8;
-            return sep;
-        }
-
-        private Panel MakeRow(string label, ref int y, out Label valueLabel)
-        {
-            var row = new Panel
-            {
-                Size      = new Size(260, 18),
-                Location  = new Point(0, y),
-                BackColor = Color.Transparent
-            };
-
-            var lblKey = new Label
-            {
-                Text      = label,
-                ForeColor = ThemeManager.MutedTextColor,
-                Font      = ThemeManager.SmallFont,
-                AutoSize  = false,
-                Size      = new Size(110, 18),
-                Location  = Point.Empty,
-                TextAlign = ContentAlignment.MiddleLeft,
-                BackColor = Color.Transparent
-            };
-            var lblVal = new Label
-            {
-                Text      = "—",
-                ForeColor = ThemeManager.TextColor,
-                Font      = ThemeManager.DataFont,
-                AutoSize  = false,
-                Size      = new Size(148, 18),
-                Location  = new Point(112, 0),
-                TextAlign = ContentAlignment.MiddleLeft,
-                BackColor = Color.Transparent
-            };
-            row.Controls.Add(lblKey);
-            row.Controls.Add(lblVal);
-            valueLabel = lblVal;
-            y += 22;
-            return row;
-        }
-
-        /// <summary>Przekazuje aktywną firmę (potrzebną do odczytu poziomu technologii w R&D).</summary>
         public void SetCompany(Company company) => _company = company;
 
         public void SetBuilding(Building building)
         {
             _building = building;
 
-            bool isRnd = building is RNDCenter;
-            _pnlRnd.Visible = isRnd;
-            _pnlInventory.Visible = !isRnd;
-            this.Height = isRnd ? RndHeight : InventoryHeight;
+            bool isRnd  = building is RNDCenter;
+            bool isMine = building is CoalMine;
+
+            _secRnd.Visible       = isRnd;
+            _secInventory.Visible = !isRnd;
+            _secEmployees.Visible = isMine;
+            _rowLevel.Visible     = isMine;
 
             if (isRnd)
             {
@@ -484,12 +564,67 @@ namespace Conglomerate.UI.Controls
                 _chkAutoSell.Checked = building.AutoSell;
                 _suppressAutoSellEvent = false;
 
-                // Wymuś pełną przebudowę listy przy zmianie budynku
-                foreach (var r in _invRows.Values) _invList.Controls.Remove(r.Row);
+                foreach (var r in _invRows.Values) { _invList.Controls.Remove(r.Row); r.Row.Dispose(); }
                 _invRows.Clear();
             }
 
+            if (isMine)
+            {
+                var mine = (CoalMine)building;
+                _suppressEmpEvent = true;
+                _numEmployees.Maximum = mine.MaxEmployees;
+                _numEmployees.Value   = Math.Clamp(mine.CurrentEmployees, 0, mine.MaxEmployees);
+                _suppressEmpEvent = false;
+            }
+
             RefreshData();
+        }
+
+        private void UpdateEmployeeLive(CoalMine mine)
+        {
+            // Produkcja godzinowa = pracownicy * 0.085 * mnożnik poziomu * mnożnik technologii
+            double perHour = mine.CurrentEmployees * 0.085 * mine.LevelMultiplier * mine.TechnologyMultiplier;
+            decimal laborCost = mine.CurrentEmployees * 35.25m;
+
+            _lblEmpMax.Text   = $"Limit (Poziom {mine.Level}): {mine.MaxEmployees:N0}";
+            _lblEmpProd.Text  = $"Produkcja: {perHour:N1} t/h";
+            _lblEmpCost.Text  = $"Koszt pracy: ${laborCost:N0} / h";
+
+            bool storageFull = mine.PreciseStorage >= mine.MaxStorageCapacity;
+            _lblEmpStatus.Text    = storageFull ? "⚠ Magazyn pełny — produkcja wstrzymana" : "";
+            _lblEmpStatus.Visible = storageFull;
+            pnlStatusDot.BackColor = storageFull ? ThemeManager.NegativeColor : ThemeManager.PositiveColor;
+
+            bool canUpgrade = mine.Level < 2;
+            _btnUpgradeMine.Visible = canUpgrade;
+            _btnUpgradeMine.Enabled = canUpgrade && (_company?.Balance ?? 0m) >= UpgradeCost;
+        }
+
+        private void UpgradeMine()
+        {
+            if (_building is not CoalMine mine || _company == null) return;
+            if (mine.Level >= 2) return;
+            if (_company.Balance < UpgradeCost)
+            {
+                MessageBox.Show("Brak środków na ulepszenie kopalni.", "Ulepszenie",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            int day  = _gameManager?.CurrentDay  ?? 1;
+            int hour  = _gameManager?.CurrentHour ?? 8;
+
+            _company.Balance -= UpgradeCost;
+            _company.AddTransaction(day, hour, $"Ulepszenie: {mine.Name} (Poziom 2)",
+                -UpgradeCost, "Budowa", mine.FacilityId);
+            mine.Level = 2;
+
+            _suppressEmpEvent = true;
+            _numEmployees.Maximum = mine.MaxEmployees;
+            _suppressEmpEvent = false;
+
+            RefreshData();
+            OnInventoryChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnRndProjectChanged()
@@ -508,23 +643,30 @@ namespace Conglomerate.UI.Controls
         {
             if (_building == null) return;
 
-            lblTitle.Text          = _building.Name ?? "Nieznany Budynek";
-            lblTypeValue.Text      = _building.GetType().Name;
-            lblLocationValue.Text  = $"X:{_building.X}  Y:{_building.Y}";
-            lblWorkerExpValue.Text = $"{(_building.WorkerExperience * 100f):F0}%";
-            lblWorkerExpValue.ForeColor = _building.WorkerExperience > 0.7f
+            lblTitle.Text         = _building.Name ?? "Nieznany Budynek";
+            _lblTypeValue.Text    = _building.ActivityType;
+            _lblLocationValue.Text = $"X:{_building.X}  Y:{_building.Y}";
+
+            _lblWorkerExpValue.Text = $"{(_building.WorkerExperience * 100f):F0}%";
+            _lblWorkerExpValue.ForeColor = _building.WorkerExperience > 0.7f
                 ? ThemeManager.PositiveColor
                 : _building.WorkerExperience > 0.4f
                     ? ThemeManager.GoldColor
                     : ThemeManager.NegativeColor;
 
-            if (tbTrainingBudget.Value != (int)_building.TrainingBudget)
+            if (_tbTrainingBudget.Value != (int)_building.TrainingBudget)
             {
-                tbTrainingBudget.Value = Math.Clamp((int)_building.TrainingBudget, 0, 1000000);
-                lblTrainingValue.Text  = $"${_building.TrainingBudget:N0} / msc";
+                _tbTrainingBudget.Value = Math.Clamp((int)_building.TrainingBudget, 0, 1000000);
+                _lblTrainingValue.Text  = $"${_building.TrainingBudget:N0} / msc";
             }
 
-            if (_building is RNDCenter rnd && _pnlRnd.Visible)
+            if (_building is CoalMine mine && _secEmployees.Visible)
+            {
+                _lblLevelValue.Text = $"{mine.Level}";
+                UpdateEmployeeLive(mine);
+            }
+
+            if (_building is RNDCenter rnd && _secRnd.Visible)
             {
                 string proj = rnd.ActiveResearchProject;
                 if (string.IsNullOrEmpty(proj))
@@ -544,7 +686,7 @@ namespace Conglomerate.UI.Controls
                 }
             }
 
-            if (_pnlInventory.Visible)
+            if (_secInventory.Visible)
                 RefreshInventory();
         }
 
@@ -554,7 +696,6 @@ namespace Conglomerate.UI.Controls
         {
             if (_building == null) return;
 
-            // Aktualne produkty w magazynie (ilość > 0)
             var current = _building.Warehouse
                 .Where(kvp => kvp.Value.Quantity > 0m)
                 .Select(kvp => kvp.Key)
@@ -562,7 +703,6 @@ namespace Conglomerate.UI.Controls
 
             _lblInvEmpty.Visible = current.Count == 0;
 
-            // Usuń wiersze produktów, których już nie ma
             foreach (var key in _invRows.Keys.ToList())
             {
                 if (!current.Contains(key, StringComparer.OrdinalIgnoreCase))
@@ -573,7 +713,6 @@ namespace Conglomerate.UI.Controls
                 }
             }
 
-            // Dodaj/uaktualnij wiersze
             int rowY = 4;
             foreach (var res in current.OrderBy(r => r))
             {
@@ -584,8 +723,8 @@ namespace Conglomerate.UI.Controls
                     _invList.Controls.Add(row.Row);
                 }
 
-                row.Row.Location = new Point(0, rowY);
-                rowY += 28;
+                row.Row.Location = new Point(4, rowY);
+                rowY += 40;
 
                 decimal qty = _building.GetProductQuantity(res);
                 row.Qty.Text = $"{qty:N0}";
@@ -601,21 +740,33 @@ namespace Conglomerate.UI.Controls
         {
             var panel = new Panel
             {
-                Size      = new Size(238, 26),
-                BackColor = Color.Transparent
+                Size      = new Size(SectionWidth - 26, 36),
+                BackColor = Color.FromArgb(18, 32, 50)
             };
 
             var lblName = new Label
             {
                 Text      = resource,
                 ForeColor = ThemeManager.TextColor,
-                Font      = ThemeManager.SmallFont,
+                Font      = ThemeManager.DefaultFont,
                 AutoSize  = false,
-                Size      = new Size(96, 24),
-                Location  = new Point(2, 1),
+                Size      = new Size(120, 18),
+                Location  = new Point(6, 2),
                 TextAlign = ContentAlignment.MiddleLeft
             };
             panel.Controls.Add(lblName);
+
+            var lblPrice = new Label
+            {
+                Text      = "",
+                ForeColor = ThemeManager.MutedTextColor,
+                Font      = ThemeManager.SmallFont,
+                AutoSize  = false,
+                Size      = new Size(120, 14),
+                Location  = new Point(6, 19),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            panel.Controls.Add(lblPrice);
 
             var lblQty = new Label
             {
@@ -623,34 +774,23 @@ namespace Conglomerate.UI.Controls
                 ForeColor = ThemeManager.GoldColor,
                 Font      = ThemeManager.BoldDataFont,
                 AutoSize  = false,
-                Size      = new Size(40, 24),
-                Location  = new Point(96, 1),
+                Size      = new Size(60, 32),
+                Location  = new Point(126, 2),
                 TextAlign = ContentAlignment.MiddleRight
             };
             panel.Controls.Add(lblQty);
 
-            var lblPrice = new Label
-            {
-                Text      = "",
-                ForeColor = ThemeManager.MutedTextColor,
-                Font      = new Font("Segoe UI", 6.5f, FontStyle.Regular),
-                AutoSize  = false,
-                Size      = new Size(78, 12),
-                Location  = new Point(140, 14),
-                TextAlign = ContentAlignment.MiddleRight
-            };
-            panel.Controls.Add(lblPrice);
-
             var btnSell = new Button
             {
                 Text      = "Sprzedaj",
-                Size      = new Size(78, 14),
-                Location  = new Point(140, 1),
+                Size      = new Size(72, 28),
+                Location  = new Point(panel.Width - 76, 4),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = ThemeManager.HeaderBackground,
                 ForeColor = ThemeManager.PositiveColor,
-                Font      = new Font("Segoe UI", 6.5f, FontStyle.Bold),
-                Cursor    = Cursors.Hand
+                Font      = new Font("Segoe UI", 8, FontStyle.Bold),
+                Cursor    = Cursors.Hand,
+                Anchor    = AnchorStyles.Top | AnchorStyles.Right
             };
             btnSell.FlatAppearance.BorderColor = ThemeManager.BorderColor;
             btnSell.Click += (s, e) => SellAll(resource);

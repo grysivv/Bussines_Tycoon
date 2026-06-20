@@ -17,20 +17,11 @@ namespace Conglomerate
             Application.ThreadException += (sender, e) => LogException(e.Exception);
             AppDomain.CurrentDomain.UnhandledException += (sender, e) => LogException(e.ExceptionObject as Exception);
 
-            if (args.Length > 0 && args[0] == "--run-tests")
-            {
-                Conglomerate.Financials.Tests.FinancialSystemTests.RunTests();
-                Conglomerate.Tests.HRSystemTests.RunTests();
-                Conglomerate.Tests.CoalMineTests.RunTests();
-                return;
-            }
-
             // Konfiguracja Windows Forms
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // Uruchomienie głównego okna gry (nowy, modularny interfejs).
-            // Aby wrócić do starego monolitycznego UI, podmień na: new MainForm()
+            // Uruchomienie głównego okna gry (modularny interfejs).
             Application.Run(new Conglomerate.UI.Forms.ModernMainForm());
         }
 

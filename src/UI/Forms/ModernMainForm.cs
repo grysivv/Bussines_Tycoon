@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using Conglomerate.UI.Controls;
@@ -37,6 +38,9 @@ namespace Conglomerate.UI.Forms
         
         private System.Windows.Forms.Timer _gameTimer;
         private SelectedBlueprint _selectedBlueprint = SelectedBlueprint.None;
+
+        // Rejestr nakładek: klucz → (kontrolka, akcja przed pokazaniem)
+        private readonly Dictionary<string, (Control Overlay, Action? OnShow)> _overlayRegistry = new();
 
 
         public ModernMainForm()
@@ -81,30 +85,43 @@ namespace Conglomerate.UI.Forms
             }
         }
 
+        private void RegisterOverlay(string key, Control overlay, Action? onShow = null)
+        {
+            _overlayRegistry[key] = (overlay, onShow);
+            overlay.Visible = false;
+        }
+
+        private void ShowRegisteredOverlay(string key)
+        {
+            if (!_overlayRegistry.TryGetValue(key, out var entry)) return;
+            entry.OnShow?.Invoke();
+            mainContainer.ShowOverlay(entry.Overlay);
+        }
+
+        private void HideAllOverlays()
+        {
+            foreach (var (overlay, _) in _overlayRegistry.Values)
+                mainContainer.HideOverlay(overlay);
+        }
+
         /// <summary>Zamyka najwyżej położoną widoczną nakładkę. Zwraca true, jeśli coś zamknięto.</summary>
         private bool CloseTopmostOverlay()
         {
             if (mainContainer == null) return false;
 
-            Control?[] overlays =
-            {
-                _inspectorControl, _buildPanel, _financePanel, _corporatePanel,
-                _stockHost, _bankHost, _marketHost, _execHost, _logisticsPanel, _hrPanel
-            };
-
             Control? topmost = null;
             int bestIndex = int.MaxValue;
 
-            foreach (var o in overlays)
+            foreach (var (overlay, _) in _overlayRegistry.Values)
             {
-                if (o == null || !o.Visible) continue;
-                if (!mainContainer.MainWorkspace.Controls.Contains(o)) continue;
+                if (!overlay.Visible) continue;
+                if (!mainContainer.MainWorkspace.Controls.Contains(overlay)) continue;
 
-                int idx = mainContainer.MainWorkspace.Controls.GetChildIndex(o);
+                int idx = mainContainer.MainWorkspace.Controls.GetChildIndex(overlay);
                 if (idx < bestIndex)
                 {
                     bestIndex = idx;
-                    topmost = o;
+                    topmost = overlay;
                 }
             }
 
@@ -162,6 +179,8 @@ namespace Conglomerate.UI.Forms
                 _gameTimer = null!;
             }
 
+            _overlayRegistry.Clear();
+
             // Wyczyść poprzedni widok (mapa + nakładki z poprzedniej rozgrywki)
             mainContainer.MainWorkspace.Controls.Clear();
 
@@ -204,90 +223,40 @@ namespace Conglomerate.UI.Forms
             mainContainer.BottomStatusBar.Controls.Clear();
             
             _bottomHud = new BottomHudControl(_company, _gameManager);
-            _bottomHud.OnMapClicked += (s, ev) =>
-            {
-                mainContainer.HideOverlay(_financePanel);
-                mainContainer.HideOverlay(_corporatePanel);
-                mainContainer.HideOverlay(_stockHost);
-                mainContainer.HideOverlay(_bankHost);
-                mainContainer.HideOverlay(_logisticsPanel);
-                mainContainer.HideOverlay(_marketHost);
-                mainContainer.HideOverlay(_execHost);
-                mainContainer.HideOverlay(_hrPanel);
-            };
-            _bottomHud.OnFinanceClicked += (s, ev) => 
-            {
-                _financePanel.RefreshData();
-                mainContainer.ShowOverlay(_financePanel);
-            };
-            _bottomHud.OnCorporateClicked += (s, ev) => 
-            {
-                _corporatePanel.RefreshData();
-                mainContainer.ShowOverlay(_corporatePanel);
-            };
-            _bottomHud.OnBuildClicked += (s, ev) =>
-            {
-                mainContainer.ShowOverlay(_buildPanel);
-            };
+            RegisterOverlay("inspector",  _inspectorControl);
+            RegisterOverlay("build",      _buildPanel);
+            RegisterOverlay("finance",    _financePanel,   () => _financePanel.RefreshData());
+            RegisterOverlay("corporate",  _corporatePanel, () => _corporatePanel.RefreshData());
 
             // ── Systemy Capitalism Lab: Giełda / Bank / Logistyka ──────────────
             _stockForm = new StockMarketForm();
             _stockHost = new CapLabOverlayHost("📈 Giełda Papierów Wartościowych", 860, 620, _stockForm);
-            _stockHost.Visible = false;
 
             _bankForm = new BankingForm();
             _bankHost = new CapLabOverlayHost("🏦 Bank — Kredyty i Finansowanie", 740, 540, _bankForm);
-            _bankHost.Visible = false;
 
             _logisticsPanel = new LogisticsPanelControl();
-            _logisticsPanel.Visible = false;
-
-            _bottomHud.OnStockClicked += (s, ev) =>
-            {
-                _stockForm.SetGameManager(_gameManager!, _company!);
-                _stockForm.RefreshData();
-                mainContainer.ShowOverlay(_stockHost);
-            };
-            _bottomHud.OnBankClicked += (s, ev) =>
-            {
-                _bankForm.SetGameManager(_gameManager!, _company!);
-                _bankForm.RefreshData();
-                mainContainer.ShowOverlay(_bankHost);
-            };
-            _bottomHud.OnLogisticsClicked += (s, ev) =>
-            {
-                _logisticsPanel.SetData(_gameManager!);
-                mainContainer.ShowOverlay(_logisticsPanel);
-            };
 
             // ── Marketing / Dyrektorzy (C-Suite) / Kadry (HR) ──────────────────
             _marketForm = new MarketReportForm();
             _marketHost = new CapLabOverlayHost("📢 Marketing i Analiza Rynku", 720, 700, _marketForm);
-            _marketHost.Visible = false;
 
             _execForm = new ExecutivesForm();
             _execHost = new CapLabOverlayHost("👔 Zarząd (C-Suite)", 740, 680, _execForm);
-            _execHost.Visible = false;
 
             _hrPanel = new HRPanelControl();
-            _hrPanel.Visible = false;
 
-            _bottomHud.OnMarketingClicked += (s, ev) =>
+            RegisterOverlay("stock",      _stockHost,      () => { _stockForm.SetGameManager(_gameManager!, _company!); _stockForm.RefreshData(); });
+            RegisterOverlay("bank",       _bankHost,       () => { _bankForm.SetGameManager(_gameManager!, _company!); _bankForm.RefreshData(); });
+            RegisterOverlay("logistics",  _logisticsPanel, () => _logisticsPanel.SetData(_gameManager!));
+            RegisterOverlay("market",     _marketHost,     () => { _marketForm.SetGameManager(_gameManager!, _company!); _marketForm.RefreshData(); });
+            RegisterOverlay("executives", _execHost,       () => { _execForm.SetGameManager(_gameManager!, _company!); _execForm.RefreshData(); });
+            RegisterOverlay("hr",         _hrPanel,        () => _hrPanel.SetData(_gameManager!));
+
+            _bottomHud.OnModuleClicked += (s, key) =>
             {
-                _marketForm.SetGameManager(_gameManager!, _company!);
-                _marketForm.RefreshData();
-                mainContainer.ShowOverlay(_marketHost);
-            };
-            _bottomHud.OnExecutivesClicked += (s, ev) =>
-            {
-                _execForm.SetGameManager(_gameManager!, _company!);
-                _execForm.RefreshData();
-                mainContainer.ShowOverlay(_execHost);
-            };
-            _bottomHud.OnHRClicked += (s, ev) =>
-            {
-                _hrPanel.SetData(_gameManager!);
-                mainContainer.ShowOverlay(_hrPanel);
+                if (key == "map") { HideAllOverlays(); return; }
+                ShowRegisteredOverlay(key);
             };
 
             mainContainer.BottomStatusBar.Controls.Add(_bottomHud);
@@ -334,9 +303,10 @@ namespace Conglomerate.UI.Forms
                         {
                             _gameManager.ActiveCompany.Balance -= newBuilding.BuildCost;
                             _gameManager.ActiveCompany.AddTransaction(_gameManager.CurrentDay, _gameManager.CurrentHour, 
-                                $"Budowa: {newBuilding.Name}", -newBuilding.BuildCost, "Inwestycje");
+                                $"Budowa: {newBuilding.Name}", -newBuilding.BuildCost, "Budowa");
                             
                             _gameManager.ActiveCompany.Buildings.Add(newBuilding);
+                            _gameManager.ActiveCompany.Engine.RegisterFacility(newBuilding);
                             _map.BuildBuildingOnTile(pt.X, pt.Y, newBuilding);
                         }
                         else

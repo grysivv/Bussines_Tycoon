@@ -50,16 +50,8 @@ namespace Conglomerate.UI.Controls
         private Button _btnPause;
 
         // Zdarzenia
-        public event EventHandler? OnFinanceClicked;
-        public event EventHandler? OnCorporateClicked;
-        public event EventHandler? OnMapClicked;
-        public event EventHandler? OnBuildClicked;
-        public event EventHandler? OnStockClicked;
-        public event EventHandler? OnBankClicked;
-        public event EventHandler? OnLogisticsClicked;
-        public event EventHandler? OnMarketingClicked;
-        public event EventHandler? OnExecutivesClicked;
-        public event EventHandler? OnHRClicked;
+        /// <summary>Kliknięto przycisk nawigacyjny. Argument = klucz modułu ("map", "build", "finance" itp.).</summary>
+        public event EventHandler<string>? OnModuleClicked;
         public event EventHandler? OnTimePaused;
         /// <summary>Wybrano prędkość gry. Argument = interwał ticka godzinowego w ms.</summary>
         public event EventHandler<int>? OnSpeedSelected;
@@ -302,56 +294,25 @@ namespace Conglomerate.UI.Controls
                 flowNav.Controls.Add(b);
             }
 
-            btnMap.Click += (s, e) =>
+            void WireNavButton(Button btn, string key)
             {
-                SetActiveNavBtn(btnMap);
-                OnMapClicked?.Invoke(this, EventArgs.Empty);
-            };
-            btnBuild.Click += (s, e) =>
-            {
-                SetActiveNavBtn(btnBuild);
-                OnBuildClicked?.Invoke(this, EventArgs.Empty);
-            };
-            btnCorp.Click += (s, e) =>
-            {
-                SetActiveNavBtn(btnCorp);
-                OnCorporateClicked?.Invoke(this, EventArgs.Empty);
-            };
-            btnFinance.Click += (s, e) =>
-            {
-                SetActiveNavBtn(btnFinance);
-                OnFinanceClicked?.Invoke(this, EventArgs.Empty);
-            };
-            btnStock.Click += (s, e) =>
-            {
-                SetActiveNavBtn(btnStock);
-                OnStockClicked?.Invoke(this, EventArgs.Empty);
-            };
-            btnBank.Click += (s, e) =>
-            {
-                SetActiveNavBtn(btnBank);
-                OnBankClicked?.Invoke(this, EventArgs.Empty);
-            };
-            btnLogistics.Click += (s, e) =>
-            {
-                SetActiveNavBtn(btnLogistics);
-                OnLogisticsClicked?.Invoke(this, EventArgs.Empty);
-            };
-            btnMarketing.Click += (s, e) =>
-            {
-                SetActiveNavBtn(btnMarketing);
-                OnMarketingClicked?.Invoke(this, EventArgs.Empty);
-            };
-            btnExecutives.Click += (s, e) =>
-            {
-                SetActiveNavBtn(btnExecutives);
-                OnExecutivesClicked?.Invoke(this, EventArgs.Empty);
-            };
-            btnHR.Click += (s, e) =>
-            {
-                SetActiveNavBtn(btnHR);
-                OnHRClicked?.Invoke(this, EventArgs.Empty);
-            };
+                btn.Click += (s, e) =>
+                {
+                    SetActiveNavBtn(btn);
+                    OnModuleClicked?.Invoke(this, key);
+                };
+            }
+
+            WireNavButton(btnMap,       "map");
+            WireNavButton(btnBuild,     "build");
+            WireNavButton(btnCorp,      "corporate");
+            WireNavButton(btnFinance,   "finance");
+            WireNavButton(btnStock,     "stock");
+            WireNavButton(btnBank,      "bank");
+            WireNavButton(btnLogistics, "logistics");
+            WireNavButton(btnMarketing, "market");
+            WireNavButton(btnExecutives,"executives");
+            WireNavButton(btnHR,        "hr");
 
             pnlNavBlock.Controls.Add(flowNav);
 

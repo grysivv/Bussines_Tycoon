@@ -158,6 +158,14 @@ namespace Conglomerate.UI
             btn.Cursor = Cursors.Hand;
         }
 
+        // Tooltip global instance for accessibility
+        private static readonly ToolTip _sharedToolTip = new ToolTip();
+
+        public static void SetToolTip(Control control, string text)
+        {
+            _sharedToolTip.SetToolTip(control, text);
+        }
+
         // Przycisk w stylu CL - duży, z ikoną na górze i etykietą na dole
         public static Button CreateHudNavButton(string iconChar, string label, Color iconColor)
         {
@@ -170,6 +178,7 @@ namespace Conglomerate.UI
             btn.ForeColor = TextColor;
             btn.Cursor = Cursors.Hand;
             btn.Tag = false; // stan: nieaktywny
+            btn.AccessibleName = label;
 
             // Tekst: ikona + nowa linia + etykieta (własny Paint)
             btn.Paint += (sender, e) =>
@@ -224,6 +233,7 @@ namespace Conglomerate.UI
             btn.Font = new Font("Consolas", 10, FontStyle.Bold);
             btn.Cursor = Cursors.Hand;
             btn.Padding = Padding.Empty;
+            btn.AccessibleName = symbol;
             return btn;
         }
 

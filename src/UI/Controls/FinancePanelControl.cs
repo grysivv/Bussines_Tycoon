@@ -97,6 +97,8 @@ namespace Conglomerate.UI.Controls
             ThemeManager.ApplySecondaryButtonTheme(btnClose);
             btnClose.ForeColor = ThemeManager.NegativeColor;
             btnClose.Click    += (s, e) => this.Visible = false;
+            ThemeManager.SetToolTip(btnClose, "Zamknij");
+            btnClose.AccessibleName = "Zamknij";
             pnlHeader.Controls.Add(btnClose);
 
             this.Controls.Add(pnlHeader);

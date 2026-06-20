@@ -223,7 +223,8 @@ namespace Conglomerate.UI.Controls
                 b.Size     = new Size(33, 26);
                 b.Font     = new Font("Consolas", 8.5f, FontStyle.Bold);
                 b.Location = new Point(x, 48);
-                b.ToolTipText(tip);
+                ThemeManager.SetToolTip(b, tip);
+                b.AccessibleName = text;
                 b.Click   += (s, e) =>
                 {
                     SetActiveSpeed(b);
@@ -236,7 +237,8 @@ namespace Conglomerate.UI.Controls
             _btnPause = ThemeManager.CreateTimeButton("⏸");
             _btnPause.Size     = new Size(33, 26);
             _btnPause.Location = new Point(6, 48);
-            _btnPause.ToolTipText("Pauza");
+            ThemeManager.SetToolTip(_btnPause, "Pauza");
+            _btnPause.AccessibleName = "Pauza";
             _btnPause.Click   += (s, e) =>
             {
                 SetActiveSpeed(null);
@@ -410,10 +412,4 @@ namespace Conglomerate.UI.Controls
         }
     }
 
-    // Extension - tooltip helper
-    internal static class ButtonExtensions
-    {
-        private static ToolTip _tip = new ToolTip();
-        public static void ToolTipText(this Button btn, string text) => _tip.SetToolTip(btn, text);
-    }
 }

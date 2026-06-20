@@ -56,6 +56,7 @@ namespace Conglomerate
                     CheeseFactory    => "CheeseFactory",
                     CopperFoundry     => "CopperFoundry",
                     GeneralStore     => "GeneralStore",
+                    RNDCenter        => "RNDCenter",
                     WarehouseBuilding wh => wh.AllowedCategory == ResourceCategory.Food
                                             ? "FoodWarehouse"
                                             : wh.AllowedCategory == ResourceCategory.ProcessedFood
@@ -177,6 +178,7 @@ namespace Conglomerate
                 "CheeseFactory"          => new CheeseFactory(bData.Name),
                 "CopperFoundry"          => new CopperFoundry(bData.Name),
                 "GeneralStore"           => new GeneralStore(bData.Name),
+                "RNDCenter"              => new RNDCenter(bData.Name),
                 "FoodWarehouse"          => new WarehouseBuilding(bData.Name, ResourceCategory.Food),
                 "ProcessedFoodWarehouse" => new WarehouseBuilding(bData.Name, ResourceCategory.ProcessedFood),
                 "MiningWarehouse"        => new WarehouseBuilding(bData.Name, ResourceCategory.Mining),

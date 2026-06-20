@@ -19,7 +19,7 @@ namespace Conglomerate
         // ── Systemy główne ──────────────────────────────────────
         public FreeMarket    Market     { get; } = new FreeMarket();
         public LogisticsManager Logistics { get; } = new LogisticsManager();
-        public AIManager     AIManager  { get; } = new AIManager();
+        public AIManager     AIManager  { get; }
         public HR.HRManager  HR         { get; } = new HR.HRManager(new HR.HRConfig());
 
         // ── Nowe systemy (Capitalism Lab) ───────────────────────
@@ -29,11 +29,33 @@ namespace Conglomerate
         public event Action? OnTickPerformed;
         public event Action<string>? OnNewsEvent; // Zdarzenia do News Tickera
 
-        public GameManager(Company company, Map map)
+        public GameManager(Company company, Map map, GameGenerationSettings? settings = null)
         {
             ActiveCompany = company;
             ActiveMap = map;
+            AIManager = new AIManager(settings?.AICompetitionAggressiveness ?? "Normalna");
+
+            if (settings != null)
+                ApplyStartingSettings(settings);
+
             InitializeStockMarket();
+        }
+
+        /// <summary>
+        /// Stosuje parametry konfiguracji nowej gry do firmy gracza
+        /// (stawka podatku, kredyt startowy).
+        /// </summary>
+        private void ApplyStartingSettings(GameGenerationSettings settings)
+        {
+            // Stawka podatku CIT
+            ActiveCompany.Engine.TaxRate = settings.GlobalCorporateTax;
+
+            // Kredyt startowy — długoterminowa pożyczka dopisana do salda
+            if (settings.StartingDebt > 0m)
+            {
+                Banking.TakeLoan(LoanType.LongTerm, settings.StartingDebt,
+                    ActiveCompany, CurrentDay, CurrentHour);
+            }
         }
 
         // ─────────────────────────────────────────────────────────

@@ -29,8 +29,9 @@ namespace Conglomerate
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // Uruchomienie głównego okna gry (ekran logowania jest wbudowany w MainForm)
-            Application.Run(new MainForm());
+            // Uruchomienie głównego okna gry (nowy, modularny interfejs).
+            // Aby wrócić do starego monolitycznego UI, podmień na: new MainForm()
+            Application.Run(new Conglomerate.UI.Forms.ModernMainForm());
         }
 
         private static void LogException(Exception? ex)

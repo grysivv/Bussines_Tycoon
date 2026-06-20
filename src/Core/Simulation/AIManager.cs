@@ -16,15 +16,26 @@ namespace Conglomerate.Simulation
         private readonly Random _rng = new Random(42);
         public List<AICompany> Competitors { get; } = new List<AICompany>();
 
-        public AIManager()
+        public AIManager(string aggressiveness = "Normalna")
         {
             // 5 zróżnicowanych konkurentów (jak w Capitalism Lab)
-            Competitors.Add(new AICompany("Global Extracts",     120000m, AIType.Extractor,     200000m, AIStrategy.Balanced));
-            Competitors.Add(new AICompany("Retail Kings Corp",   200000m, AIType.Retailer,      250000m, AIStrategy.Aggressive));
-            Competitors.Add(new AICompany("Heavy Industries",    300000m, AIType.Manufacturer,  350000m, AIStrategy.Conservative));
-            Competitors.Add(new AICompany("TechVision Ltd",      500000m, AIType.Conglomerate,  600000m, AIStrategy.Aggressive));
-            Competitors.Add(new AICompany("EcoFarm Holdings",    80000m,  AIType.Extractor,     150000m, AIStrategy.Conservative));
+            Competitors.Add(new AICompany("Global Extracts",     120000m, AIType.Extractor,     200000m, AdjustStrategy(AIStrategy.Balanced,     aggressiveness)));
+            Competitors.Add(new AICompany("Retail Kings Corp",   200000m, AIType.Retailer,      250000m, AdjustStrategy(AIStrategy.Aggressive,   aggressiveness)));
+            Competitors.Add(new AICompany("Heavy Industries",    300000m, AIType.Manufacturer,  350000m, AdjustStrategy(AIStrategy.Conservative, aggressiveness)));
+            Competitors.Add(new AICompany("TechVision Ltd",      500000m, AIType.Conglomerate,  600000m, AdjustStrategy(AIStrategy.Aggressive,   aggressiveness)));
+            Competitors.Add(new AICompany("EcoFarm Holdings",    80000m,  AIType.Extractor,     150000m, AdjustStrategy(AIStrategy.Conservative, aggressiveness)));
         }
+
+        /// <summary>
+        /// Modyfikuje strategię konkurenta zależnie od globalnej agresywności konkurencji.
+        /// "Agresywna" → wszyscy ekspandują szybko, "Niska" → ostrożnie.
+        /// </summary>
+        private static AIStrategy AdjustStrategy(AIStrategy baseStrategy, string aggressiveness) => aggressiveness switch
+        {
+            "Agresywna" => AIStrategy.Aggressive,
+            "Niska"     => AIStrategy.Conservative,
+            _           => baseStrategy
+        };
 
         // ──────────────────────────────────────────────────────────
         //  Główny tick (raz na dobę)

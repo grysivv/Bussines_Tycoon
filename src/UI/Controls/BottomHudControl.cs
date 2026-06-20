@@ -1,44 +1,76 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using Conglomerate.Financials;
 using System.Collections.Generic;
 
 namespace Conglomerate.UI.Controls
 {
+    /// <summary>
+    /// Dolny pasek HUD wzorowany na Capitalism Lab:
+    /// [TICKER NEWS] / [COMPANY | CASH | NAV BUTTONS | DATE | CZAS]
+    /// </summary>
     public class BottomHudControl : UserControl
     {
         private Company _company;
         private GameManager _gameManager;
-        
-        private Panel pnlNews;
-        private ListBox lstNews;
+
+        // Ticker
+        private Panel pnlTicker;
+        private Label lblTickerText;
+        private List<string> _newsItems = new List<string>();
+        private int _tickerIndex = 0;
+        private System.Windows.Forms.Timer _tickerTimer;
+
+        // Toolbar
         private Panel pnlToolbar;
-        
-        private Label lblCash;
-        private Label lblProfit;
-        private Label lblDate;
-        
-        private Panel chartCashflow;
-        
+        private Label lblCompanyName;
+        private Label lblCashValue;
+        private Label lblProfitValue;
+        private Label lblDateValue;
+
+        // Przyciski nawigacji
+        private Button btnMap;
+        private Button btnBuild;
+        private Button btnCorp;
+        private Button btnFinance;
+        private Button btnStock;
+        private Button btnBank;
+        private Button btnLogistics;
+        private Button btnMarketing;
+        private Button btnExecutives;
+        private Button btnHR;
+        private Button[] _navButtons;
+        private Button _activeNavButton;
+
+        // Sterowanie czasem
+        private Button[] _speedButtons;
+        private Button? _activeSpeedButton;
+        private Button _btnPause;
+
+        // Zdarzenia
         public event EventHandler? OnFinanceClicked;
         public event EventHandler? OnCorporateClicked;
         public event EventHandler? OnMapClicked;
         public event EventHandler? OnBuildClicked;
-        
+        public event EventHandler? OnStockClicked;
+        public event EventHandler? OnBankClicked;
+        public event EventHandler? OnLogisticsClicked;
+        public event EventHandler? OnMarketingClicked;
+        public event EventHandler? OnExecutivesClicked;
+        public event EventHandler? OnHRClicked;
         public event EventHandler? OnTimePaused;
-        public event EventHandler? OnTimeNormal;
-        public event EventHandler? OnTimeFast;
+        /// <summary>Wybrano prędkość gry. Argument = interwał ticka godzinowego w ms.</summary>
+        public event EventHandler<int>? OnSpeedSelected;
 
         public BottomHudControl(Company company, GameManager gameManager)
         {
             _company = company;
             _gameManager = gameManager;
             InitializeComponent();
-            ThemeManager.ApplyTheme(this);
-            
-            // Subskrypcja na update z gry (wymaga timer-a lub ticków eventów)
-            System.Windows.Forms.Timer updateTimer = new System.Windows.Forms.Timer { Interval = 200 };
+
+            System.Windows.Forms.Timer updateTimer = new System.Windows.Forms.Timer { Interval = 300 };
             updateTimer.Tick += (s, e) => RefreshData();
             updateTimer.Start();
         }
@@ -46,170 +78,381 @@ namespace Conglomerate.UI.Controls
         private void InitializeComponent()
         {
             this.Dock = DockStyle.Fill;
-            this.BackColor = Color.FromArgb(10, 25, 45); // Capitalism Lab ma niebieskawo-granatowy dół
+            this.BackColor = ThemeManager.ToolbarBackground;
+            this.DoubleBuffered = true;
 
-            // Główne kontenery
-            pnlNews = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.FromArgb(15, 30, 60), BorderStyle = BorderStyle.Fixed3D };
-            pnlToolbar = new Panel { Dock = DockStyle.Fill, BackColor = Color.Black };
-
-            this.Controls.Add(pnlToolbar);
-            this.Controls.Add(pnlNews);
-
-            // --- News Ticker ---
-            lstNews = new ListBox();
-            lstNews.Dock = DockStyle.Fill;
-            lstNews.BackColor = Color.FromArgb(15, 30, 60);
-            lstNews.ForeColor = Color.LightSkyBlue;
-            lstNews.BorderStyle = BorderStyle.None;
-            lstNews.Font = new Font("Consolas", 9, FontStyle.Bold);
-            lstNews.SelectionMode = SelectionMode.None;
-            pnlNews.Controls.Add(lstNews);
-
-            // Wypełnienie przykładowymi danymi (do podpięcia pod prawdziwe eventy z silnika)
-            lstNews.Items.Add("Jan 1, 2000 - Witamy w Conglomerate Tycoon!");
-            lstNews.Items.Add("Jan 5, 2000 - Konkurencja złożyła wniosek o budowę nowej kopalni.");
-
-            // --- Toolbar (Na dole) ---
-            
-            // Lewa sekcja (Przyciski akcji)
-            FlowLayoutPanel flowLeft = new FlowLayoutPanel();
-            flowLeft.Dock = DockStyle.Left;
-            flowLeft.Width = 200;
-            flowLeft.FlowDirection = FlowDirection.LeftToRight;
-            flowLeft.WrapContents = false;
-            flowLeft.Padding = new Padding(5);
-
-            Button btnMap = CreateIconButton("M", Color.SteelBlue);
-            btnMap.Click += (s, e) => OnMapClicked?.Invoke(this, EventArgs.Empty);
-            
-            Button btnFinance = CreateIconButton("$", Color.ForestGreen);
-            btnFinance.Click += (s, e) => OnFinanceClicked?.Invoke(this, EventArgs.Empty);
-            
-            Button btnCorp = CreateIconButton("C", Color.DarkGoldenrod);
-            btnCorp.Click += (s, e) => OnCorporateClicked?.Invoke(this, EventArgs.Empty);
-            
-            Button btnBuild = CreateIconButton("B", Color.Brown);
-            btnBuild.Click += (s, e) => OnBuildClicked?.Invoke(this, EventArgs.Empty);
-
-            flowLeft.Controls.Add(btnMap);
-            flowLeft.Controls.Add(btnFinance);
-            flowLeft.Controls.Add(btnCorp);
-            flowLeft.Controls.Add(btnBuild);
-            pnlToolbar.Controls.Add(flowLeft);
-
-            // Środkowa sekcja (Cash, Profit)
-            Panel pnlCenter = new Panel { Dock = DockStyle.Fill };
-            pnlToolbar.Controls.Add(pnlCenter);
-            
-            Label lblCashTitle = new Label { Text = "Cash:", ForeColor = Color.White, Font = new Font("Arial", 10, FontStyle.Bold), AutoSize = true, Location = new Point(10, 10) };
-            lblCash = new Label { Text = "$0", ForeColor = Color.Lime, Font = new Font("Arial", 10, FontStyle.Bold), AutoSize = true, Location = new Point(60, 10) };
-            
-            Label lblProfitTitle = new Label { Text = "Profit:", ForeColor = Color.White, Font = new Font("Arial", 10, FontStyle.Bold), AutoSize = true, Location = new Point(160, 10) };
-            lblProfit = new Label { Text = "$0", ForeColor = Color.Lime, Font = new Font("Arial", 10, FontStyle.Bold), AutoSize = true, Location = new Point(210, 10) };
-
-            pnlCenter.Controls.Add(lblCashTitle);
-            pnlCenter.Controls.Add(lblCash);
-            pnlCenter.Controls.Add(lblProfitTitle);
-            pnlCenter.Controls.Add(lblProfit);
-            
-            // Kontrola czasu
-            Button btnPause = CreateIconButton("||", Color.DimGray);
-            btnPause.Location = new Point(350, 5);
-            btnPause.Click += (s, e) => OnTimePaused?.Invoke(this, EventArgs.Empty);
-            
-            Button btnPlay = CreateIconButton(">", Color.DimGray);
-            btnPlay.Location = new Point(390, 5);
-            btnPlay.Click += (s, e) => OnTimeNormal?.Invoke(this, EventArgs.Empty);
-            
-            Button btnFast = CreateIconButton(">>", Color.DimGray);
-            btnFast.Location = new Point(430, 5);
-            btnFast.Click += (s, e) => OnTimeFast?.Invoke(this, EventArgs.Empty);
-            
-            pnlCenter.Controls.Add(btnPause);
-            pnlCenter.Controls.Add(btnPlay);
-            pnlCenter.Controls.Add(btnFast);
-
-            // Prawa sekcja (Data, mini-wykres)
-            Panel pnlRight = new Panel { Dock = DockStyle.Right, Width = 250, BackColor = Color.FromArgb(20, 20, 20) };
-            pnlToolbar.Controls.Add(pnlRight);
-            
-            lblDate = new Label();
-            lblDate.Dock = DockStyle.Top;
-            lblDate.Height = 20;
-            lblDate.TextAlign = ContentAlignment.MiddleCenter;
-            lblDate.Font = new Font("Arial", 10, FontStyle.Bold);
-            lblDate.ForeColor = Color.White;
-            lblDate.Text = "Jan 1, 2000";
-            pnlRight.Controls.Add(lblDate);
-            
-            // Chart Cashflow (Custom Paint)
-            chartCashflow = new Panel();
-            chartCashflow.Dock = DockStyle.Fill;
-            chartCashflow.BackColor = Color.FromArgb(20, 20, 20);
-            chartCashflow.Paint += ChartCashflow_Paint;
-            
-            pnlRight.Controls.Add(chartCashflow);
-        }
-        
-        private void ChartCashflow_Paint(object? sender, PaintEventArgs e)
-        {
-            // Simple bar chart
-            Graphics g = e.Graphics;
-            int[] data = { 100, 150, 120, 200, 250 };
-            int max = 300;
-            
-            int barWidth = 20;
-            int spacing = 10;
-            int startX = 20;
-            
-            for(int i = 0; i < data.Length; i++)
+            // ── TICKER (górny pasek) ──────────────────────────────────────────────
+            pnlTicker = new Panel
             {
-                int barHeight = (int)((float)data[i] / max * chartCashflow.Height);
-                int y = chartCashflow.Height - barHeight;
-                int x = startX + i * (barWidth + spacing);
-                
-                using (SolidBrush brush = new SolidBrush(Color.Lime))
+                Dock      = DockStyle.Top,
+                Height    = 22,
+                BackColor = Color.FromArgb(6, 14, 26),
+                Name      = "pnlNewsTicker"
+            };
+            pnlTicker.Paint += PnlTicker_Paint;
+
+            lblTickerText = new Label
+            {
+                AutoSize  = false,
+                Dock      = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = Color.FromArgb(160, 200, 240),
+                BackColor = Color.Transparent,
+                Font      = new Font("Consolas", 8, FontStyle.Regular),
+                Padding   = new Padding(6, 0, 0, 0)
+            };
+            pnlTicker.Controls.Add(lblTickerText);
+
+            AddNewsItem("Witamy w Conglomerate Tycoon! Zbuduj swoje imperium handlowe.");
+            AddNewsItem("Rynki surowców otwarte. Pierwsze dostawy możliwe od zaraz.");
+
+            _tickerTimer = new System.Windows.Forms.Timer { Interval = 5000 };
+            _tickerTimer.Tick += TickerTimer_Tick;
+            _tickerTimer.Start();
+            ShowNextTicker();
+
+            // ── TOOLBAR (główny pasek) ────────────────────────────────────────────
+            pnlToolbar = new Panel
+            {
+                Dock      = DockStyle.Fill,
+                BackColor = ThemeManager.ToolbarBackground
+            };
+            pnlToolbar.Paint += PnlToolbar_Paint;
+
+            // Blok firmy (lewy) ───────────────────────────────────────────────────
+            Panel pnlCompanyBlock = new Panel
+            {
+                Dock      = DockStyle.Left,
+                Width     = 190,
+                BackColor = Color.FromArgb(10, 22, 38)
+            };
+            pnlCompanyBlock.Paint += (s, e) =>
+            {
+                var p = (Panel)s;
+                using var pen = new Pen(ThemeManager.SeparatorColor, 1);
+                e.Graphics.DrawLine(pen, p.Width - 1, 0, p.Width - 1, p.Height);
+            };
+
+            lblCompanyName = new Label
+            {
+                Text      = _company?.Name ?? "My Company",
+                ForeColor = ThemeManager.GoldColor,
+                Font      = new Font("Segoe UI", 9, FontStyle.Bold),
+                AutoSize  = false,
+                Width     = 180,
+                Height    = 18,
+                Location  = new Point(8, 4),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            Label lblCashLabel = new Label
+            {
+                Text      = "GOTÓWKA",
+                ForeColor = ThemeManager.MutedTextColor,
+                Font      = ThemeManager.HudLabelFont,
+                AutoSize  = false, Width = 80, Height = 14,
+                Location  = new Point(8, 22),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            lblCashValue = new Label
+            {
+                Text      = "$0",
+                ForeColor = ThemeManager.GoldColor,
+                Font      = ThemeManager.HudCashFont,
+                AutoSize  = false, Width = 178, Height = 20,
+                Location  = new Point(8, 34),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            Label lblProfitLabel = new Label
+            {
+                Text      = "ZYSK/MC",
+                ForeColor = ThemeManager.MutedTextColor,
+                Font      = ThemeManager.HudLabelFont,
+                AutoSize  = false, Width = 80, Height = 14,
+                Location  = new Point(8, 52),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            lblProfitValue = new Label
+            {
+                Text      = "$0",
+                ForeColor = ThemeManager.PositiveColor,
+                Font      = new Font("Consolas", 9, FontStyle.Bold),
+                AutoSize  = false, Width = 178, Height = 16,
+                Location  = new Point(8, 64),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            pnlCompanyBlock.Controls.Add(lblCompanyName);
+            pnlCompanyBlock.Controls.Add(lblCashLabel);
+            pnlCompanyBlock.Controls.Add(lblCashValue);
+            pnlCompanyBlock.Controls.Add(lblProfitLabel);
+            pnlCompanyBlock.Controls.Add(lblProfitValue);
+
+            // Blok daty + czasu (prawy) ───────────────────────────────────────────
+            Panel pnlDateBlock = new Panel
+            {
+                Dock      = DockStyle.Right,
+                Width     = 232,
+                BackColor = Color.FromArgb(10, 22, 38)
+            };
+            pnlDateBlock.Paint += (s, e) =>
+            {
+                var p = (Panel)s;
+                using var pen = new Pen(ThemeManager.SeparatorColor, 1);
+                e.Graphics.DrawLine(pen, 0, 0, 0, p.Height);
+            };
+
+            Label lblDateLabel = new Label
+            {
+                Text      = "DATA / CZAS",
+                ForeColor = ThemeManager.MutedTextColor,
+                Font      = ThemeManager.HudLabelFont,
+                AutoSize  = false, Width = 220, Height = 14,
+                Location  = new Point(8, 4),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            lblDateValue = new Label
+            {
+                Text      = "Dzień 1 • 08:00",
+                ForeColor = ThemeManager.TextColor,
+                Font      = ThemeManager.HudDateFont,
+                AutoSize  = false, Width = 220, Height = 24,
+                Location  = new Point(6, 16),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+
+            pnlDateBlock.Controls.Add(lblDateLabel);
+            pnlDateBlock.Controls.Add(lblDateValue);
+
+            // Przyciski sterowania czasem: [⏸][1x][2x][3x][5x][10x]
+            Button MakeSpeedButton(string text, string tip, int x, int intervalMs)
+            {
+                var b = ThemeManager.CreateTimeButton(text);
+                b.Size     = new Size(33, 26);
+                b.Font     = new Font("Consolas", 8.5f, FontStyle.Bold);
+                b.Location = new Point(x, 48);
+                b.ToolTipText(tip);
+                b.Click   += (s, e) =>
                 {
-                    g.FillRectangle(brush, x, y, barWidth, barHeight);
-                }
+                    SetActiveSpeed(b);
+                    OnSpeedSelected?.Invoke(this, intervalMs);
+                };
+                pnlDateBlock.Controls.Add(b);
+                return b;
+            }
+
+            _btnPause = ThemeManager.CreateTimeButton("⏸");
+            _btnPause.Size     = new Size(33, 26);
+            _btnPause.Location = new Point(6, 48);
+            _btnPause.ToolTipText("Pauza");
+            _btnPause.Click   += (s, e) =>
+            {
+                SetActiveSpeed(null);
+                _btnPause.BackColor = ThemeManager.HeaderBackground;
+                _btnPause.ForeColor = ThemeManager.GoldColor;
+                _btnPause.FlatAppearance.BorderColor = ThemeManager.GoldColor;
+                OnTimePaused?.Invoke(this, EventArgs.Empty);
+            };
+            pnlDateBlock.Controls.Add(_btnPause);
+
+            var btn1x  = MakeSpeedButton("1x",  "Prędkość 1x (1h / 1s)",   41,  1000);
+            var btn2x  = MakeSpeedButton("2x",  "Prędkość 2x",             76,  500);
+            var btn3x  = MakeSpeedButton("3x",  "Prędkość 3x",             111, 333);
+            var btn5x  = MakeSpeedButton("5x",  "Prędkość 5x",             146, 200);
+            var btn10x = MakeSpeedButton("10x", "Prędkość 10x",            181, 100);
+
+            _speedButtons = new[] { btn1x, btn2x, btn3x, btn5x, btn10x };
+
+            // Domyślnie aktywna prędkość 1x
+            SetActiveSpeed(btn1x);
+
+            // Blok nawigacji (środek) ─────────────────────────────────────────────
+            Panel pnlNavBlock = new Panel
+            {
+                Dock      = DockStyle.Fill,
+                BackColor = ThemeManager.ToolbarBackground
+            };
+
+            // Ikony: mapka, młotek, firma, finanse
+            btnMap       = ThemeManager.CreateHudNavButton("🗺", "Mapa",      ThemeManager.AccentColor);
+            btnBuild     = ThemeManager.CreateHudNavButton("🔨", "Buduj",     Color.FromArgb(200, 130, 60));
+            btnCorp      = ThemeManager.CreateHudNavButton("🏢", "Firma",     Color.FromArgb(80, 160, 240));
+            btnFinance   = ThemeManager.CreateHudNavButton("💰", "Finanse",   ThemeManager.GoldColor);
+            btnStock      = ThemeManager.CreateHudNavButton("📈", "Giełda",     ThemeManager.PositiveColor);
+            btnBank       = ThemeManager.CreateHudNavButton("🏦", "Bank",       Color.FromArgb(120, 180, 250));
+            btnLogistics  = ThemeManager.CreateHudNavButton("🚚", "Logistyka",  Color.FromArgb(240, 180, 50));
+            btnMarketing  = ThemeManager.CreateHudNavButton("📢", "Marketing",  Color.FromArgb(240, 150, 60));
+            btnExecutives = ThemeManager.CreateHudNavButton("👔", "Dyrektorzy", Color.FromArgb(200, 150, 255));
+            btnHR         = ThemeManager.CreateHudNavButton("👥", "Kadry",      Color.FromArgb(220, 120, 220));
+
+            _navButtons = new[] { btnMap, btnBuild, btnCorp, btnFinance, btnStock, btnBank, btnLogistics, btnMarketing, btnExecutives, btnHR };
+
+            FlowLayoutPanel flowNav = new FlowLayoutPanel
+            {
+                Dock          = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents  = false,
+                Padding       = new Padding(8, 4, 8, 0),
+                AutoSize      = false
+            };
+
+            foreach (var b in _navButtons)
+            {
+                b.Margin = new Padding(3, 0, 3, 0);
+                flowNav.Controls.Add(b);
+            }
+
+            btnMap.Click += (s, e) =>
+            {
+                SetActiveNavBtn(btnMap);
+                OnMapClicked?.Invoke(this, EventArgs.Empty);
+            };
+            btnBuild.Click += (s, e) =>
+            {
+                SetActiveNavBtn(btnBuild);
+                OnBuildClicked?.Invoke(this, EventArgs.Empty);
+            };
+            btnCorp.Click += (s, e) =>
+            {
+                SetActiveNavBtn(btnCorp);
+                OnCorporateClicked?.Invoke(this, EventArgs.Empty);
+            };
+            btnFinance.Click += (s, e) =>
+            {
+                SetActiveNavBtn(btnFinance);
+                OnFinanceClicked?.Invoke(this, EventArgs.Empty);
+            };
+            btnStock.Click += (s, e) =>
+            {
+                SetActiveNavBtn(btnStock);
+                OnStockClicked?.Invoke(this, EventArgs.Empty);
+            };
+            btnBank.Click += (s, e) =>
+            {
+                SetActiveNavBtn(btnBank);
+                OnBankClicked?.Invoke(this, EventArgs.Empty);
+            };
+            btnLogistics.Click += (s, e) =>
+            {
+                SetActiveNavBtn(btnLogistics);
+                OnLogisticsClicked?.Invoke(this, EventArgs.Empty);
+            };
+            btnMarketing.Click += (s, e) =>
+            {
+                SetActiveNavBtn(btnMarketing);
+                OnMarketingClicked?.Invoke(this, EventArgs.Empty);
+            };
+            btnExecutives.Click += (s, e) =>
+            {
+                SetActiveNavBtn(btnExecutives);
+                OnExecutivesClicked?.Invoke(this, EventArgs.Empty);
+            };
+            btnHR.Click += (s, e) =>
+            {
+                SetActiveNavBtn(btnHR);
+                OnHRClicked?.Invoke(this, EventArgs.Empty);
+            };
+
+            pnlNavBlock.Controls.Add(flowNav);
+
+            // Kolejność dodawania do pnlToolbar (ważna dla Dockingu)
+            pnlToolbar.Controls.Add(pnlNavBlock);
+            pnlToolbar.Controls.Add(pnlCompanyBlock);
+            pnlToolbar.Controls.Add(pnlDateBlock);
+
+            // Dodawanie do UserControl
+            this.Controls.Add(pnlToolbar);
+            this.Controls.Add(pnlTicker);
+
+            // Domyślnie aktywna: Mapa
+            SetActiveNavBtn(btnMap);
+        }
+
+        private void PnlTicker_Paint(object? sender, PaintEventArgs e)
+        {
+            var p = (Panel)sender!;
+            using var pen = new Pen(ThemeManager.SeparatorColor, 1);
+            e.Graphics.DrawLine(pen, 0, p.Height - 1, p.Width, p.Height - 1);
+        }
+
+        private void PnlToolbar_Paint(object? sender, PaintEventArgs e)
+        {
+            var p = (Panel)sender!;
+            using var pen = new Pen(ThemeManager.BorderColor, 1);
+            e.Graphics.DrawLine(pen, 0, 0, p.Width, 0); // Górna linia oddzielająca od mapy
+        }
+
+        private void SetActiveNavBtn(Button active)
+        {
+            if (_activeNavButton != null)
+            {
+                _activeNavButton.Tag = false;
+                _activeNavButton.Invalidate();
+            }
+            _activeNavButton = active;
+            active.Tag = true;
+            active.Invalidate();
+        }
+
+        private void SetActiveSpeed(Button? active)
+        {
+            _activeSpeedButton = active;
+
+            // Wybór dowolnej prędkości wyłącza podświetlenie pauzy
+            if (_btnPause != null)
+            {
+                _btnPause.BackColor = Color.FromArgb(20, 40, 65);
+                _btnPause.ForeColor = ThemeManager.TextColor;
+                _btnPause.FlatAppearance.BorderColor = ThemeManager.BorderColor;
+            }
+
+            if (_speedButtons == null) return;
+
+            foreach (var b in _speedButtons)
+            {
+                bool on = b == active;
+                b.BackColor = on ? ThemeManager.HeaderBackground : Color.FromArgb(20, 40, 65);
+                b.ForeColor = on ? ThemeManager.GoldColor : ThemeManager.TextColor;
+                b.FlatAppearance.BorderColor = on ? ThemeManager.GoldColor : ThemeManager.BorderColor;
             }
         }
 
-        private Button CreateIconButton(string text, Color backColor)
+        public void AddNewsItem(string text)
         {
-            Button btn = new Button();
-            btn.Size = new Size(32, 32);
-            btn.Text = text;
-            btn.BackColor = backColor;
-            btn.ForeColor = Color.White;
-            btn.Font = new Font("Arial", 12, FontStyle.Bold);
-            btn.FlatStyle = FlatStyle.Flat;
-            btn.FlatAppearance.BorderSize = 1;
-            btn.FlatAppearance.BorderColor = Color.White;
-            btn.Cursor = Cursors.Hand;
-            btn.Margin = new Padding(2);
-            return btn;
+            string datePrefix = _gameManager != null ? $"[Dzień {_gameManager.CurrentDay}] " : "";
+            _newsItems.Add(datePrefix + text);
+            if (_newsItems.Count > 100) _newsItems.RemoveAt(0);
         }
+
+        private void ShowNextTicker()
+        {
+            if (_newsItems.Count == 0) return;
+            _tickerIndex = (_tickerIndex + 1) % _newsItems.Count;
+            lblTickerText.Text = "  ►  " + _newsItems[_tickerIndex];
+        }
+
+        private void TickerTimer_Tick(object? sender, EventArgs e) => ShowNextTicker();
 
         public void RefreshData()
         {
             if (_company != null)
             {
-                lblCash.Text = $"{_company.Balance:C0}";
-                lblCash.ForeColor = _company.Balance >= 0 ? Color.Lime : Color.Red;
-                
-                // Placeholder dla profiltu, obecnie stała wartość lub z historii
-                decimal profit = 509170624m; // Przykładowa stała, docelowo z Ledger
-                lblProfit.Text = $"{profit:C0}";
-                lblProfit.ForeColor = profit >= 0 ? Color.Lime : Color.Red;
-            }
+                lblCashValue.Text  = $"${_company.Balance:N0}";
+                lblCashValue.ForeColor = _company.Balance >= 0 ? ThemeManager.GoldColor : ThemeManager.NegativeColor;
 
-            if (_gameManager != null)
-            {
-                // Wyliczenie daty. W Capitalism Lab data zależy od ticków/dni.
-                // Uproszczone wyświetlanie:
-                lblDate.Text = $"Day {_gameManager.CurrentDay}"; 
+                decimal profit = 0;
+                lblProfitValue.Text     = profit >= 0 ? $"+${profit:N0}" : $"-${Math.Abs(profit):N0}";
+                lblProfitValue.ForeColor = profit >= 0 ? ThemeManager.PositiveColor : ThemeManager.NegativeColor;
             }
+            if (_gameManager != null)
+                lblDateValue.Text = $"Dzień {_gameManager.CurrentDay} • {_gameManager.CurrentHour:00}:00";
         }
+    }
+
+    // Extension - tooltip helper
+    internal static class ButtonExtensions
+    {
+        private static ToolTip _tip = new ToolTip();
+        public static void ToolTipText(this Button btn, string text) => _tip.SetToolTip(btn, text);
     }
 }

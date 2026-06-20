@@ -1,8 +1,8 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
-
 using System.Collections.Generic;
 using Conglomerate.Financials;
 
@@ -13,86 +13,133 @@ namespace Conglomerate.UI.Controls
         private Company _company;
         private DataGridView _dgvBuildings;
         private Label _lblTotalBuildings;
+        private Label _lblNetWorth;
 
         public CorporatePanelControl(Company company)
         {
             _company = company;
             InitializeComponent();
-            ThemeManager.ApplyTheme(this);
             RefreshData();
         }
 
         private void InitializeComponent()
         {
-            this.Size = new Size(800, 600); // Okno pływające
-            this.BorderStyle = BorderStyle.FixedSingle;
-            this.BackColor = ThemeManager.BackgroundColor;
+            this.Size           = new Size(820, 600);
+            this.BackColor      = ThemeManager.BackgroundColor;
+            this.DoubleBuffered = true;
 
-            // Header
-            Panel pnlHeader = new Panel();
-            pnlHeader.Dock = DockStyle.Top;
-            pnlHeader.Height = 80;
-            pnlHeader.BackColor = ThemeManager.HeaderBackground;
-            this.Controls.Add(pnlHeader);
+            this.Paint += (s, e) =>
+            {
+                using var pen = new Pen(ThemeManager.BorderColor, 1);
+                e.Graphics.DrawRectangle(pen, 0, 0, this.Width - 1, this.Height - 1);
+            };
 
-            Label lblTitle = new Label();
-            lblTitle.Text = "Corporate Overview";
-            lblTitle.Font = ThemeManager.TitleFont;
-            lblTitle.ForeColor = ThemeManager.TextColor;
-            lblTitle.Location = new Point(20, 20);
-            lblTitle.AutoSize = true;
+            // ── Nagłówek ────────────────────────────────────────────────────────
+            Panel pnlHeader = new Panel
+            {
+                Dock      = DockStyle.Top,
+                Height    = 90,
+                BackColor = ThemeManager.HeaderBackground
+            };
+            pnlHeader.Paint += (s, e) =>
+            {
+                var p = (Panel)s;
+                using var brush = new LinearGradientBrush(
+                    p.ClientRectangle,
+                    ThemeManager.HeaderBackground,
+                    Color.FromArgb(10, 22, 40),
+                    LinearGradientMode.Vertical);
+                e.Graphics.FillRectangle(brush, p.ClientRectangle);
+
+                using var goldPen = new Pen(ThemeManager.GoldColor, 2);
+                e.Graphics.DrawLine(goldPen, 0, 0, p.Width, 0);
+
+                using var sepPen = new Pen(ThemeManager.SeparatorColor, 1);
+                e.Graphics.DrawLine(sepPen, 0, p.Height - 1, p.Width, p.Height - 1);
+            };
+
+            Label lblTitle = new Label
+            {
+                Text      = "Przegląd Firmy",
+                Font      = ThemeManager.TitleFont,
+                ForeColor = ThemeManager.TextColor,
+                Location  = new Point(16, 10),
+                AutoSize  = true
+            };
             pnlHeader.Controls.Add(lblTitle);
 
-            _lblTotalBuildings = new Label();
-            _lblTotalBuildings.Font = ThemeManager.HeaderFont;
-            _lblTotalBuildings.ForeColor = ThemeManager.AccentColor;
-            _lblTotalBuildings.Location = new Point(20, 50);
-            _lblTotalBuildings.AutoSize = true;
+            _lblTotalBuildings = new Label
+            {
+                Font      = ThemeManager.HeaderFont,
+                ForeColor = ThemeManager.AccentColor,
+                Location  = new Point(16, 44),
+                AutoSize  = true,
+                Text      = "Zakłady: 0"
+            };
             pnlHeader.Controls.Add(_lblTotalBuildings);
 
-            Button btnClose = new Button();
-            btnClose.Text = "X";
-            btnClose.Size = new Size(40, 40);
-            btnClose.Location = new Point(this.Width - 60, 20);
-            btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            _lblNetWorth = new Label
+            {
+                Font      = ThemeManager.HeaderFont,
+                ForeColor = ThemeManager.GoldColor,
+                Location  = new Point(160, 44),
+                AutoSize  = true,
+                Text      = "Wartość netto: $0"
+            };
+            pnlHeader.Controls.Add(_lblNetWorth);
+
+            Button btnClose = new Button
+            {
+                Text     = "✕",
+                Size     = new Size(32, 32),
+                Location = new Point(this.Width - 44, 12),
+                Anchor   = AnchorStyles.Top | AnchorStyles.Right
+            };
             ThemeManager.ApplySecondaryButtonTheme(btnClose);
-            btnClose.ForeColor = Color.Red;
-            btnClose.Click += (s, e) => this.Visible = false;
+            btnClose.ForeColor = ThemeManager.NegativeColor;
+            btnClose.Click    += (s, e) => this.Visible = false;
             pnlHeader.Controls.Add(btnClose);
 
-            // Data Grid View
-            _dgvBuildings = new DataGridView();
-            _dgvBuildings.Dock = DockStyle.Fill;
-            ThemeManager.ApplyDataGridViewTheme(_dgvBuildings);
-            
-            // Kolumny
-            _dgvBuildings.AutoGenerateColumns = false;
-            _dgvBuildings.Columns.Add(new DataGridViewTextBoxColumn { Name = "Name", HeaderText = "Facility Name", DataPropertyName = "Name", Width = 200 });
-            _dgvBuildings.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Type", DataPropertyName = "Type", Width = 150 });
-            _dgvBuildings.Columns.Add(new DataGridViewTextBoxColumn { Name = "Location", HeaderText = "Location", DataPropertyName = "Location", Width = 100 });
-            _dgvBuildings.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "Status", DataPropertyName = "Status", Width = 100 });
+            this.Controls.Add(pnlHeader);
 
-            Panel pnlGridContainer = new Panel();
-            pnlGridContainer.Dock = DockStyle.Fill;
-            pnlGridContainer.Padding = new Padding(20);
-            pnlGridContainer.Controls.Add(_dgvBuildings);
-            this.Controls.Add(pnlGridContainer);
-            
+            // ── Tabela budynków ──────────────────────────────────────────────────
+            _dgvBuildings = new DataGridView { Dock = DockStyle.Fill };
+            ThemeManager.ApplyDataGridViewTheme(_dgvBuildings);
+
+            _dgvBuildings.AutoGenerateColumns = false;
+            _dgvBuildings.Columns.Add(new DataGridViewTextBoxColumn { Name = "Name",     HeaderText = "Nazwa Zakładu",  DataPropertyName = "Name",     Width = 210 });
+            _dgvBuildings.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type",     HeaderText = "Typ",            DataPropertyName = "Type",     Width = 160 });
+            _dgvBuildings.Columns.Add(new DataGridViewTextBoxColumn { Name = "Location", HeaderText = "Lokalizacja",    DataPropertyName = "Location", Width = 90  });
+            _dgvBuildings.Columns.Add(new DataGridViewTextBoxColumn { Name = "Workers",  HeaderText = "Doświadcz.",     DataPropertyName = "Workers",  Width = 100 });
+            _dgvBuildings.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status",   HeaderText = "Status",         DataPropertyName = "Status",   Width = 100 });
+
+            _dgvBuildings.CellFormatting += (s, e) =>
+            {
+                if (e.ColumnIndex == 4 && e.Value is string status)
+                    e.CellStyle.ForeColor = status == "Operational" ? ThemeManager.PositiveColor : ThemeManager.NegativeColor;
+            };
+
+            Panel pnlGrid = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12, 8, 12, 12) };
+            pnlGrid.Controls.Add(_dgvBuildings);
+            this.Controls.Add(pnlGrid);
+
             ThemeManager.MakeDraggable(pnlHeader, this);
         }
 
         public void RefreshData()
         {
             if (_company == null) return;
-            
-            _lblTotalBuildings.Text = $"Total Facilities: {_company.Buildings.Count}";
-            
-            var dataSource = _company.Buildings.Select(b => new 
+
+            _lblTotalBuildings.Text = $"Zakłady: {_company.Buildings.Count}";
+            _lblNetWorth.Text       = $"Wartość netto: ${_company.Balance:N0}";
+
+            var dataSource = _company.Buildings.Select(b => new
             {
-                Name = b.Name,
-                Type = b.GetType().Name,
+                Name     = b.Name,
+                Type     = b.GetType().Name,
                 Location = $"({b.X}, {b.Y})",
-                Status = "Operational" // Zastępcze, można podpiąć pod logikę wyłączania budynków
+                Workers  = $"{(b.WorkerExperience * 100f):F0}%",
+                Status   = "Operational"
             }).ToList();
 
             _dgvBuildings.DataSource = dataSource;

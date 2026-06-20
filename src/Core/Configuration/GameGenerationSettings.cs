@@ -4,6 +4,13 @@ namespace Conglomerate
 {
     public class GameGenerationSettings
     {
+        // --- COMPANY (FIRMA GRACZA) ---
+        public string CompanyName { get; set; } = "My Tycoon Company";
+
+        // --- MAP SIZE (ROZMIAR MAPY) ---
+        public int MapWidth  { get; set; } = 10;
+        public int MapHeight { get; set; } = 10;
+
         // --- MACRO PARAMETERS (PARAMETRY MAKRO) ---
         public int StartYear { get; set; } = 2026;
         public decimal BaseInflation { get; set; } = 0.02m; // 2% inflation rate

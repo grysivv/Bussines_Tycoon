@@ -6,6 +6,7 @@ using Conglomerate.Simulation;
 using Conglomerate.Finance;
 using Conglomerate.Marketing;
 using Conglomerate.HR;
+using Conglomerate.Economy;
 
 namespace Conglomerate
 {
@@ -23,8 +24,9 @@ namespace Conglomerate
         public HR.HRManager  HR         { get; } = new HR.HRManager(new HR.HRConfig());
 
         // ── Nowe systemy (Capitalism Lab) ───────────────────────
-        public StockMarket  StockMarket  { get; } = new StockMarket();
-        public BankingSystem Banking     { get; } = new BankingSystem();
+        public StockMarket          StockMarket  { get; } = new StockMarket();
+        public BankingSystem        Banking      { get; } = new BankingSystem();
+        public MacroeconomyEngine   Macro        { get; } = new MacroeconomyEngine();
 
         public event Action? OnTickPerformed;
         public event Action<string>? OnNewsEvent; // Zdarzenia do News Tickera
@@ -64,8 +66,14 @@ namespace Conglomerate
 
         private void InitializeStockMarket()
         {
-            // Rejestracja firmy gracza
+            // Rejestracja firmy gracza — gracz posiada 100% udziałów własnej spółki
             StockMarket.RegisterCompany(ActiveCompany.Name, 10000m, 200000m);
+            var ownListing = StockMarket.GetListing(ActiveCompany.Name);
+            if (ownListing != null)
+            {
+                ownListing.PlayerOwnedShares = ownListing.TotalShares; // 100% własności
+                ActiveCompany.OwnedShares[ActiveCompany.Name] = ownListing.TotalShares;
+            }
 
             // Rejestracja AI firm
             foreach (var ai in AIManager.Competitors)
@@ -94,6 +102,7 @@ namespace Conglomerate
                 CurrentDay++;
 
                 // ── Aktualizacje dobowe ──────────────────────────
+                Macro.OnNewDay();
                 Market.OnNewDay(CurrentDay);
                 AIManager.TickDaily(ActiveMap, CurrentDay, CurrentHour);
 

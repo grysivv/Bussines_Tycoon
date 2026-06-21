@@ -241,12 +241,14 @@ namespace Conglomerate.Simulation
                 decimal costs = ai.Buildings.Sum(b => b.MaintenanceCost);
                 decimal profit = dailyRevenue - costs;
 
-                if (profit > 0)
+                bool canAfford = profit > 0 || ai.Balance > Math.Abs(profit);
+                if (canAfford)
+                {
                     ai.Balance += profit;
-                else if (ai.Balance > Math.Abs(profit))
-                    ai.Balance += profit;
-
-                ai.AddTransaction(day, 0, $"Przychody z operacji AI ({ai.Buildings.Count} budynków)", dailyRevenue, "Sprzedaż");
+                    ai.AddTransaction(day, 0, $"Przychody z operacji AI ({ai.Buildings.Count} budynków)", dailyRevenue, "Sprzedaż");
+                    if (costs > 0)
+                        ai.AddTransaction(day, 0, $"Koszty utrzymania AI ({ai.Buildings.Count} budynków)", -costs, "Utrzymanie");
+                }
             }
         }
 

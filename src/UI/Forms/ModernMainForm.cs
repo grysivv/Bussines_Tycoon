@@ -225,6 +225,7 @@ namespace Conglomerate.UI.Forms
             _bottomHud = new BottomHudControl(_company, _gameManager);
             RegisterOverlay("inspector",  _inspectorControl);
             RegisterOverlay("build",      _buildPanel);
+            _financePanel.SetGameManager(_gameManager);
             RegisterOverlay("finance",    _financePanel,   () => _financePanel.RefreshData());
             RegisterOverlay("corporate",  _corporatePanel, () => _corporatePanel.RefreshData());
 

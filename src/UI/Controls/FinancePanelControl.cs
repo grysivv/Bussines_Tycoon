@@ -165,9 +165,13 @@ namespace Conglomerate.UI.Controls
             var page = new TabPage("📊  P&L Statement") { BackColor = ThemeManager.BackgroundColor, ForeColor = ThemeManager.TextColor, AutoScroll = true };
 
             // Chart panel (upper half)
-            _pnlPLChart = new Panel { Dock = DockStyle.Top, Height = 140, BackColor = ThemeManager.PanelBackground };
+            _pnlPLChart = new Panel { Dock = DockStyle.Top, Height = 200, BackColor = ThemeManager.PanelBackground };
             _pnlPLChart.Paint += PaintPLBarChart;
             page.Controls.Add(_pnlPLChart);
+
+            // Spacing panel (prevents table overlap)
+            var spacer = new Panel { Dock = DockStyle.Top, Height = 20, BackColor = ThemeManager.BackgroundColor };
+            page.Controls.Add(spacer);
 
             // P&L summary DataGridView
             _dgvPL = new DataGridView { Dock = DockStyle.Fill, BackgroundColor = ThemeManager.BackgroundColor };

@@ -220,6 +220,7 @@ namespace Conglomerate.UI.Controls
             Button MakeSpeedButton(string text, string tip, int x, int intervalMs)
             {
                 var b = ThemeManager.CreateTimeButton(text);
+                b.AccessibleName = tip;
                 b.Size     = new Size(33, 26);
                 b.Font     = new Font("Consolas", 8.5f, FontStyle.Bold);
                 b.Location = new Point(x, 48);
@@ -234,6 +235,7 @@ namespace Conglomerate.UI.Controls
             }
 
             _btnPause = ThemeManager.CreateTimeButton("⏸");
+            _btnPause.AccessibleName = "Pauza";
             _btnPause.Size     = new Size(33, 26);
             _btnPause.Location = new Point(6, 48);
             _btnPause.ToolTipText("Pauza");

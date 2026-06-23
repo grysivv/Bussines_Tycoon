@@ -162,6 +162,8 @@ namespace Conglomerate.UI
         public static Button CreateHudNavButton(string iconChar, string label, Color iconColor)
         {
             Button btn = new Button();
+            btn.AccessibleName = label;
+            UI.Controls.ButtonExtensions.ToolTipText(btn, label);
             btn.Size = new Size(68, 62);
             btn.FlatStyle = FlatStyle.Flat;
             btn.FlatAppearance.BorderSize = 1;

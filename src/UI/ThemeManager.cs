@@ -296,4 +296,10 @@ namespace Conglomerate.UI
             g.DrawLine(borderPen, rect.Left, rect.Bottom - 1, rect.Right, rect.Bottom - 1);
         }
     }
+
+    public static class ButtonExtensions
+    {
+        private static ToolTip _tip = new ToolTip();
+        public static void ToolTipText(this Button btn, string text) => _tip.SetToolTip(btn, text);
+    }
 }

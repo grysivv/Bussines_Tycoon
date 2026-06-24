@@ -64,6 +64,8 @@ namespace Conglomerate.UI.Controls
             ThemeManager.ApplySecondaryButtonTheme(btnClose);
             btnClose.ForeColor = ThemeManager.NegativeColor;
             btnClose.Click    += (s, e) => this.Visible = false;
+            btnClose.AccessibleName = "Zamknij";
+            btnClose.ToolTipText("Zamknij");
             pnlHeader.Controls.Add(btnClose);
 
             // ── TabControl z kategoriami ─────────────────────────────────────────

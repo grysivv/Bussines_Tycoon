@@ -410,10 +410,4 @@ namespace Conglomerate.UI.Controls
         }
     }
 
-    // Extension - tooltip helper
-    internal static class ButtonExtensions
-    {
-        private static ToolTip _tip = new ToolTip();
-        public static void ToolTipText(this Button btn, string text) => _tip.SetToolTip(btn, text);
-    }
 }

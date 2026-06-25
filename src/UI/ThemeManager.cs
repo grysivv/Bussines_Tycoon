@@ -170,6 +170,8 @@ namespace Conglomerate.UI
             btn.ForeColor = TextColor;
             btn.Cursor = Cursors.Hand;
             btn.Tag = false; // stan: nieaktywny
+            btn.AccessibleName = label;
+            btn.ToolTipText(label);
 
             // Tekst: ikona + nowa linia + etykieta (własny Paint)
             btn.Paint += (sender, e) =>
@@ -295,5 +297,11 @@ namespace Conglomerate.UI
             using var borderPen = new Pen(BorderColor, 1);
             g.DrawLine(borderPen, rect.Left, rect.Bottom - 1, rect.Right, rect.Bottom - 1);
         }
+    }
+
+    public static class ButtonExtensions
+    {
+        private static ToolTip _tip = new ToolTip();
+        public static void ToolTipText(this Button btn, string text) => _tip.SetToolTip(btn, text);
     }
 }

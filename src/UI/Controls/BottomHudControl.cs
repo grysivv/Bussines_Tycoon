@@ -223,6 +223,7 @@ namespace Conglomerate.UI.Controls
                 b.Size     = new Size(33, 26);
                 b.Font     = new Font("Consolas", 8.5f, FontStyle.Bold);
                 b.Location = new Point(x, 48);
+                b.AccessibleName = tip;
                 b.ToolTipText(tip);
                 b.Click   += (s, e) =>
                 {
@@ -236,6 +237,7 @@ namespace Conglomerate.UI.Controls
             _btnPause = ThemeManager.CreateTimeButton("⏸");
             _btnPause.Size     = new Size(33, 26);
             _btnPause.Location = new Point(6, 48);
+            _btnPause.AccessibleName = "Pauza";
             _btnPause.ToolTipText("Pauza");
             _btnPause.Click   += (s, e) =>
             {
@@ -408,12 +410,5 @@ namespace Conglomerate.UI.Controls
             if (_gameManager != null)
                 lblDateValue.Text = $"Dzień {_gameManager.CurrentDay} • {_gameManager.CurrentHour:00}:00";
         }
-    }
-
-    // Extension - tooltip helper
-    internal static class ButtonExtensions
-    {
-        private static ToolTip _tip = new ToolTip();
-        public static void ToolTipText(this Button btn, string text) => _tip.SetToolTip(btn, text);
     }
 }

@@ -95,6 +95,7 @@ namespace Conglomerate.UI.Controls
                 Location = new Point(this.Width - 44, 12),
                 Anchor   = AnchorStyles.Top | AnchorStyles.Right
             };
+            btnClose.ToolTipText("Zamknij");
             ThemeManager.ApplySecondaryButtonTheme(btnClose);
             btnClose.ForeColor = ThemeManager.NegativeColor;
             btnClose.Click    += (s, e) => this.Visible = false;

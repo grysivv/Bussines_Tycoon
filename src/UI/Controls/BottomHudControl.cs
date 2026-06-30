@@ -414,6 +414,13 @@ namespace Conglomerate.UI.Controls
     internal static class ButtonExtensions
     {
         private static ToolTip _tip = new ToolTip();
-        public static void ToolTipText(this Button btn, string text) => _tip.SetToolTip(btn, text);
+        public static void ToolTipText(this Button btn, string text)
+        {
+            _tip.SetToolTip(btn, text);
+            if (string.IsNullOrEmpty(btn.AccessibleName))
+            {
+                btn.AccessibleName = text;
+            }
+        }
     }
 }

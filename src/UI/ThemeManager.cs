@@ -170,6 +170,7 @@ namespace Conglomerate.UI
             btn.ForeColor = TextColor;
             btn.Cursor = Cursors.Hand;
             btn.Tag = false; // stan: nieaktywny
+            btn.AccessibleName = label;
 
             // Tekst: ikona + nowa linia + etykieta (własny Paint)
             btn.Paint += (sender, e) =>
